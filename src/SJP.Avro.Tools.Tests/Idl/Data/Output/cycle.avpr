@@ -1,56 +1,71 @@
 {
-  "protocol" : "Cycle",
-  "namespace" : "org.apache.avro.gen",
-  "types" : [ {
-    "type" : "record",
-    "name" : "SampleNode",
-    "fields" : [ {
-      "name" : "count",
-      "type" : "int",
-      "default" : 0
-    }, {
-      "name" : "subNodes",
-      "type" : {
-        "type" : "array",
-        "items" : {
-          "type" : "record",
-          "name" : "SamplePair",
-          "fields" : [ {
-            "name" : "method",
-            "type" : {
-              "type" : "record",
-              "name" : "Method",
-              "fields" : [ {
-                "name" : "declaringClass",
-                "type" : "string",
-                "testAttribute":"testValue"
-              }, {
-                "name" : "methodName",
-                "type" : "string"
-              } ]
-            }
-          }, {
-            "name" : "node",
-            "type" : "SampleNode"
-          } ]
+  "protocol": "Cycle",
+  "types": [
+    {
+      "type": "record",
+      "fields": [
+        {
+          "name": "count",
+          "default": 0,
+          "type": "int"
+        },
+        {
+          "name": "subNodes",
+          "type": {
+            "type": "array",
+            "items": "SamplePair"
+          }
         }
-      }
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "SelfRef",
-    "fields" : [ {
-      "name" : "something",
-      "type" : "string"
-    }, {
-      "name" : "subNodes",
-      "type" : {
-        "type" : "array",
-        "items" : "SelfRef"
-      },
-      "default" : [ ]
-    } ]
-  } ],
-  "messages" : { }
+      ],
+      "name": "SampleNode"
+    },
+    {
+      "type": "record",
+      "fields": [
+        {
+          "name": "declaringClass",
+          "type": "string"
+        },
+        {
+          "name": "methodName",
+          "type": "string"
+        }
+      ],
+      "name": "Method"
+    },
+    {
+      "type": "record",
+      "fields": [
+        {
+          "name": "method",
+          "type": "Method"
+        },
+        {
+          "name": "node",
+          "type": "SampleNode"
+        }
+      ],
+      "name": "SamplePair"
+    },
+    {
+      "type": "record",
+      "fields": [
+        {
+          "name": "something",
+          "type": "string"
+        },
+        {
+          "name": "subNodes",
+          "default": [],
+          "type": {
+            "type": "array",
+            "items": "SelfRef"
+          }
+        }
+      ],
+      "name": "SelfRef"
+    }
+  ],
+  "messages": {},
+  "namespace": "org.apache.avro.gen"
 }
-

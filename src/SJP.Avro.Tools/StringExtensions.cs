@@ -5,7 +5,6 @@ using System.Globalization;
 
 namespace SJP.Avro.Tools
 {
-
     /// <summary>
     /// Convenience extension methods for working with <see cref="string"/> objects.
     /// </summary>

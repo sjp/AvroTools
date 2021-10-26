@@ -10,7 +10,6 @@ using Superpower.Model;
 
 namespace SJP.Avro.Tools
 {
-
     public class IdlCompiler
     {
         private readonly IFileProvider _fileProvider;
