@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="3.1.0" PrivateAssets="All" />
+    <PackageReference Include="FluentAssertions" Version="6.1.0" />
+    <PackageReference Include="JsonDiffPatch" Version="2.0.55" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
+    <PackageReference Include="Moq" Version="4.16.1" />
+    <PackageReference Include="NUnit" Version="3.13.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SJP.Avro.Tools\SJP.Avro.Tools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Idl\Data\Input\*.avdl" />
+    <EmbeddedResource Include="Idl\Data\Input\*.avpr" />
+    <EmbeddedResource Include="Idl\Data\Input\*.avsc" />
+    <EmbeddedResource Include="Idl\Data\Output\*.avpr" />
+  </ItemGroup>
+
+</Project>
