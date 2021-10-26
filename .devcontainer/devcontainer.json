@@ -1,0 +1,14 @@
+{
+	"name": "SJP.Avro.Tools Development",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": { 
+			"VARIANT": "5.0"
+		}
+	},
+	"settings": { },
+	"extensions": [
+		"ms-dotnettools.csharp"
+	],
+	"remoteUser": "vscode"
+}
