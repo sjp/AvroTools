@@ -74,7 +74,7 @@ namespace SJP.Avro.Tools
                 .Concat(idlImports.SelectMany(i => i.Records))
                 .SelectMany(r => r.Fields)
                 .Select(f => f.Type as Idl.Model.ReferenceType)
-                .Where(t => t != null && t.Properties.Any())
+                .Where(t => t?.Properties.Any() == true)
                 .Select(t => t!)
                 .ToList();
             foreach (var fieldType in referenceTypeFieldProperties)
@@ -104,7 +104,7 @@ namespace SJP.Avro.Tools
                     continue;
                 }
 
-                if (!(protocolMessages is JObject messageObj))
+                if (protocolMessages is not JObject messageObj)
                 {
                     continue;
                 }
@@ -113,7 +113,7 @@ namespace SJP.Avro.Tools
                 foreach (var name in importedNames)
                 {
                     var importedValue = messageObj[name];
-                    if (!(importedValue is JObject importedMessage))
+                    if (importedValue is not JObject importedMessage)
                     {
                         continue;
                     }
@@ -389,7 +389,6 @@ namespace SJP.Avro.Tools
             return default!;
         }
 
-
         private static JObject MapToRecordDto(Idl.Model.Protocol protocol, Idl.Model.Record record)
         {
             var dto = new RecordDto
@@ -439,8 +438,6 @@ namespace SJP.Avro.Tools
                 jobj[p.Name] = JToken.Parse(propStr);
             }
         }
-
-
 
         private static JObject MapToErrorDto(Idl.Model.Protocol protocol, Idl.Model.ErrorType error)
         {
@@ -507,7 +504,7 @@ namespace SJP.Avro.Tools
                 ?.Where(t => t.Kind == Idl.IdlToken.StringLiteral)
                 ?.Select(GetUnquotedStringValue)
                 ?.ToArray() ?? Array.Empty<string>();
-            return aliases.Any() ? aliases : null;
+            return aliases.Length > 0 ? aliases : null;
         }
 
         private static string GetUnquotedStringValue(Token<IdlToken> token)
@@ -520,21 +517,7 @@ namespace SJP.Avro.Tools
                 ? unescaped[1..^1]
                 : unescaped;
         }
-
-        private static readonly IEnumerable<string> WellKnownPropertyNames = new HashSet<string>
-        {
-            "namespace",
-            "version",
-            "order",
-            "aliases"
-        };
-
-        private static bool IsCustomProperty(Idl.Model.Property property)
-        {
-            return WellKnownPropertyNames.Contains(property.Name);
-        }
     }
-
 
     public class ProtocolDto
     {
@@ -597,7 +580,6 @@ namespace SJP.Avro.Tools
 
         [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
         public string? Documentation { get; set; }
-
     }
 
     public class FixedDto : NamedSchemaDto
@@ -639,7 +621,6 @@ namespace SJP.Avro.Tools
         public string? DefaultValue { get; set; }
     }
 
-
     public class DecimalTypeDto
     {
         public DecimalTypeDto(int precision, int scale)
@@ -660,7 +641,6 @@ namespace SJP.Avro.Tools
         [JsonProperty("scale")]
         public int Scale { get; }
     }
-
 
     public class TimeMillisTypeDto
     {
@@ -689,7 +669,6 @@ namespace SJP.Avro.Tools
         public string LogicalType { get; } = "local-timestamp-millis";
     }
 
-
     public class DateTypeDto
     {
         [JsonProperty("type")]
@@ -699,7 +678,6 @@ namespace SJP.Avro.Tools
         public string LogicalType { get; } = "date";
     }
 
-
     public class UuidTypeDto
     {
         [JsonProperty("type")]
@@ -708,7 +686,6 @@ namespace SJP.Avro.Tools
         [JsonProperty("logicalType")]
         public string LogicalType { get; } = "uuid";
     }
-
 
     public class DurationTypeDto
     {
@@ -721,7 +698,6 @@ namespace SJP.Avro.Tools
         [JsonProperty("size")]
         public int Size { get; } = 12;
     }
-
 
     public class FieldDto
     {

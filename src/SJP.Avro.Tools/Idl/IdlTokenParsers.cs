@@ -102,7 +102,7 @@ namespace SJP.Avro.Tools.Idl
                 .Then(prefix => Property.Many().Select(p => (prefix.c, prefix.t, p)))
                 .Then(prefix =>
                     Identifier
-                        .Select(name => (comment: prefix.c, type: prefix.t, props: prefix.p as IEnumerable<Property>, name: name)));
+                        .Select(name => (comment: prefix.c, type: prefix.t, props: prefix.p as IEnumerable<Property>, name)));
 
         private static TokenListParser<IdlToken, MessageParameter> ParameterWithDefault =>
             ParameterTypeHeader
@@ -146,7 +146,7 @@ namespace SJP.Avro.Tools.Idl
                                 .IgnoreThen(
                                     Identifier
                                         .ManyDelimitedBy(Token.EqualTo(IdlToken.Comma))
-                                        .Select(members => (name: name, members))))
+                                        .Select(members => (name, members))))
                         .Then(result =>
                             Token.EqualTo(IdlToken.RBrace)
                                 .Select(_ => new EnumType(
@@ -250,7 +250,7 @@ namespace SJP.Avro.Tools.Idl
                 .Then(prefix =>
                     Token.EqualTo(IdlToken.Error)
                         .IgnoreThen(Identifier)
-                        .Select(name => (comment: prefix.c, props: prefix.p, name: name)))
+                        .Select(name => (comment: prefix.c, props: prefix.p, name)))
                 .Then(prefix => Token.EqualTo(IdlToken.LBrace).Select(_ => prefix))
                 .Then(prefix =>
                     FieldDeclaration
@@ -280,16 +280,15 @@ namespace SJP.Avro.Tools.Idl
                     Property
                         .Many()
                         .Select(props => (
-                            doc: docComments,
-                            props: props
+                            doc: docComments, props
                         ))
                 )
                 .Then(prefix =>
                     AvroType
-                        .Select(ret => (doc: prefix.doc, props: prefix.props, returnType: ret)))
+                        .Select(ret => (prefix.doc, prefix.props, returnType: ret)))
                 .Then(prefix =>
                     Identifier
-                        .Select(name => (doc: prefix.doc, props: prefix.props, returnType: prefix.returnType, name: name)))
+                        .Select(name => (prefix.doc, prefix.props, prefix.returnType, name)))
                 .Then(res =>
                     Token.EqualTo(IdlToken.LParen)
                         .IgnoreThen(Parameter.ManyDelimitedBy(Token.EqualTo(IdlToken.Comma)))
@@ -351,18 +350,17 @@ namespace SJP.Avro.Tools.Idl
                 .Then(docComment =>
                     Property.Many()
                         .Select(props => (
-                            doc: docComment,
-                            props: props
+                            doc: docComment, props
                         ))
                 )
                 .Then(prefix =>
                     Token.EqualTo(IdlToken.Protocol)
                         .IgnoreThen(Identifier)
-                        .Select(name => (doc: prefix.doc, props: prefix.props, name: name)))
+                        .Select(name => (prefix.doc, prefix.props, name)))
                 .Then(header =>
                     Token.EqualTo(IdlToken.LBrace)
                         .IgnoreThen(Declaration.Many())
-                        .Select(d => (header: header, declarations: d)))
+                        .Select(d => (header, declarations: d)))
                 .Then(res => Token.EqualTo(IdlToken.RBrace).Select(_ =>
                     new Protocol(
                         res.header.doc,
