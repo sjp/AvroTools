@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(Value) + ",nq}")]
-    public class Identifier
+    public record Identifier
     {
         public Identifier(string identifier)
         {

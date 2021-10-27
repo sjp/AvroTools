@@ -345,6 +345,9 @@ namespace SJP.Avro.Tools.Idl
                     ? new DocComment(docComments.LastOrDefault().ToStringValue())
                     : (DocComment?)null);
 
+        /// <summary>
+        /// Parses a protocol from a sequence of tokens representing an IDL document.
+        /// </summary>
         public static TokenListParser<IdlToken, Protocol> Protocol =>
             DocComment
                 .Then(docComment =>
@@ -370,11 +373,11 @@ namespace SJP.Avro.Tools.Idl
                         res.declarations.OfType<Fixed>().ToList(),
                         res.declarations.OfType<EnumType>().ToList(),
                         res.declarations.OfType<ErrorType>().ToList(),
+                        res.declarations.OfType<Import>().ToList()
+,
                         res.declarations.OfType<Message>()
                             .Select(m => new KeyValuePair<Model.Identifier, Message>(m.Name, m))
-                            .ToDictionary(kv => kv.Key, kv => kv.Value),
-                        res.declarations.OfType<Import>().ToList()
-                    )
+                            .ToDictionary(kv => kv.Key, kv => kv.Value))
                 ));
     }
 }

@@ -4,8 +4,7 @@ using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class Fixed : TypeDeclaration
+    public record Fixed : TypeDeclaration
     {
         public Fixed(
             DocComment? comment,
@@ -22,13 +21,5 @@ namespace SJP.Avro.Tools.Idl.Model
         public Identifier Name { get; }
 
         public int Size { get; }
-
-        private string DebuggerDisplay
-        {
-            get
-            {
-                return $"Fixed: {Name.Value}";
-            }
-        }
     }
 }

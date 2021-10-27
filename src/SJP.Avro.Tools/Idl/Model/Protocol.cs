@@ -5,8 +5,7 @@ using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class Protocol
+    public record Protocol
     {
         public Protocol(
             DocComment? doc,
@@ -16,8 +15,8 @@ namespace SJP.Avro.Tools.Idl.Model
             IEnumerable<Fixed> fixeds,
             IEnumerable<EnumType> enums,
             IEnumerable<ErrorType> errors,
-            IReadOnlyDictionary<Identifier, Message> messages,
-            IEnumerable<Import> imports)
+            IEnumerable<Import> imports,
+            IReadOnlyDictionary<Identifier, Message> messages)
         {
             Documentation = doc;
             Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -26,8 +25,8 @@ namespace SJP.Avro.Tools.Idl.Model
             Fixeds = fixeds ?? throw new ArgumentNullException(nameof(fixeds));
             Enums = enums ?? throw new ArgumentNullException(nameof(enums));
             Errors = errors ?? throw new ArgumentNullException(nameof(errors));
-            Messages = messages ?? throw new ArgumentNullException(nameof(messages));
             Imports = imports ?? throw new ArgumentNullException(nameof(imports));
+            Messages = messages ?? throw new ArgumentNullException(nameof(messages));
         }
 
         public DocComment? Documentation { get; }
@@ -47,20 +46,5 @@ namespace SJP.Avro.Tools.Idl.Model
         public IEnumerable<Import> Imports { get; }
 
         public IReadOnlyDictionary<Identifier, Message> Messages { get; }
-
-        /// <summary>
-        /// Returns a string that provides a basic string representation of this object.
-        /// </summary>
-        /// <returns>A <see cref="string"/> that represents this instance.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => DebuggerDisplay;
-
-        private string DebuggerDisplay
-        {
-            get
-            {
-                return $"Protocol: {Name.Value}";
-            }
-        }
     }
 }

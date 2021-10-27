@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public class Import : TypeDeclaration
+    public record Import : TypeDeclaration
     {
         public Import(ImportType type, string path, int position)
-            : base(null, Array.Empty<Property>(), position) // TODO rework this to avoid deriving
+            : base(null, Array.Empty<Property>(), position)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentNullException(nameof(path));

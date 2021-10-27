@@ -42,8 +42,9 @@ namespace SJP.Avro.Tools.Tests.Idl
                 Array.Empty<Fixed>(),
                 Array.Empty<EnumType>(),
                 Array.Empty<ErrorType>(),
-                new Dictionary<Identifier, Message>(),
                 Array.Empty<Import>()
+,
+                new Dictionary<Identifier, Message>()
             );
 
             Assert.That(() => _compiler.Compile(filePath, testProtocol), Throws.ArgumentNullException);

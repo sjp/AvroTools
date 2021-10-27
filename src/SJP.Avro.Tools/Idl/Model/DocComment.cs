@@ -1,21 +1,25 @@
 ﻿using System;
-using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(Value) + ",nq}")]
-    public class DocComment
+    public record DocComment
     {
-        private readonly string _commentValue;
+        private const string CommentPrefix = "/**";
+        private const string CommentSuffix = "*/";
 
         public DocComment(string comment)
         {
             if (comment.IsNullOrWhiteSpace())
                 throw new ArgumentNullException(nameof(comment));
+            if (!comment.StartsWith(CommentPrefix) || !comment.EndsWith(CommentSuffix))
+                throw new ArgumentException($"A doccomment must start with '{ CommentPrefix }' and end with '{ CommentSuffix }', given: { comment }", nameof(comment));
 
-            _commentValue = comment;
+            Value = TrimCommentSyntax(comment);
         }
 
-        public string Value => _commentValue[3..^2].Trim(); // trim off starting '/**' and trailing '*/'
+        public string Value { get; }
+
+        private static string TrimCommentSyntax(string comment)
+            => comment[CommentPrefix.Length..^CommentSuffix.Length].Trim();
     }
 }

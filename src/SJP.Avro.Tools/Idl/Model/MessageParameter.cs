@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Superpower.Model;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class MessageParameter
+    public record MessageParameter
     {
         public MessageParameter(
             AvroType type,
@@ -24,13 +22,5 @@ namespace SJP.Avro.Tools.Idl.Model
         public Identifier Name { get; }
 
         public IEnumerable<Token<IdlToken>> DefaultValue { get; }
-
-        private string DebuggerDisplay
-        {
-            get
-            {
-                return $"Parameter: {Name.Value}";
-            }
-        }
     }
 }

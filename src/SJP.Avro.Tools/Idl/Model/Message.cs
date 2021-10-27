@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class Message : TypeDeclaration
+    public record Message : TypeDeclaration
     {
         public Message(
             DocComment? comment,
@@ -35,20 +32,5 @@ namespace SJP.Avro.Tools.Idl.Model
         public bool OneWay { get; }
 
         public IEnumerable<Identifier> Errors { get; }
-
-        /// <summary>
-        /// Returns a string that provides a basic string representation of this object.
-        /// </summary>
-        /// <returns>A <see cref="string"/> that represents this instance.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => DebuggerDisplay;
-
-        private string DebuggerDisplay
-        {
-            get
-            {
-                return $"Message: {Name.Value}";
-            }
-        }
     }
 }

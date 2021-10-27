@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class PrimitiveType : AvroType
+    public record PrimitiveType : AvroType
     {
         public PrimitiveType(string name, IEnumerable<Property> properties)
             : base(properties)
@@ -18,20 +15,9 @@ namespace SJP.Avro.Tools.Idl.Model
         }
 
         public string Name { get; }
-
-        /// <summary>
-        /// Returns a string that provides a basic string representation of this object.
-        /// </summary>
-        /// <returns>A <see cref="string"/> that represents this instance.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => Name;
-
-        private string DebuggerDisplay => "Type: " + Name;
     }
 
-
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class LogicalType : AvroType
+    public record LogicalType : AvroType
     {
         public LogicalType(string name, IEnumerable<Property> properties)
             : base(properties)
@@ -43,19 +29,9 @@ namespace SJP.Avro.Tools.Idl.Model
         }
 
         public string Name { get; }
-
-        /// <summary>
-        /// Returns a string that provides a basic string representation of this object.
-        /// </summary>
-        /// <returns>A <see cref="string"/> that represents this instance.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => Name;
-
-        private string DebuggerDisplay => "Type: " + Name;
     }
 
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class DecimalType : LogicalType
+    public record DecimalType : LogicalType
     {
         public DecimalType(int precision, int scale, IEnumerable<Property> properties)
             : base("bytes", properties)
@@ -67,14 +43,5 @@ namespace SJP.Avro.Tools.Idl.Model
         public int Precision { get; }
 
         public int Scale { get; }
-
-        /// <summary>
-        /// Returns a string that provides a basic string representation of this object.
-        /// </summary>
-        /// <returns>A <see cref="string"/> that represents this instance.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => Name;
-
-        private string DebuggerDisplay => "Type: " + Name;
     }
 }

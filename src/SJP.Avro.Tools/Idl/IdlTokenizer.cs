@@ -5,7 +5,7 @@ using Superpower.Model;
 namespace SJP.Avro.Tools.Idl
 {
     /// <summary>
-    /// A tokenizer for Avro IDL expressions.
+    /// A tokenizer for Avro IDL documents.
     /// </summary>
     /// <seealso cref="Tokenizer{TKind}" />
     public class IdlTokenizer : Tokenizer<IdlToken>

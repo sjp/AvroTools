@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class ErrorType : TypeDeclaration
+    public record ErrorType : TypeDeclaration
     {
         public ErrorType(
             DocComment? comment,
@@ -22,13 +20,5 @@ namespace SJP.Avro.Tools.Idl.Model
         public Identifier Name { get; }
 
         public IEnumerable<Field> Fields { get; }
-
-        private string DebuggerDisplay
-        {
-            get
-            {
-                return $"Error: {Name.Value}";
-            }
-        }
     }
 }

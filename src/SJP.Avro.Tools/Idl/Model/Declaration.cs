@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public abstract class Declaration
+    public abstract record Declaration
     {
     }
 }

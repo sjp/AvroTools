@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public class AvroType : Declaration
+    public record AvroType : Declaration
     {
         protected AvroType(IEnumerable<Property> properties)
         {

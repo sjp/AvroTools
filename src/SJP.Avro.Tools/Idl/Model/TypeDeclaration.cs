@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public abstract class TypeDeclaration
+    public abstract record TypeDeclaration
     {
         protected TypeDeclaration(DocComment? comment, IEnumerable<Property> properties, int position)
         {

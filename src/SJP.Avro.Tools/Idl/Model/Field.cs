@@ -5,8 +5,7 @@ using Superpower.Model;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
-    public class Field
+    public record Field
     {
         public Field(
             DocComment? comment,
@@ -32,13 +31,5 @@ namespace SJP.Avro.Tools.Idl.Model
         public Identifier Name { get; }
 
         public IEnumerable<Token<IdlToken>> DefaultValue { get; }
-
-        private string DebuggerDisplay
-        {
-            get
-            {
-                return $"Field: {Name.Value}";
-            }
-        }
     }
 }
