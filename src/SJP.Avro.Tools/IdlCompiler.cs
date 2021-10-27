@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SJP.Avro.Tools.Idl;
+using SJP.Avro.Tools.Schema.Model;
 using Superpower.Model;
 
 namespace SJP.Avro.Tools
@@ -151,7 +152,7 @@ namespace SJP.Avro.Tools
                 }
             }
 
-            var dto = new ProtocolDto
+            var dto = new Protocol
             {
                 Documentation = protocol.Documentation?.Value,
                 Types = typeDtos,
@@ -261,7 +262,7 @@ namespace SJP.Avro.Tools
 
         private static JObject MapToFixedDto(Idl.Model.FixedDeclaration fixedType)
         {
-            var dto = new FixedDto
+            var dto = new FixedType
             {
                 Name = fixedType.Name.Value,
                 Documentation = fixedType.Comment?.Value,
@@ -305,7 +306,7 @@ namespace SJP.Avro.Tools
             {
                 if (logicalType is Idl.Model.DecimalType decimalType)
                 {
-                    var decimalObj = JObject.FromObject(new DecimalTypeDto(decimalType.Precision, decimalType.Scale));
+                    var decimalObj = JObject.FromObject(new DecimalType(decimalType.Precision, decimalType.Scale));
                     AttachProperties(decimalObj, avroType.Properties);
 
                     return decimalObj;
@@ -313,12 +314,12 @@ namespace SJP.Avro.Tools
 
                 var result = logicalType.Name switch
                 {
-                    "date" => new DateTypeDto() as object,
-                    "duration" => new DurationTypeDto(),
-                    "time_ms" => new TimeMillisTypeDto(),
-                    "timestamp_ms" => new TimestampMillisTypeDto(),
-                    "local_timestamp_ms" => new LocalTimestampMillisTypeDto(),
-                    "uuid" => new UuidTypeDto(),
+                    "date" => new DateType() as object,
+                    "duration" => new DurationType(),
+                    "time_ms" => new TimeMillisType(),
+                    "timestamp_ms" => new TimestampMillisType(),
+                    "local_timestamp_ms" => new LocalTimestampMillisType(),
+                    "uuid" => new UuidType(),
                     _ => throw new ArgumentOutOfRangeException(logicalType.Name)
                 };
 
@@ -390,7 +391,7 @@ namespace SJP.Avro.Tools
 
         private static JObject MapToRecordDto(Idl.Model.Protocol protocol, Idl.Model.RecordDeclaration record)
         {
-            var dto = new RecordDto
+            var dto = new Record
             {
                 Name = record.Name.Value,
                 Documentation = record.Comment?.Value,
@@ -405,9 +406,9 @@ namespace SJP.Avro.Tools
             return jobj;
         }
 
-        private static FieldDto MapToFieldDto(Idl.Model.Protocol protocol, Idl.Model.FieldDeclaration field)
+        private static FieldSchema MapToFieldDto(Idl.Model.Protocol protocol, Idl.Model.FieldDeclaration field)
         {
-            return new FieldDto
+            return new FieldSchema
             {
                 Name = field.Name.Value,
                 Documentation = field.Comment?.Value,
@@ -440,7 +441,7 @@ namespace SJP.Avro.Tools
 
         private static JObject MapToErrorDto(Idl.Model.Protocol protocol, Idl.Model.ErrorDeclaration error)
         {
-            var dto = new ErrorDto
+            var dto = new Error
             {
                 Name = error.Name.Value,
                 Documentation = error.Comment?.Value,
@@ -457,7 +458,7 @@ namespace SJP.Avro.Tools
 
         private static JObject MapToMessageDto(Idl.Model.Protocol protocol, Idl.Model.MessageDeclaration message)
         {
-            var dto = new MessageDto
+            var dto = new Message
             {
                 Documentation = message.Comment?.Value,
                 Errors = message.Errors.Any() ? message.Errors.Select(e => e.Value).ToList() : null,
@@ -471,9 +472,9 @@ namespace SJP.Avro.Tools
             return obj;
         }
 
-        private static MessageParameterDto MapToMessageParameterDto(Idl.Model.Protocol protocol, Idl.Model.FormalParameter messageParameter)
+        private static MessageParameter MapToMessageParameterDto(Idl.Model.Protocol protocol, Idl.Model.FormalParameter messageParameter)
         {
-            return new MessageParameterDto
+            return new MessageParameter
             {
                 Default = MapToDefaultValueToken(messageParameter.DefaultValue),
                 Name = messageParameter.Name.Value,
@@ -516,230 +517,5 @@ namespace SJP.Avro.Tools
                 ? unescaped[1..^1]
                 : unescaped;
         }
-    }
-
-    public class ProtocolDto
-    {
-        [JsonProperty("protocol")]
-        public string Name { get; set; } = default!;
-
-        [JsonProperty("namespace", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Namespace { get; set; }
-
-        [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Documentation { get; set; }
-
-        [JsonProperty("types", NullValueHandling = NullValueHandling.Ignore)]
-        public IEnumerable<JObject>? Types { get; set; }
-
-        [JsonProperty("messages", NullValueHandling = NullValueHandling.Ignore)]
-        public IReadOnlyDictionary<string, JObject>? Messages { get; set; }
-    }
-
-    public class MessageDto
-    {
-        [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Documentation { get; set; }
-
-        [JsonProperty("request")]
-        public IEnumerable<MessageParameterDto> Request { get; set; } = Array.Empty<MessageParameterDto>();
-
-        [JsonProperty("response")]
-        public JToken? Response { get; set; } = JToken.FromObject("null");
-
-        [JsonProperty("one-way", NullValueHandling = NullValueHandling.Ignore, DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public bool OneWay { get; set; }
-
-        [JsonProperty("errors", NullValueHandling = NullValueHandling.Ignore)]
-        public IEnumerable<string>? Errors { get; set; }
-    }
-
-    public class MessageParameterDto
-    {
-        [JsonProperty("name")]
-        public string Name { get; set; } = default!;
-
-        [JsonProperty("type")]
-        public JToken Type { get; set; } = default!;
-
-        [JsonProperty("default", NullValueHandling = NullValueHandling.Ignore)]
-        public IEnumerable<JToken>? Default { get; set; }
-    }
-
-    public abstract class NamedSchemaDto
-    {
-        [JsonProperty("name")]
-        public string Name { get; set; } = default!;
-
-        [JsonProperty("namespace", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Namespace { get; set; }
-
-        [JsonProperty("aliases", NullValueHandling = NullValueHandling.Ignore)]
-        public IEnumerable<string>? Aliases { get; set; }
-
-        [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Documentation { get; set; }
-    }
-
-    public class FixedDto : NamedSchemaDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "fixed";
-
-        [JsonProperty("size")]
-        public int Size { get; set; }
-    }
-
-    public class RecordDto : NamedSchemaDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "record";
-
-        [JsonProperty("fields")]
-        public IEnumerable<FieldDto> Fields { get; set; } = Array.Empty<FieldDto>();
-    }
-
-    public class ErrorDto : NamedSchemaDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "error";
-
-        [JsonProperty("fields")]
-        public IEnumerable<FieldDto> Fields { get; set; } = Array.Empty<FieldDto>();
-    }
-
-    public class EnumDto : NamedSchemaDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "enum";
-
-        [JsonProperty("symbols")]
-        public IEnumerable<string> Symbols { get; set; } = Array.Empty<string>();
-
-        [JsonProperty("default", NullValueHandling = NullValueHandling.Ignore)]
-        public string? DefaultValue { get; set; }
-    }
-
-    public class DecimalTypeDto
-    {
-        public DecimalTypeDto(int precision, int scale)
-        {
-            Precision = precision;
-            Scale = scale;
-        }
-
-        [JsonProperty("type")]
-        public string Type { get; } = "bytes";
-
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "decimal";
-
-        [JsonProperty("precision")]
-        public int Precision { get; }
-
-        [JsonProperty("scale")]
-        public int Scale { get; }
-    }
-
-    public class TimeMillisTypeDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "int";
-
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "time-millis";
-    }
-
-    public class TimestampMillisTypeDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "long";
-
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "timestamp-millis";
-    }
-
-    public class LocalTimestampMillisTypeDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "long";
-
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "local-timestamp-millis";
-    }
-
-    public class DateTypeDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "int";
-
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "date";
-    }
-
-    public class UuidTypeDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "string";
-
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "uuid";
-    }
-
-    public class DurationTypeDto
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "fixed";
-
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "duration";
-
-        [JsonProperty("size")]
-        public int Size { get; } = 12;
-    }
-
-    public class FieldDto
-    {
-        /// <summary>
-        /// List of aliases for the field name.
-        /// </summary>
-        [JsonProperty("aliases", NullValueHandling = NullValueHandling.Ignore)]
-        public IEnumerable<string>? Aliases { get; set; }
-
-        /// <summary>
-        /// Name of the field.
-        /// </summary>
-        [JsonProperty("name")]
-        public string Name { get; set; } = default!;
-
-        /// <summary>
-        /// Position of the field within its record.
-        /// </summary>
-        [JsonIgnore]
-        public int Position { get; set; }
-
-        /// <summary>
-        /// Documentation for the field, if any. Null if there is no documentation.
-        /// </summary>
-        [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Documentation { get; set; }
-
-        /// <summary>
-        /// The default value for the field stored as JSON object, if defined. Otherwise, null.
-        /// </summary>
-        [JsonProperty("default", NullValueHandling = NullValueHandling.Ignore)]
-        public JToken? DefaultValue { get; set; }
-
-        /// <summary>
-        /// Order of the field
-        /// </summary>
-        [JsonProperty("order", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Ordering { get; set; }
-
-        /// <summary>
-        /// Type of the field.
-        /// </summary>
-        [JsonProperty("type")]
-        public JToken Type { get; init; } = default!;
     }
 }

@@ -1,0 +1,18 @@
+﻿using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
+namespace SJP.Avro.Tools.Schema.Model
+{
+    public class EnumDto : NamedSchema
+    {
+        [JsonProperty("type")]
+        public string Type { get; } = "enum";
+
+        [JsonProperty("symbols")]
+        public IEnumerable<string> Symbols { get; set; } = Array.Empty<string>();
+
+        [JsonProperty("default", NullValueHandling = NullValueHandling.Ignore)]
+        public string? DefaultValue { get; set; }
+    }
+}

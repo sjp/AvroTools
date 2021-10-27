@@ -119,20 +119,11 @@ namespace SJP.Avro.Tools.Idl
         [Token(Example = "`")]
         Backtick,
 
-
-
-
-
-
-
-
         /// <summary>
         /// A doc comment.
         /// </summary>
         [Token(Description = "doc comment literal")]
         DocComment,
-
-
 
         /// <summary>
         /// A comment.
@@ -140,14 +131,11 @@ namespace SJP.Avro.Tools.Idl
         [Token(Description = "comment literal")]
         Comment,
 
-
-
         /// <summary>
         /// A string literal.
         /// </summary>
         [Token(Description = "string literal")]
         StringLiteral,
-
 
         /// <summary>
         /// A property name.
