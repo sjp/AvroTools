@@ -48,12 +48,7 @@ namespace SJP.Avro.Tools
             if (protocol == null)
                 throw new ArgumentNullException(nameof(protocol));
 
-            var protocolNamespace = protocol.Properties
-                .Where(p => p.Name == "namespace"
-                    && p.Value.Count() == 1
-                    && p.Value.Single().Kind == IdlToken.StringLiteral)
-                .Select(p => GetUnquotedStringValue(p.Value.Single()))
-                .LastOrDefault();
+            var protocolNamespace = GetNamespaceFromProperties(protocol.Properties);
 
             var idlImports = protocol.Imports
                 .Where(i => i.Type == Idl.Model.ImportType.Idl)
@@ -466,6 +461,7 @@ namespace SJP.Avro.Tools
                 Request = message.Parameters.Select(p => MapToMessageParameterDto(protocol, p)).ToList(),
                 Response = GenerateTypeTokens(protocol, message.ReturnType)
             };
+
             var obj = JObject.FromObject(dto);
             AttachProperties(obj, message.Properties);
 
