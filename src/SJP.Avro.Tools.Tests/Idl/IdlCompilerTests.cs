@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
@@ -38,13 +37,13 @@ namespace SJP.Avro.Tools.Tests.Idl
                 null,
                 new Identifier("fake_protocol"),
                 Array.Empty<Property>(),
-                Array.Empty<Record>(),
-                Array.Empty<Fixed>(),
-                Array.Empty<EnumType>(),
-                Array.Empty<ErrorType>(),
-                Array.Empty<Import>()
+                Array.Empty<RecordDeclaration>(),
+                Array.Empty<FixedDeclaration>(),
+                Array.Empty<EnumDeclaration>(),
+                Array.Empty<ErrorDeclaration>(),
+                Array.Empty<ImportDeclaration>()
 ,
-                new Dictionary<Identifier, Message>()
+                new Dictionary<Identifier, MessageDeclaration>()
             );
 
             Assert.That(() => _compiler.Compile(filePath, testProtocol), Throws.ArgumentNullException);

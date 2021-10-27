@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record UnionType : AvroType
+    public record UnionDefinition : AvroType
     {
-        public UnionType(IEnumerable<AvroType> typeOptions, IEnumerable<Property> properties)
+        public UnionDefinition(IEnumerable<AvroType> typeOptions, IEnumerable<Property> properties)
             : base(properties)
         {
             TypeOptions = typeOptions ?? throw new ArgumentNullException(nameof(typeOptions));

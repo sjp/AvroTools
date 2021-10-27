@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
@@ -60,13 +59,13 @@ namespace SJP.Avro.Tools
                 .Select(i => ParseImportedIdl(filePath, i.Path))
                 .ToList();
 
-            var parsedMessages = new Dictionary<Idl.Model.Identifier, Idl.Model.Message>(protocol.Messages);
+            var parsedMessages = new Dictionary<Idl.Model.Identifier, Idl.Model.MessageDeclaration>(protocol.Messages);
             foreach (var message in idlImports.SelectMany(i => i.Messages))
                 parsedMessages[message.Key] = message.Value;
 
             var messageDtos = parsedMessages
                 .Select(kv => new KeyValuePair<string, JObject>(kv.Key.Value, MapToMessageDto(protocol, kv.Value)))
-                .ToDictionary(kv => kv.Key, kv => kv.Value);
+                .ToDictionary();
 
             // finally append the contents of the "messages" of the imported protocols
             var typePropertyLookup = new Dictionary<string, List<Idl.Model.Property>>();
@@ -168,11 +167,11 @@ namespace SJP.Avro.Tools
             return json;
         }
 
-        private static IEnumerable<Idl.Model.TypeDeclaration> GetOrderedTypeDeclarations(Idl.Model.Protocol protocol)
+        private static IEnumerable<Idl.Model.NamedSchemaDeclaration> GetOrderedTypeDeclarations(Idl.Model.Protocol protocol)
         {
             return protocol.Imports
                 .Where(i => i.Type == Idl.Model.ImportType.Schema || i.Type == Idl.Model.ImportType.Idl)
-                .Select(i => i as Idl.Model.TypeDeclaration)
+                .Select(i => i as Idl.Model.NamedSchemaDeclaration)
                 .Concat(protocol.Enums)
                 .Concat(protocol.Fixeds)
                 .Concat(protocol.Records)
@@ -181,20 +180,20 @@ namespace SJP.Avro.Tools
                 .ToList();
         }
 
-        private IEnumerable<JObject> MapTypeDeclarationToDto(string baseFilePath, Idl.Model.Protocol protocol, Idl.Model.TypeDeclaration typeDeclaration)
+        private IEnumerable<JObject> MapTypeDeclarationToDto(string baseFilePath, Idl.Model.Protocol protocol, Idl.Model.NamedSchemaDeclaration typeDeclaration)
         {
             return typeDeclaration switch
             {
-                Idl.Model.EnumType e => new[] { MapToEnumDto(e) },
-                Idl.Model.Fixed f => new[] { MapToFixedDto(f) },
-                Idl.Model.Record r => new[] { MapToRecordDto(protocol, r) },
-                Idl.Model.ErrorType e => new[] { MapToErrorDto(protocol, e) },
-                Idl.Model.Import i => MapImportDeclarationToDto(baseFilePath, i),
+                Idl.Model.EnumDeclaration e => new[] { MapToEnumDto(e) },
+                Idl.Model.FixedDeclaration f => new[] { MapToFixedDto(f) },
+                Idl.Model.RecordDeclaration r => new[] { MapToRecordDto(protocol, r) },
+                Idl.Model.ErrorDeclaration e => new[] { MapToErrorDto(protocol, e) },
+                Idl.Model.ImportDeclaration i => MapImportDeclarationToDto(baseFilePath, i),
                 _ => Array.Empty<JObject>()
             };
         }
 
-        private IEnumerable<JObject> MapImportDeclarationToDto(string baseFilePath, Idl.Model.Import import)
+        private IEnumerable<JObject> MapImportDeclarationToDto(string baseFilePath, Idl.Model.ImportDeclaration import)
         {
             if (import.Type == Idl.Model.ImportType.Idl)
             {
@@ -242,7 +241,7 @@ namespace SJP.Avro.Tools
             return Array.Empty<JObject>();
         }
 
-        private static JObject MapToEnumDto(Idl.Model.EnumType enumType)
+        private static JObject MapToEnumDto(Idl.Model.EnumDeclaration enumType)
         {
             var dto = new EnumDto
             {
@@ -260,7 +259,7 @@ namespace SJP.Avro.Tools
             return jobj;
         }
 
-        private static JObject MapToFixedDto(Idl.Model.Fixed fixedType)
+        private static JObject MapToFixedDto(Idl.Model.FixedDeclaration fixedType)
         {
             var dto = new FixedDto
             {
@@ -374,7 +373,7 @@ namespace SJP.Avro.Tools
             }
 
             // union
-            if (avroType is Idl.Model.UnionType unionType)
+            if (avroType is Idl.Model.UnionDefinition unionType)
             {
                 var jarr = new JArray();
                 foreach (var unionOption in unionType.TypeOptions)
@@ -389,7 +388,7 @@ namespace SJP.Avro.Tools
             return default!;
         }
 
-        private static JObject MapToRecordDto(Idl.Model.Protocol protocol, Idl.Model.Record record)
+        private static JObject MapToRecordDto(Idl.Model.Protocol protocol, Idl.Model.RecordDeclaration record)
         {
             var dto = new RecordDto
             {
@@ -406,7 +405,7 @@ namespace SJP.Avro.Tools
             return jobj;
         }
 
-        private static FieldDto MapToFieldDto(Idl.Model.Protocol protocol, Idl.Model.Field field)
+        private static FieldDto MapToFieldDto(Idl.Model.Protocol protocol, Idl.Model.FieldDeclaration field)
         {
             return new FieldDto
             {
@@ -439,7 +438,7 @@ namespace SJP.Avro.Tools
             }
         }
 
-        private static JObject MapToErrorDto(Idl.Model.Protocol protocol, Idl.Model.ErrorType error)
+        private static JObject MapToErrorDto(Idl.Model.Protocol protocol, Idl.Model.ErrorDeclaration error)
         {
             var dto = new ErrorDto
             {
@@ -456,7 +455,7 @@ namespace SJP.Avro.Tools
             return jobj;
         }
 
-        private static JObject MapToMessageDto(Idl.Model.Protocol protocol, Idl.Model.Message message)
+        private static JObject MapToMessageDto(Idl.Model.Protocol protocol, Idl.Model.MessageDeclaration message)
         {
             var dto = new MessageDto
             {
@@ -472,7 +471,7 @@ namespace SJP.Avro.Tools
             return obj;
         }
 
-        private static MessageParameterDto MapToMessageParameterDto(Idl.Model.Protocol protocol, Idl.Model.MessageParameter messageParameter)
+        private static MessageParameterDto MapToMessageParameterDto(Idl.Model.Protocol protocol, Idl.Model.FormalParameter messageParameter)
         {
             return new MessageParameterDto
             {
@@ -534,7 +533,7 @@ namespace SJP.Avro.Tools
         public IEnumerable<JObject>? Types { get; set; }
 
         [JsonProperty("messages", NullValueHandling = NullValueHandling.Ignore)]
-        public Dictionary<string, JObject>? Messages { get; set; }
+        public IReadOnlyDictionary<string, JObject>? Messages { get; set; }
     }
 
     public class MessageDto

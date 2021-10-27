@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record EnumType : TypeDeclaration
+    public record EnumDeclaration : NamedSchemaDeclaration
     {
-        public EnumType(
+        public EnumDeclaration(
             DocComment? comment,
             IEnumerable<Property> properties,
             int position,

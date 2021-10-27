@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Superpower;
 using Superpower.Model;
-using Superpower.Parsers;
 
 namespace SJP.Avro.Tools.Idl
 {

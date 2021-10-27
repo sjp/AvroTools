@@ -79,7 +79,7 @@ namespace SJP.Avro.Tools.Idl
                 .Then(p =>
                      Token.Sequence(IdlToken.Union, IdlToken.LBrace)
                         .IgnoreThen(Parse.Ref(() => AvroType).AtLeastOnceDelimitedBy(Token.EqualTo(IdlToken.Comma)))
-                        .Then(t => Token.EqualTo(IdlToken.RBrace).Select(_ => new UnionType(t, p) as AvroType)));
+                        .Then(t => Token.EqualTo(IdlToken.RBrace).Select(_ => new UnionDefinition(t, p) as AvroType)));
 
         private static TokenListParser<IdlToken, Token<IdlToken>> ExpressionContent =>
             new[] { IdlToken.LParen, IdlToken.RParen }.NotEqualTo();
@@ -104,19 +104,19 @@ namespace SJP.Avro.Tools.Idl
                     Identifier
                         .Select(name => (comment: prefix.c, type: prefix.t, props: prefix.p as IEnumerable<Property>, name)));
 
-        private static TokenListParser<IdlToken, MessageParameter> ParameterWithDefault =>
+        private static TokenListParser<IdlToken, FormalParameter> ParameterWithDefault =>
             ParameterTypeHeader
                 .Then(header => Token.EqualTo(IdlToken.Equals).Select(_ => header))
                 .Then(header => ExpressionContent.Many()
-                    .Select(dv => new MessageParameter(
+                    .Select(dv => new FormalParameter(
                         header.type,
                         header.name,
                         dv
                     )));
 
-        private static TokenListParser<IdlToken, MessageParameter> Parameter =>
+        private static TokenListParser<IdlToken, FormalParameter> Parameter =>
             ParameterWithDefault.Try()
-                .Or(ParameterTypeHeader.Select(p => new MessageParameter(p.type, p.name, Array.Empty<Token<IdlToken>>())));
+                .Or(ParameterTypeHeader.Select(p => new FormalParameter(p.type, p.name, Array.Empty<Token<IdlToken>>())));
 
         private static TokenListParser<IdlToken, Model.Identifier[]> ErrorList =>
             Token.EqualTo(IdlToken.Throws)
@@ -135,7 +135,7 @@ namespace SJP.Avro.Tools.Idl
                     ErrorList.OptionalOrDefault(Array.Empty<Model.Identifier>())
                         .Select(err => (ow, err)));
 
-        private static TokenListParser<IdlToken, EnumType> SimpleEnumDeclaration =>
+        private static TokenListParser<IdlToken, EnumDeclaration> SimpleEnumDeclaration =>
             DocComment
                 .Then(c => Property.Many().Select(p => (c, p)))
                 .Then(prefix =>
@@ -149,7 +149,7 @@ namespace SJP.Avro.Tools.Idl
                                         .Select(members => (name, members))))
                         .Then(result =>
                             Token.EqualTo(IdlToken.RBrace)
-                                .Select(_ => new EnumType(
+                                .Select(_ => new EnumDeclaration(
                                     prefix.c,
                                     prefix.p,
                                     _.Span.Position.Absolute,
@@ -162,10 +162,10 @@ namespace SJP.Avro.Tools.Idl
                 .IgnoreThen(Identifier)
                 .Then(def => Token.EqualTo(IdlToken.Semicolon).Select(_ => def));
 
-        private static TokenListParser<IdlToken, EnumType> EnumDeclarationWithDefault =>
+        private static TokenListParser<IdlToken, EnumDeclaration> EnumDeclarationWithDefault =>
             SimpleEnumDeclaration
                 .Then(dec => EnumDeclarationDefault
-                    .Select(def => new EnumType(
+                    .Select(def => new EnumDeclaration(
                         dec.Comment,
                         dec.Properties,
                         dec.Position,
@@ -174,10 +174,10 @@ namespace SJP.Avro.Tools.Idl
                         def
                     )));
 
-        private static TokenListParser<IdlToken, EnumType> EnumDeclaration =>
+        private static TokenListParser<IdlToken, EnumDeclaration> EnumDeclaration =>
             EnumDeclarationWithDefault.Try().Or(SimpleEnumDeclaration);
 
-        private static TokenListParser<IdlToken, Fixed> FixedDeclaration =>
+        private static TokenListParser<IdlToken, FixedDeclaration> FixedDeclaration =>
             DocComment
                 .Then(c => Property.Many().Select(p => (c, p)))
                 .Then(prefix =>
@@ -188,7 +188,7 @@ namespace SJP.Avro.Tools.Idl
                                 .IgnoreThen(Token.EqualTo(IdlToken.Number))
                                 .Then(size =>
                                     Token.EqualTo(IdlToken.RParen)
-                                        .Select(_ => new Fixed(
+                                        .Select(_ => new FixedDeclaration(
                                             prefix.c,
                                             prefix.p,
                                             _.Position.Absolute,
@@ -210,10 +210,10 @@ namespace SJP.Avro.Tools.Idl
                 .IgnoreThen(FieldDefaultValueContent.Many().Select(_ => _ as IEnumerable<Token<IdlToken>>))
                 .OptionalOrDefault(Enumerable.Empty<Token<IdlToken>>());
 
-        private static TokenListParser<IdlToken, Field> FieldDeclaration =>
+        private static TokenListParser<IdlToken, FieldDeclaration> FieldDeclaration =>
             FieldHeader
                 .Then(header => FieldDefaultValue.Select(dv => (header, dv)))
-                .Select(result => new Field(
+                .Select(result => new FieldDeclaration(
                     result.header.comment,
                     result.header.props,
                     result.header.type,
@@ -222,7 +222,7 @@ namespace SJP.Avro.Tools.Idl
                     ))
                 .Then(f => Token.EqualTo(IdlToken.Semicolon).Select(_ => f));
 
-        private static TokenListParser<IdlToken, Record> RecordDeclaration =>
+        private static TokenListParser<IdlToken, RecordDeclaration> RecordDeclaration =>
             DocComment
                 .Then(c => Property.Many().Select(p => (c, p)))
                 .Then(prefix =>
@@ -236,7 +236,7 @@ namespace SJP.Avro.Tools.Idl
                         .Select(members => (prefix.comment, prefix.props, prefix.name, members)))
                 .Then(result =>
                     Token.EqualTo(IdlToken.RBrace)
-                        .Select(_ => new Record(
+                        .Select(_ => new RecordDeclaration(
                             result.comment,
                             result.props,
                             _.Position.Absolute,
@@ -244,7 +244,7 @@ namespace SJP.Avro.Tools.Idl
                             result.members
                         )));
 
-        private static TokenListParser<IdlToken, ErrorType> ErrorDeclaration =>
+        private static TokenListParser<IdlToken, ErrorDeclaration> ErrorDeclaration =>
             DocComment
                 .Then(c => Property.Many().Select(p => (c, p)))
                 .Then(prefix =>
@@ -258,7 +258,7 @@ namespace SJP.Avro.Tools.Idl
                         .Select(members => (prefix.comment, prefix.props, prefix.name, members)))
                 .Then(result =>
                     Token.EqualTo(IdlToken.RBrace)
-                        .Select(_ => new ErrorType(
+                        .Select(_ => new ErrorDeclaration(
                             result.comment,
                             result.props,
                             _.Position.Absolute,
@@ -274,7 +274,7 @@ namespace SJP.Avro.Tools.Idl
                 .Try().Or(UnionType)
                 .Try().Or(ArrayType);
 
-        private static TokenListParser<IdlToken, Message> Message =>
+        private static TokenListParser<IdlToken, MessageDeclaration> Message =>
             DocComment
                 .Then(docComments =>
                     Property
@@ -302,7 +302,7 @@ namespace SJP.Avro.Tools.Idl
                                     position: _.Position.Absolute,
                                     parameters
                                 ))))
-                .Then(m => MessageSuffix.Select(suffix => new Message(
+                .Then(m => MessageSuffix.Select(suffix => new MessageDeclaration(
                     m.doc,
                     m.name,
                     m.returnType,
@@ -322,21 +322,21 @@ namespace SJP.Avro.Tools.Idl
                     ? importType
                     : Model.ImportType.Unknown);
 
-        private static TokenListParser<IdlToken, Import> Import =>
+        private static TokenListParser<IdlToken, ImportDeclaration> Import =>
             Token.EqualTo(IdlToken.Import)
                 .IgnoreThen(ImportType)
                 .Then(type =>
                     Token.EqualTo(IdlToken.StringLiteral)
-                        .Select(name => new Import(type, name.ToStringValue(), name.Position.Absolute)))
+                        .Select(name => new ImportDeclaration(type, name.ToStringValue(), name.Position.Absolute)))
                 .Then(result => Token.EqualTo(IdlToken.Semicolon).Select(_ => result));
 
-        private static TokenListParser<IdlToken, TypeDeclaration> Declaration =>
-            RecordDeclaration.Select(_ => _ as TypeDeclaration)
-                .Try().Or(FixedDeclaration.Select(_ => _ as TypeDeclaration))
-                .Try().Or(EnumDeclaration.Select(_ => _ as TypeDeclaration))
-                .Try().Or(ErrorDeclaration.Select(_ => _ as TypeDeclaration))
-                .Try().Or(Message.Select(_ => _ as TypeDeclaration))
-                .Try().Or(Import.Select(_ => _ as TypeDeclaration));
+        private static TokenListParser<IdlToken, NamedSchemaDeclaration> Declaration =>
+            RecordDeclaration.Select(_ => _ as NamedSchemaDeclaration)
+                .Try().Or(FixedDeclaration.Select(_ => _ as NamedSchemaDeclaration))
+                .Try().Or(EnumDeclaration.Select(_ => _ as NamedSchemaDeclaration))
+                .Try().Or(ErrorDeclaration.Select(_ => _ as NamedSchemaDeclaration))
+                .Try().Or(Message.Select(_ => _ as NamedSchemaDeclaration))
+                .Try().Or(Import.Select(_ => _ as NamedSchemaDeclaration));
 
         private static TokenListParser<IdlToken, DocComment?> DocComment =>
             Token.EqualTo(IdlToken.DocComment)
@@ -369,15 +369,14 @@ namespace SJP.Avro.Tools.Idl
                         res.header.doc,
                         res.header.name,
                         res.header.props,
-                        res.declarations.OfType<Record>().ToList(),
-                        res.declarations.OfType<Fixed>().ToList(),
-                        res.declarations.OfType<EnumType>().ToList(),
-                        res.declarations.OfType<ErrorType>().ToList(),
-                        res.declarations.OfType<Import>().ToList()
-,
-                        res.declarations.OfType<Message>()
-                            .Select(m => new KeyValuePair<Model.Identifier, Message>(m.Name, m))
-                            .ToDictionary(kv => kv.Key, kv => kv.Value))
+                        res.declarations.OfType<RecordDeclaration>().ToList(),
+                        res.declarations.OfType<FixedDeclaration>().ToList(),
+                        res.declarations.OfType<EnumDeclaration>().ToList(),
+                        res.declarations.OfType<ErrorDeclaration>().ToList(),
+                        res.declarations.OfType<ImportDeclaration>().ToList(),
+                        res.declarations.OfType<MessageDeclaration>()
+                            .Select(m => new KeyValuePair<Model.Identifier, MessageDeclaration>(m.Name, m))
+                            .ToReadOnlyDictionary())
                 ));
     }
 }

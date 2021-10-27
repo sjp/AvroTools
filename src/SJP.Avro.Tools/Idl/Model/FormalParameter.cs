@@ -4,9 +4,9 @@ using Superpower.Model;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record MessageParameter
+    public record FormalParameter
     {
-        public MessageParameter(
+        public FormalParameter(
             AvroType type,
             Identifier name,
             IEnumerable<Token<IdlToken>> defaultValue

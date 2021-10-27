@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record Fixed : TypeDeclaration
+    public record FixedDeclaration : NamedSchemaDeclaration
     {
-        public Fixed(
+        public FixedDeclaration(
             DocComment? comment,
             IEnumerable<Property> properties,
             int position,

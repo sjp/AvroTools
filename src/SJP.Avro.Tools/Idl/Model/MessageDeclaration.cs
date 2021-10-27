@@ -3,15 +3,15 @@ using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record Message : TypeDeclaration
+    public record MessageDeclaration : NamedSchemaDeclaration
     {
-        public Message(
+        public MessageDeclaration(
             DocComment? comment,
             Identifier name,
             AvroType returnType,
             IEnumerable<Property> properties,
             int position,
-            IEnumerable<MessageParameter> parameters,
+            IEnumerable<FormalParameter> parameters,
             bool oneway,
             IEnumerable<Identifier> errors
         ) : base(comment, properties, position)
@@ -27,7 +27,7 @@ namespace SJP.Avro.Tools.Idl.Model
 
         public AvroType ReturnType { get; }
 
-        public IEnumerable<MessageParameter> Parameters { get; }
+        public IEnumerable<FormalParameter> Parameters { get; }
 
         public bool OneWay { get; }
 

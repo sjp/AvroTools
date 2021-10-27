@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record PrimitiveType : AvroType
+    public record LogicalType : AvroType
     {
-        public PrimitiveType(string name, IEnumerable<Property> properties)
+        public LogicalType(string name, IEnumerable<Property> properties)
             : base(properties)
         {
             if (name.IsNullOrWhiteSpace())

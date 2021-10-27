@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Superpower.Model;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record Field
+    public record FieldDeclaration
     {
-        public Field(
+        public FieldDeclaration(
             DocComment? comment,
             IEnumerable<Property> properties,
             AvroType type,

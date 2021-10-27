@@ -3,9 +3,9 @@ using System.Text.RegularExpressions;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record Import : TypeDeclaration
+    public record ImportDeclaration : NamedSchemaDeclaration
     {
-        public Import(ImportType type, string path, int position)
+        public ImportDeclaration(ImportType type, string path, int position)
             : base(null, Array.Empty<Property>(), position)
         {
             if (string.IsNullOrWhiteSpace(path))

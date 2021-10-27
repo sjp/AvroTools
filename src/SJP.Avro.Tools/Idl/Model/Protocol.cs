@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
@@ -11,12 +9,12 @@ namespace SJP.Avro.Tools.Idl.Model
             DocComment? doc,
             Identifier name,
             IEnumerable<Property> properties,
-            IEnumerable<Record> records,
-            IEnumerable<Fixed> fixeds,
-            IEnumerable<EnumType> enums,
-            IEnumerable<ErrorType> errors,
-            IEnumerable<Import> imports,
-            IReadOnlyDictionary<Identifier, Message> messages)
+            IEnumerable<RecordDeclaration> records,
+            IEnumerable<FixedDeclaration> fixeds,
+            IEnumerable<EnumDeclaration> enums,
+            IEnumerable<ErrorDeclaration> errors,
+            IEnumerable<ImportDeclaration> imports,
+            IReadOnlyDictionary<Identifier, MessageDeclaration> messages)
         {
             Documentation = doc;
             Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -35,16 +33,16 @@ namespace SJP.Avro.Tools.Idl.Model
 
         public IEnumerable<Property> Properties { get; }
 
-        public IEnumerable<Record> Records { get; }
+        public IEnumerable<RecordDeclaration> Records { get; }
 
-        public IEnumerable<Fixed> Fixeds { get; }
+        public IEnumerable<FixedDeclaration> Fixeds { get; }
 
-        public IEnumerable<EnumType> Enums { get; }
+        public IEnumerable<EnumDeclaration> Enums { get; }
 
-        public IEnumerable<ErrorType> Errors { get; }
+        public IEnumerable<ErrorDeclaration> Errors { get; }
 
-        public IEnumerable<Import> Imports { get; }
+        public IEnumerable<ImportDeclaration> Imports { get; }
 
-        public IReadOnlyDictionary<Identifier, Message> Messages { get; }
+        public IReadOnlyDictionary<Identifier, MessageDeclaration> Messages { get; }
     }
 }

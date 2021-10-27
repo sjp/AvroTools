@@ -3,14 +3,14 @@ using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.Idl.Model
 {
-    public record ErrorType : TypeDeclaration
+    public record RecordDeclaration : NamedSchemaDeclaration
     {
-        public ErrorType(
+        public RecordDeclaration(
             DocComment? comment,
             IEnumerable<Property> properties,
             int position,
             Identifier name,
-            IEnumerable<Field> fields
+            IEnumerable<FieldDeclaration> fields
         ) : base(comment, properties, position)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -19,6 +19,6 @@ namespace SJP.Avro.Tools.Idl.Model
 
         public Identifier Name { get; }
 
-        public IEnumerable<Field> Fields { get; }
+        public IEnumerable<FieldDeclaration> Fields { get; }
     }
 }

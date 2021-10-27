@@ -6,21 +6,23 @@ namespace SJP.Avro.Tools.Idl.Model
 {
     public record Property
     {
-        private readonly string _propertyName;
+        private const string PropertyPrefix = "@";
 
         public Property(string name, IEnumerable<Token<IdlToken>> value)
         {
             if (name.IsNullOrWhiteSpace())
                 throw new ArgumentNullException(nameof(name));
-            if (!name.StartsWith('@'))
-                throw new ArgumentException($"The given property name '{ name }' does not start with a '@'.", nameof(name));
+            if (!name.StartsWith(PropertyPrefix))
+                throw new ArgumentException($"The given property name '{ name }' does not start with '{ PropertyPrefix }'.", nameof(name));
 
-            _propertyName = name;
+            Name = TrimNamespacePrefix(name);
             Value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
-        public string Name => _propertyName[1..]; // trim off starting '@'
+        public string Name { get; }
 
         public IEnumerable<Token<IdlToken>> Value { get; }
+
+        private static string TrimNamespacePrefix(string name) => name[PropertyPrefix.Length..];
     }
 }
