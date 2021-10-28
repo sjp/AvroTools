@@ -1,0 +1,28 @@
+<Project>
+    <PropertyGroup>
+        <RootDirectory>$([System.IO.Path]::GetDirectoryName($([System.IO.Path]::GetDirectoryName($(MSBuildThisFileDirectory)))))</RootDirectory>
+        <LangVersion>latest</LangVersion>
+        <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+        <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+        <TreatSpecificWarningsAsErrors />
+        <Features>strict</Features>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <Copyright>Copyright © Simon Potter 2021</Copyright>
+        <RepositoryUrl>https://github.com/sjp/SJP.Avro.Tools.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <NeutralLanguage>en-US</NeutralLanguage>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Authors>Simon Potter</Authors>
+        <Company></Company>
+        <Product />
+        <PackageProjectUrl>https://github.com/sjp/SJP.Avro.Tools</PackageProjectUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
+    </ItemGroup>
+</Project>
