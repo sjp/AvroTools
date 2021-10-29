@@ -2,7 +2,7 @@
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public class TimeMillisType
+    public record TimeMillisType
     {
         [JsonProperty("type")]
         public string Type { get; } = "int";

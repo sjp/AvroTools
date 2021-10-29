@@ -2,7 +2,7 @@
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public class LocalTimestampMillisType
+    public record LocalTimestampMillisType
     {
         [JsonProperty("type")]
         public string Type { get; } = "long";

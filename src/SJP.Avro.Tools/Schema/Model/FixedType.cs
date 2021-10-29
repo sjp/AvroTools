@@ -2,7 +2,7 @@
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public class FixedType : NamedSchema
+    public record FixedType : NamedSchema
     {
         [JsonProperty("type")]
         public string Type { get; } = "fixed";

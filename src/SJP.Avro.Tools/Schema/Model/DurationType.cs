@@ -2,7 +2,7 @@
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public class DurationType
+    public record DurationType
     {
         [JsonProperty("type")]
         public string Type { get; } = "fixed";

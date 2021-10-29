@@ -239,7 +239,7 @@ namespace SJP.Avro.Tools
 
         private static JObject MapToEnumDto(Idl.Model.EnumDeclaration enumType)
         {
-            var dto = new EnumDto
+            var dto = new EnumType
             {
                 Name = enumType.Name.Value,
                 Documentation = enumType.Comment?.Value,

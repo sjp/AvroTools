@@ -2,7 +2,7 @@
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public class DecimalType
+    public record DecimalType
     {
         public DecimalType(int precision, int scale)
         {
