@@ -28,6 +28,12 @@ namespace SJP.Avro.Tools.CodeGen
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? "FakeExample"));
 
+            var namespaces = GetRequiredNamespaces(recordSchema);
+            var usingStatements = namespaces
+                .Select(static ns => ParseName(ns))
+                .Select(UsingDirective)
+                .ToList();
+
             var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(recordSchema.ToString());
             var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty();
 
@@ -59,12 +65,13 @@ namespace SJP.Avro.Tools.CodeGen
                 enumDecl
             });
 
-            var baseType = isError ? "SpecificException" : "ISpecificRecord";
+            var baseType = isError
+                ? nameof(global::Avro.Specific.SpecificException)
+                : nameof(global::Avro.Specific.ISpecificRecord);
 
             var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), recordSchema.Name)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .AddBaseListTypes(SimpleBaseType(IdentifierName(baseType)))
-                //.WithLeadingTrivia(BuildTableComment(enumSchema.Name, enumSchema.Documentation))
                 .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
                 .WithMembers(List(members))
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
@@ -76,6 +83,7 @@ namespace SJP.Avro.Tools.CodeGen
             }
 
             var document = CompilationUnit()
+                .WithUsings(List(usingStatements))
                 .WithMembers(
                     SingletonList<MemberDeclarationSyntax>(
                         namespaceDeclaration
@@ -84,6 +92,46 @@ namespace SJP.Avro.Tools.CodeGen
 
             using var workspace = new AdhocWorkspace();
             return Formatter.Format(document, workspace).ToFullString();
+        }
+
+        private static IEnumerable<string> GetRequiredNamespaces(global::Avro.RecordSchema record)
+        {
+            var systemNamespaces = new[]
+            {
+                "System",
+                "System.Collections.Generic"
+            };
+
+            var avroNamespaces = new[]
+            {
+                "Avro",
+                "Avro.Specific"
+            };
+
+            var namespaces = new HashSet<string>(systemNamespaces.Concat(avroNamespaces));
+
+            var baseNamespace = record.Namespace;
+
+            var scannedNamespaces = record.Fields
+                .Select(f => f.Schema)
+                .SelectMany(GetNamespacesForType)
+                .Where(ns => ns != baseNamespace);
+            foreach (var ns in scannedNamespaces)
+                namespaces.Add(ns);
+
+            return namespaces.OrderNamespaces();
+        }
+
+        private static IEnumerable<string> GetNamespacesForType(global::Avro.Schema schema)
+        {
+            return schema switch
+            {
+                global::Avro.ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
+                global::Avro.MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
+                global::Avro.UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
+                global::Avro.NamedSchema namedSchema => namedSchema.Namespace != null ? new[] { namedSchema.Namespace } : Array.Empty<string>(),
+                _ => Array.Empty<string>()
+            };
         }
 
         private static PropertyDeclarationSyntax BuildField(global::Avro.Field field, string className)

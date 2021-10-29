@@ -25,6 +25,12 @@ namespace SJP.Avro.Tools.CodeGen
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? "FakeExample"));
 
+            var namespaces = GetRequiredNamespaces();
+            var usingStatements = namespaces
+                .Select(static ns => ParseName(ns))
+                .Select(UsingDirective)
+                .ToList();
+
             var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(fixedSchema.ToString());
             var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty()
                 .WithModifiers(
@@ -56,6 +62,7 @@ namespace SJP.Avro.Tools.CodeGen
             }
 
             var document = CompilationUnit()
+                .WithUsings(List(usingStatements))
                 .WithMembers(
                     SingletonList<MemberDeclarationSyntax>(
                         namespaceDeclaration
@@ -64,6 +71,19 @@ namespace SJP.Avro.Tools.CodeGen
 
             using var workspace = new AdhocWorkspace();
             return Formatter.Format(document, workspace).ToFullString();
+        }
+
+        private static IEnumerable<string> GetRequiredNamespaces()
+        {
+            var namespaces = new[]
+            {
+                "System",
+                "System.Collections.Generic",
+                "Avro",
+                "Avro.Specific"
+            };
+
+            return namespaces.OrderNamespaces();
         }
 
         private static ConstructorDeclarationSyntax CreateConstructor(string className)

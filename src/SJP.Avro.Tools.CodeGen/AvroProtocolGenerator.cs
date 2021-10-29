@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -24,6 +26,11 @@ namespace SJP.Avro.Tools.CodeGen
             var protocolProperty = AvroSchemaUtilities.CreateProtocolProperty();
 
             var requestMethod = BuildRequestMethod(protocol);
+            var namespaces = GetRequiredNamespaces(protocol);
+            var usingStatements = namespaces
+                .Select(static ns => ParseName(ns))
+                .Select(UsingDirective)
+                .ToList();
 
             var messageMethods = new System.Collections.Generic.List<MethodDeclarationSyntax>();
 
@@ -60,6 +67,7 @@ namespace SJP.Avro.Tools.CodeGen
             }
 
             var document = CompilationUnit()
+                .WithUsings(List(usingStatements))
                 .WithMembers(
                     SingletonList<MemberDeclarationSyntax>(
                         namespaceDeclaration
@@ -68,6 +76,55 @@ namespace SJP.Avro.Tools.CodeGen
 
             using var workspace = new AdhocWorkspace();
             return Formatter.Format(document, workspace).ToFullString();
+        }
+
+        private static IEnumerable<string> GetRequiredNamespaces(global::Avro.Protocol protocol)
+        {
+            var systemNamespaces = new[]
+            {
+                "System",
+                "System.Collections.Generic"
+            };
+
+            var avroNamespaces = new[]
+            {
+                "Avro",
+                "Avro.IO",
+                "Avro.Specific"
+            };
+
+            var namespaces = new HashSet<string>(systemNamespaces.Concat(avroNamespaces));
+
+            var baseNamespace = protocol.Namespace;
+
+            foreach (var message in protocol.Messages.Values)
+            {
+                var responseNamespaces = GetNamespacesForType(message.Response);
+                var requestNamespaces = message.Request.Fields
+                    .Select(f => f.Schema)
+                    .SelectMany(GetNamespacesForType);
+
+                var scannedNamespaces = responseNamespaces
+                    .Concat(requestNamespaces)
+                    .Where(ns => ns != baseNamespace);
+
+                foreach (var ns in scannedNamespaces)
+                    namespaces.Add(ns);
+            }
+
+            return namespaces.OrderNamespaces();
+        }
+
+        private static IEnumerable<string> GetNamespacesForType(global::Avro.Schema schema)
+        {
+            return schema switch
+            {
+                global::Avro.ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
+                global::Avro.MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
+                global::Avro.UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
+                global::Avro.NamedSchema namedSchema => namedSchema.Namespace != null ? new[] { namedSchema.Namespace } : Array.Empty<string>(),
+                _ => Array.Empty<string>()
+            };
         }
 
         private static MethodDeclarationSyntax BuildRequestMethod(global::Avro.Protocol protocol)

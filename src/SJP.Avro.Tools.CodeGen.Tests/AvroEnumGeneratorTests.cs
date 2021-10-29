@@ -125,8 +125,6 @@ namespace SJP.Avro.Tools.CodeGen.Tests
 
             var result = protocolGenerator.Generate(schema);
 
-
-
             Assert.Pass(result);
         }
     }

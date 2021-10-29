@@ -40,19 +40,7 @@ namespace SJP.Avro.Tools.CodeGen
             if (schema is global::Avro.UnionSchema unionSchema)
                 return ResolveUnionType(unionSchema);
 
-            // must be something named, build up the name
-            var ns = schema.Fullname;
-            var names = ns.Split('.', StringSplitOptions.RemoveEmptyEntries)
-                .Select(IdentifierName)
-                .ToList();
-
-            NameSyntax syntax = names[0];
-            foreach (var name in names.Skip(1))
-            {
-                syntax = QualifiedName(syntax, name);
-            }
-
-            return syntax;
+            return IdentifierName(schema.Name);
         }
 
         private static TypeSyntax ResolveLogicalType(global::Avro.LogicalSchema logicalSchema)
