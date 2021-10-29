@@ -29,16 +29,9 @@ namespace SJP.Avro.Tools.CodeGen
                 .Select(UsingDirective)
                 .ToList();
 
-            var messageMethods = new List<MethodDeclarationSyntax>();
-
-            foreach (var message in protocol.Messages.Values)
-            {
-                var messageMethod = BuildMethod(message);
-                var messageCallbackMethod = BuildMethodWithCallback(message);
-
-                messageMethods.Add(messageMethod);
-                messageMethods.Add(messageCallbackMethod);
-            }
+            var messageMethods = protocol.Messages.Values
+                .Select(BuildMethod)
+                .ToList();
 
             var members = new MemberDeclarationSyntax[]
             {
@@ -246,57 +239,12 @@ namespace SJP.Avro.Tools.CodeGen
             return method;
         }
 
-        private static MethodDeclarationSyntax BuildMethodWithCallback(Message message)
-        {
-            var messageParams = message.Request.Fields
-                .Select(BuildMessageParameter)
-                .Concat(new[] { BuildCallbackParameter(message.Response) })
-                .ToList();
-
-            var parameterList = ParameterList(
-                SeparatedList(messageParams));
-
-            var method = MethodDeclaration(
-                    PredefinedType(Token(SyntaxKind.VoidKeyword)),
-                    Identifier(message.Name))
-                .WithModifiers(
-                    TokenList(
-                        Token(SyntaxKind.PublicKeyword),
-                        Token(SyntaxKind.AbstractKeyword)))
-                .WithParameterList(parameterList)
-                .WithSemicolonToken(
-                    Token(SyntaxKind.SemicolonToken))
-                .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));
-
-            if (message.Doc != null)
-            {
-                method = method
-                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(message.Doc));
-            }
-
-            return method;
-        }
-
         private static ParameterSyntax BuildMessageParameter(Field field)
         {
             var paramType = AvroSchemaUtilities.GetFieldType(field.Schema);
             var paramName = Identifier(field.Name);
 
             return Parameter(paramName)
-                .WithType(paramType);
-        }
-
-        private static ParameterSyntax BuildCallbackParameter(Schema responseSchema)
-        {
-            var responseType = GetMessageResponseType(responseSchema);
-
-            var paramType = GenericName(
-                Identifier(nameof(ICallback<object>)))
-                .WithTypeArgumentList(
-                    TypeArgumentList(
-                        SingletonSeparatedList(responseType)));
-
-            return Parameter(Identifier("callback"))
                 .WithType(paramType);
         }
 
