@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Avro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
-using AvroSchema = Avro.Schema;
-
 
 namespace SJP.Avro.Tools.CodeGen
 {
@@ -54,18 +53,18 @@ namespace SJP.Avro.Tools.CodeGen
         /// <summary>
         /// A type syntax lookup that translates from built-in C# types to Roslyn type definitions.
         /// </summary>
-        public static readonly IReadOnlyDictionary<AvroSchema.Type, TypeSyntax> TypeSyntaxMap = new Dictionary<AvroSchema.Type, TypeSyntax>()
+        public static readonly IReadOnlyDictionary<Schema.Type, TypeSyntax> TypeSyntaxMap = new Dictionary<Schema.Type, TypeSyntax>()
         {
-            [AvroSchema.Type.Boolean] = PredefinedType(Token(SyntaxKind.BoolKeyword)),
-            [AvroSchema.Type.Bytes] = ArrayType(
+            [Schema.Type.Boolean] = PredefinedType(Token(SyntaxKind.BoolKeyword)),
+            [Schema.Type.Bytes] = ArrayType(
                 PredefinedType(Token(SyntaxKind.ByteKeyword)),
                 SingletonList(ArrayRankSpecifier())),
-            [AvroSchema.Type.Double] = PredefinedType(Token(SyntaxKind.DoubleKeyword)),
-            [AvroSchema.Type.Float] = PredefinedType(Token(SyntaxKind.FloatKeyword)),
-            [AvroSchema.Type.Int] = PredefinedType(Token(SyntaxKind.IntKeyword)),
-            [AvroSchema.Type.Long] = PredefinedType(Token(SyntaxKind.LongKeyword)),
-            [AvroSchema.Type.Null] = PredefinedType(Token(SyntaxKind.ObjectKeyword)),
-            [AvroSchema.Type.String] = PredefinedType(Token(SyntaxKind.StringKeyword))
+            [Schema.Type.Double] = PredefinedType(Token(SyntaxKind.DoubleKeyword)),
+            [Schema.Type.Float] = PredefinedType(Token(SyntaxKind.FloatKeyword)),
+            [Schema.Type.Int] = PredefinedType(Token(SyntaxKind.IntKeyword)),
+            [Schema.Type.Long] = PredefinedType(Token(SyntaxKind.LongKeyword)),
+            [Schema.Type.Null] = PredefinedType(Token(SyntaxKind.ObjectKeyword)),
+            [Schema.Type.String] = PredefinedType(Token(SyntaxKind.StringKeyword))
         };
 
         /// <summary>

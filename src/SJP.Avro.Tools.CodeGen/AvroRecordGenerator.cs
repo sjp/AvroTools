@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using Avro;
+using Avro.Specific;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
-using AvroSchema = Avro.Schema;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
-
 
 namespace SJP.Avro.Tools.CodeGen
 {
@@ -16,14 +15,11 @@ namespace SJP.Avro.Tools.CodeGen
     {
         public string Generate(string json)
         {
-            //var json = File.ReadAllText(filePath);
-            //var schema = AvroSchema.Parse(json);
+            var p = Protocol.Parse(json);
+            var schema = p.Types.First(t => t is RecordSchema);
 
-            var p = global::Avro.Protocol.Parse(json);
-            var schema = p.Types.First(t => t is global::Avro.RecordSchema);
-
-            var recordSchema = schema as global::Avro.RecordSchema;
-            var isError = recordSchema.Tag == AvroSchema.Type.Error;
+            var recordSchema = schema as RecordSchema;
+            var isError = recordSchema.Tag == Schema.Type.Error;
             var ns = recordSchema.Namespace;
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? "FakeExample"));
@@ -65,9 +61,7 @@ namespace SJP.Avro.Tools.CodeGen
                 enumDecl
             });
 
-            var baseType = isError
-                ? nameof(global::Avro.Specific.SpecificException)
-                : nameof(global::Avro.Specific.ISpecificRecord);
+            var baseType = isError ? nameof(SpecificException) : nameof(ISpecificRecord);
 
             var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), recordSchema.Name)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
@@ -94,7 +88,7 @@ namespace SJP.Avro.Tools.CodeGen
             return Formatter.Format(document, workspace).ToFullString();
         }
 
-        private static IEnumerable<string> GetRequiredNamespaces(global::Avro.RecordSchema record)
+        private static IEnumerable<string> GetRequiredNamespaces(RecordSchema record)
         {
             var systemNamespaces = new[]
             {
@@ -122,19 +116,19 @@ namespace SJP.Avro.Tools.CodeGen
             return namespaces.OrderNamespaces();
         }
 
-        private static IEnumerable<string> GetNamespacesForType(global::Avro.Schema schema)
+        private static IEnumerable<string> GetNamespacesForType(Schema schema)
         {
             return schema switch
             {
-                global::Avro.ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
-                global::Avro.MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
-                global::Avro.UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
-                global::Avro.NamedSchema namedSchema => namedSchema.Namespace != null ? new[] { namedSchema.Namespace } : Array.Empty<string>(),
+                ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
+                MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
+                UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
+                NamedSchema namedSchema => namedSchema.Namespace != null ? new[] { namedSchema.Namespace } : Array.Empty<string>(),
                 _ => Array.Empty<string>()
             };
         }
 
-        private static PropertyDeclarationSyntax BuildField(global::Avro.Field field, string className)
+        private static PropertyDeclarationSyntax BuildField(Field field, string className)
         {
             if (string.IsNullOrWhiteSpace(className))
                 throw new ArgumentNullException(nameof(className));
@@ -172,9 +166,9 @@ namespace SJP.Avro.Tools.CodeGen
                 .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));
         }
 
-        private static MethodDeclarationSyntax GenerateGetMethod(global::Avro.RecordSchema recordSchema)
+        private static MethodDeclarationSyntax GenerateGetMethod(RecordSchema recordSchema)
         {
-            var isError = recordSchema.Tag == AvroSchema.Type.Error;
+            var isError = recordSchema.Tag == Schema.Type.Error;
 
             var parameterList = ParameterList(
                 SingletonSeparatedList(
@@ -235,9 +229,9 @@ namespace SJP.Avro.Tools.CodeGen
                                 SeparatedList(fieldCaseStatements)))));
         }
 
-        private static MethodDeclarationSyntax GeneratePutMethod(global::Avro.RecordSchema recordSchema)
+        private static MethodDeclarationSyntax GeneratePutMethod(RecordSchema recordSchema)
         {
-            var isError = recordSchema.Tag == AvroSchema.Type.Error;
+            var isError = recordSchema.Tag == Schema.Type.Error;
 
             var parameterList = ParameterList(
                 SeparatedList<ParameterSyntax>(
@@ -304,10 +298,10 @@ namespace SJP.Avro.Tools.CodeGen
                             List(fieldCaseStatements))));
         }
 
-        private static SwitchExpressionArmSyntax GenerateGetCaseStatement(global::Avro.Field field, string enumClassName)
+        private static SwitchExpressionArmSyntax GenerateGetCaseStatement(Field field, string enumClassName)
         {
             // special case for decimal
-            if (field.Schema is global::Avro.LogicalSchema logicalSchema && logicalSchema.LogicalTypeName == "decimal")
+            if (field.Schema is LogicalSchema logicalSchema && logicalSchema.LogicalTypeName == "decimal")
             {
                 var scale = byte.Parse(logicalSchema.GetProperty("scale"));
                 var dec = GenerateGetDecimalCase(field, scale);
@@ -330,7 +324,7 @@ namespace SJP.Avro.Tools.CodeGen
                 IdentifierName(field.Name));
         }
 
-        private static ObjectCreationExpressionSyntax GenerateGetDecimalCase(global::Avro.Field field, int scale)
+        private static ObjectCreationExpressionSyntax GenerateGetDecimalCase(Field field, int scale)
         {
             return ObjectCreationExpression(
                 IdentifierName("AvroDecimal"))
@@ -446,10 +440,10 @@ namespace SJP.Avro.Tools.CodeGen
                                                     Literal(" in Put()"))))))))));
         }
 
-        private static SwitchSectionSyntax GeneratePutCaseStatement(global::Avro.Field field, string enumClassName)
+        private static SwitchSectionSyntax GeneratePutCaseStatement(Field field, string enumClassName)
         {
             // special case for decimal
-            if (field.Schema is global::Avro.LogicalSchema logicalSchema && logicalSchema.LogicalTypeName == "decimal")
+            if (field.Schema is LogicalSchema logicalSchema && logicalSchema.LogicalTypeName == "decimal")
             {
                 return GenerateDecimalPutCaseStatement(field, enumClassName);
             }
@@ -477,7 +471,7 @@ namespace SJP.Avro.Tools.CodeGen
                             BreakStatement()}));
         }
 
-        private static SwitchSectionSyntax GenerateDecimalPutCaseStatement(global::Avro.Field field, string enumClassName)
+        private static SwitchSectionSyntax GenerateDecimalPutCaseStatement(Field field, string enumClassName)
         {
             return SwitchSection()
                 .WithLabels(
@@ -502,7 +496,7 @@ namespace SJP.Avro.Tools.CodeGen
                                             IdentifierName("ToDecimal")))
                                     .WithArgumentList(
                                         ArgumentList(
-                                            SingletonSeparatedList<ArgumentSyntax>(
+                                            SingletonSeparatedList(
                                                 Argument(
                                                     CastExpression(
                                                         IdentifierName("AvroDecimal"),
@@ -511,7 +505,7 @@ namespace SJP.Avro.Tools.CodeGen
                         }));
         }
 
-        private static EnumDeclarationSyntax GenerateFieldMappingEnum(global::Avro.RecordSchema recordSchema)
+        private static EnumDeclarationSyntax GenerateFieldMappingEnum(RecordSchema recordSchema)
         {
             var members = recordSchema.Fields
                 .Select(f => f.Name)
@@ -528,7 +522,7 @@ namespace SJP.Avro.Tools.CodeGen
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
         }
 
-        private static string GetFieldEnumName(global::Avro.RecordSchema recordSchema)
+        private static string GetFieldEnumName(RecordSchema recordSchema)
         {
             var candidate = char.ToUpper(recordSchema.Name[0])
                 + recordSchema.Name[1..]
@@ -540,7 +534,7 @@ namespace SJP.Avro.Tools.CodeGen
             return candidate;
         }
 
-        private static string GetLocalFieldEnumName(global::Avro.RecordSchema recordSchema)
+        private static string GetLocalFieldEnumName(RecordSchema recordSchema)
         {
             var candidate = char.ToLower(recordSchema.Name[0])
                 + recordSchema.Name[1..]

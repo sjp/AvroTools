@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Linq;
+using Avro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
-using AvroSchema = Avro.Schema;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen
@@ -15,11 +12,9 @@ namespace SJP.Avro.Tools.CodeGen
     {
         public string Generate(string json)
         {
-            //var json = File.ReadAllText(filePath);
-            var schema = AvroSchema.Parse(json);
+            var schema = Schema.Parse(json);
 
-
-            var enumSchema = schema as global::Avro.EnumSchema;
+            var enumSchema = schema as EnumSchema;
             var ns = enumSchema.Namespace;
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? "FakeExample"));

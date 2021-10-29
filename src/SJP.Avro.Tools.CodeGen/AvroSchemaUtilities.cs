@@ -1,49 +1,44 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using Avro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Formatting;
-using AvroSchema = Avro.Schema;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
-
 
 namespace SJP.Avro.Tools.CodeGen
 {
-
-
     internal static class AvroSchemaUtilities
     {
-        public static TypeSyntax GetFieldType(AvroSchema schema)
+        public static TypeSyntax GetFieldType(Schema schema)
         {
             var fieldIsNullable = IsNullableRefType(schema) || IsNullableValueType(schema);
             var fieldType = GetSimpleFieldType(schema);
             return fieldIsNullable ? NullableType(fieldType) : fieldType;
         }
 
-        public static TypeSyntax GetSimpleFieldType(AvroSchema schema)
+        public static TypeSyntax GetSimpleFieldType(Schema schema)
         {
             if (SyntaxUtilities.TypeSyntaxMap.TryGetValue(schema.Tag, out var builtinType))
                 return builtinType;
 
-            if (schema is global::Avro.LogicalSchema logicalSchema)
+            if (schema is LogicalSchema logicalSchema)
                 return ResolveLogicalType(logicalSchema);
 
-            if (schema is global::Avro.ArraySchema arraySchema)
+            if (schema is ArraySchema arraySchema)
                 return ResolveArrayType(arraySchema);
 
-            if (schema is global::Avro.MapSchema mapSchema)
+            if (schema is MapSchema mapSchema)
                 return ResolveMapType(mapSchema);
 
-            if (schema is global::Avro.UnionSchema unionSchema)
+            if (schema is UnionSchema unionSchema)
                 return ResolveUnionType(unionSchema);
 
             return IdentifierName(schema.Name);
         }
 
-        private static TypeSyntax ResolveLogicalType(global::Avro.LogicalSchema logicalSchema)
+        private static TypeSyntax ResolveLogicalType(LogicalSchema logicalSchema)
         {
             return logicalSchema.LogicalTypeName switch
             {
@@ -61,7 +56,7 @@ namespace SJP.Avro.Tools.CodeGen
             };
         }
 
-        private static TypeSyntax ResolveArrayType(global::Avro.ArraySchema arraySchema)
+        private static TypeSyntax ResolveArrayType(ArraySchema arraySchema)
         {
             var value = GetFieldType(arraySchema.ItemSchema);
             return ArrayType(
@@ -69,11 +64,11 @@ namespace SJP.Avro.Tools.CodeGen
                 SingletonList(ArrayRankSpecifier()));
         }
 
-        private static TypeSyntax ResolveMapType(global::Avro.MapSchema mapSchema)
+        private static TypeSyntax ResolveMapType(MapSchema mapSchema)
         {
             var value = GetFieldType(mapSchema.ValueSchema);
             return GenericName(
-                Identifier("IDictionary"))
+                Identifier(nameof(IDictionary<string, object>)))
                 .WithTypeArgumentList(
                     TypeArgumentList(
                         SeparatedList<TypeSyntax>(
@@ -86,12 +81,12 @@ namespace SJP.Avro.Tools.CodeGen
                             })));
         }
 
-        private static TypeSyntax ResolveUnionType(global::Avro.UnionSchema unionSchema)
+        private static TypeSyntax ResolveUnionType(UnionSchema unionSchema)
         {
             var typeCount = unionSchema.Schemas
                 .Select(s => s.Tag)
                 .Distinct()
-                .Count(t => t != AvroSchema.Type.Null);
+                .Count(t => t != Schema.Type.Null);
 
             // If we have a set of values > 2, we'll need custom code (not possible
             // to automatically generate.
@@ -100,7 +95,7 @@ namespace SJP.Avro.Tools.CodeGen
                 return PredefinedType(Token(SyntaxKind.ObjectKeyword));
 
             var nonNullType = unionSchema.Schemas
-                .FirstOrDefault(s => s.Tag != AvroSchema.Type.Null);
+                .FirstOrDefault(s => s.Tag != Schema.Type.Null);
 
             // giving up, only a null value (unable to resolve to anything other than 'object'.
             if (nonNullType == null)
@@ -109,26 +104,26 @@ namespace SJP.Avro.Tools.CodeGen
             return GetFieldType(nonNullType);
         }
 
-        public static bool IsNullableRefType(AvroSchema schema)
+        public static bool IsNullableRefType(Schema schema)
         {
-            return schema is global::Avro.UnionSchema unionSchema
-                && unionSchema.Schemas.Any(s => s.Tag == AvroSchema.Type.Null)
-                && !unionSchema.Schemas.Any(s => s.Tag != AvroSchema.Type.Null && IsValueType(schema));
+            return schema is UnionSchema unionSchema
+                && unionSchema.Schemas.Any(s => s.Tag == Schema.Type.Null)
+                && !unionSchema.Schemas.Any(s => s.Tag != Schema.Type.Null && IsValueType(schema));
         }
 
-        public static bool IsNullableValueType(AvroSchema schema)
+        public static bool IsNullableValueType(Schema schema)
         {
-            return schema is global::Avro.UnionSchema unionSchema
-                && unionSchema.Schemas.Any(s => s.Tag == AvroSchema.Type.Null)
-                && !unionSchema.Schemas.Any(s => s.Tag != AvroSchema.Type.Null && !IsValueType(schema));
+            return schema is UnionSchema unionSchema
+                && unionSchema.Schemas.Any(s => s.Tag == Schema.Type.Null)
+                && !unionSchema.Schemas.Any(s => s.Tag != Schema.Type.Null && !IsValueType(schema));
         }
 
-        public static bool IsValueType(AvroSchema schema)
+        public static bool IsValueType(Schema schema)
         {
             if (ValueTypes.Contains(schema.Tag))
                 return true;
 
-            if (schema is global::Avro.LogicalSchema logicalSchema)
+            if (schema is LogicalSchema logicalSchema)
                 return ValueTypeLogicalTypeNames.Contains(logicalSchema.LogicalTypeName);
 
             return false;
@@ -148,21 +143,21 @@ namespace SJP.Avro.Tools.CodeGen
             // uuid is a string
         };
 
-        private static readonly IEnumerable<AvroSchema.Type> ValueTypes = new[]
+        private static readonly IEnumerable<Schema.Type> ValueTypes = new[]
         {
-            AvroSchema.Type.Boolean,
-            AvroSchema.Type.Int,
-            AvroSchema.Type.Long,
-            AvroSchema.Type.Float,
-            AvroSchema.Type.Double,
-            AvroSchema.Type.Enumeration
+            Schema.Type.Boolean,
+            Schema.Type.Int,
+            Schema.Type.Long,
+            Schema.Type.Float,
+            Schema.Type.Double,
+            Schema.Type.Enumeration
         };
 
         public static FieldDeclarationSyntax CreateProtocolDefinition(string json)
         {
             return FieldDeclaration(
                 VariableDeclaration(
-                    IdentifierName("Protocol"))
+                    IdentifierName(nameof(Protocol)))
                 .WithVariables(
                     SingletonSeparatedList(
                         VariableDeclarator(
@@ -172,11 +167,8 @@ namespace SJP.Avro.Tools.CodeGen
                                 InvocationExpression(
                                     MemberAccessExpression(
                                         SyntaxKind.SimpleMemberAccessExpression,
-                                        MemberAccessExpression(
-                                            SyntaxKind.SimpleMemberAccessExpression,
-                                            IdentifierName("Avro"),
-                                            IdentifierName("Protocol")),
-                                        IdentifierName("Parse")))
+                                        IdentifierName(nameof(Protocol)),
+                                        IdentifierName(nameof(Protocol.Parse))))
                                 .WithArgumentList(
                                     ArgumentList(
                                         SingletonSeparatedList(
@@ -195,7 +187,7 @@ namespace SJP.Avro.Tools.CodeGen
         public static PropertyDeclarationSyntax CreateProtocolProperty()
         {
             return PropertyDeclaration(
-                    IdentifierName("Protocol"),
+                    IdentifierName(nameof(Protocol)),
                     Identifier("Protocol"))
                 .WithModifiers(
                     TokenList(
@@ -219,7 +211,7 @@ namespace SJP.Avro.Tools.CodeGen
         {
             return FieldDeclaration(
                 VariableDeclaration(
-                    IdentifierName("Schema"))
+                    IdentifierName(nameof(Schema)))
                 .WithVariables(
                     SingletonSeparatedList(
                         VariableDeclarator(
@@ -252,7 +244,7 @@ namespace SJP.Avro.Tools.CodeGen
         public static PropertyDeclarationSyntax CreateSchemaProperty()
         {
             return PropertyDeclaration(
-                    IdentifierName("Schema"),
+                    IdentifierName(nameof(Schema)),
                     Identifier("Schema"))
                 .WithModifiers(
                     TokenList(

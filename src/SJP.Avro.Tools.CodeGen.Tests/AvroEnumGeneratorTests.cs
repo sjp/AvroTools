@@ -74,7 +74,6 @@ namespace SJP.Avro.Tools.CodeGen.Tests
 
             var result = recordGenerator.Generate(schema);
 
-
             Assert.Pass(result);
         }
 

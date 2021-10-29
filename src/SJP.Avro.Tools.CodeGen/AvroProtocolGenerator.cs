@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Avro;
+using Avro.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
-using AvroSchema = Avro.Schema;
-
 
 namespace SJP.Avro.Tools.CodeGen
 {
@@ -15,10 +15,7 @@ namespace SJP.Avro.Tools.CodeGen
     {
         public string Generate(string json)
         {
-            //var json = File.ReadAllText(filePath);
-            //var schema = AvroSchema.Parse(json);
-
-            var protocol = global::Avro.Protocol.Parse(json);
+            var protocol = Protocol.Parse(json);
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(protocol.Namespace ?? "FakeExample"));
 
@@ -32,7 +29,7 @@ namespace SJP.Avro.Tools.CodeGen
                 .Select(UsingDirective)
                 .ToList();
 
-            var messageMethods = new System.Collections.Generic.List<MethodDeclarationSyntax>();
+            var messageMethods = new List<MethodDeclarationSyntax>();
 
             foreach (var message in protocol.Messages.Values)
             {
@@ -78,7 +75,7 @@ namespace SJP.Avro.Tools.CodeGen
             return Formatter.Format(document, workspace).ToFullString();
         }
 
-        private static IEnumerable<string> GetRequiredNamespaces(global::Avro.Protocol protocol)
+        private static IEnumerable<string> GetRequiredNamespaces(Protocol protocol)
         {
             var systemNamespaces = new[]
             {
@@ -115,19 +112,19 @@ namespace SJP.Avro.Tools.CodeGen
             return namespaces.OrderNamespaces();
         }
 
-        private static IEnumerable<string> GetNamespacesForType(global::Avro.Schema schema)
+        private static IEnumerable<string> GetNamespacesForType(Schema schema)
         {
             return schema switch
             {
-                global::Avro.ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
-                global::Avro.MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
-                global::Avro.UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
-                global::Avro.NamedSchema namedSchema => namedSchema.Namespace != null ? new[] { namedSchema.Namespace } : Array.Empty<string>(),
+                ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
+                MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
+                UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
+                NamedSchema namedSchema => namedSchema.Namespace != null ? new[] { namedSchema.Namespace } : Array.Empty<string>(),
                 _ => Array.Empty<string>()
             };
         }
 
-        private static MethodDeclarationSyntax BuildRequestMethod(global::Avro.Protocol protocol)
+        private static MethodDeclarationSyntax BuildRequestMethod(Protocol protocol)
         {
             var messageCases = protocol.Messages.Values
                 .Select(BuildRequestMethodCase)
@@ -180,7 +177,7 @@ namespace SJP.Avro.Tools.CodeGen
                             List(messageCases))));
         }
 
-        private static SwitchSectionSyntax BuildRequestMethodCase(global::Avro.Message message)
+        private static SwitchSectionSyntax BuildRequestMethodCase(Message message)
         {
             var responseType = AvroSchemaUtilities.GetFieldType(message.Response);
 
@@ -219,7 +216,7 @@ namespace SJP.Avro.Tools.CodeGen
                             BreakStatement()}));
         }
 
-        private static MethodDeclarationSyntax BuildMethod(global::Avro.Message message)
+        private static MethodDeclarationSyntax BuildMethod(Message message)
         {
             var responseType = GetMessageResponseType(message.Response);
 
@@ -249,7 +246,7 @@ namespace SJP.Avro.Tools.CodeGen
             return method;
         }
 
-        private static MethodDeclarationSyntax BuildMethodWithCallback(global::Avro.Message message)
+        private static MethodDeclarationSyntax BuildMethodWithCallback(Message message)
         {
             var messageParams = message.Request.Fields
                 .Select(BuildMessageParameter)
@@ -280,7 +277,7 @@ namespace SJP.Avro.Tools.CodeGen
             return method;
         }
 
-        private static ParameterSyntax BuildMessageParameter(global::Avro.Field field)
+        private static ParameterSyntax BuildMessageParameter(Field field)
         {
             var paramType = AvroSchemaUtilities.GetFieldType(field.Schema);
             var paramName = Identifier(field.Name);
@@ -289,23 +286,23 @@ namespace SJP.Avro.Tools.CodeGen
                 .WithType(paramType);
         }
 
-        private static ParameterSyntax BuildCallbackParameter(global::Avro.Schema responseSchema)
+        private static ParameterSyntax BuildCallbackParameter(Schema responseSchema)
         {
             var responseType = GetMessageResponseType(responseSchema);
 
             var paramType = GenericName(
-                Identifier("ICallback"))
+                Identifier(nameof(ICallback<object>)))
                 .WithTypeArgumentList(
                     TypeArgumentList(
-                        SingletonSeparatedList<TypeSyntax>(responseType)));
+                        SingletonSeparatedList(responseType)));
 
             return Parameter(Identifier("callback"))
                 .WithType(paramType);
         }
 
-        private static TypeSyntax GetMessageResponseType(AvroSchema schema)
+        private static TypeSyntax GetMessageResponseType(Schema schema)
         {
-            return schema.Tag == AvroSchema.Type.Null
+            return schema.Tag == Schema.Type.Null
                 ? PredefinedType(Token(SyntaxKind.VoidKeyword))
                 : AvroSchemaUtilities.GetFieldType(schema);
         }
