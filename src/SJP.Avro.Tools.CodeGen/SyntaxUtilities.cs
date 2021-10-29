@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Avro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -43,9 +44,43 @@ namespace SJP.Avro.Tools.CodeGen
             if (comment == null)
                 throw new ArgumentNullException(nameof(comment));
 
-            return comment.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.TrimStart('*').Trim())
+            var result = comment.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim().TrimStart('*').Trim())
                 .ToList();
+
+            // process from a bunch of lines to paragraphs
+            var builder = new StringBuilder();
+            var paragraphs = new List<string>();
+
+            foreach (var line in result)
+            {
+                if (string.IsNullOrEmpty(line))
+                {
+                    // done with paragraph
+                    var paragraph = builder.ToString();
+                    paragraphs.Add(paragraph);
+
+                    builder.Clear();
+                    continue;
+                }
+
+                // Append space to separate between newlines.
+                // Avoids the following:
+                //
+                // Input: 'It was the best of times,\nit was the worst of times'
+                // Output: 'It was the best of times,it was the worst of times'
+                //
+                // We're wanting: 'It was the best of times, it was the worst of times'
+                builder
+                    .Append(' ')
+                    .Append(line);
+            }
+
+            var lastParagraph = builder.ToString();
+            if (!string.IsNullOrEmpty(lastParagraph))
+                paragraphs.Add(lastParagraph);
+
+            return paragraphs.ConvertAll(p => p.Trim());
         }
 
         private static readonly SyntaxToken XmlNewline = XmlTextNewLine(Environment.NewLine);
