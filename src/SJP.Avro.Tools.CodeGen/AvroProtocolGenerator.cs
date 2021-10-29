@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Avro;
-using Avro.IO;
+using Avro.Specific;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -45,7 +45,7 @@ namespace SJP.Avro.Tools.CodeGen
                 .AddModifiers(
                     Token(SyntaxKind.PublicKeyword),
                     Token(SyntaxKind.AbstractKeyword))
-                .AddBaseListTypes(SimpleBaseType(IdentifierName("ISpecificProtocol")))
+                .AddBaseListTypes(SimpleBaseType(IdentifierName(nameof(ISpecificProtocol))))
                 .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
                 .WithMembers(List(members))
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
@@ -126,18 +126,19 @@ namespace SJP.Avro.Tools.CodeGen
             return MethodDeclaration(
                     PredefinedType(
                         Token(SyntaxKind.VoidKeyword)),
-                    Identifier("Request"))
+                    Identifier(nameof(ISpecificProtocol.Request)))
                 .WithModifiers(
                     TokenList(
                         Token(SyntaxKind.PublicKeyword)))
                 .WithParameterList(
                     ParameterList(
                         SeparatedList<ParameterSyntax>(
-                            new SyntaxNodeOrToken[]{
+                            new SyntaxNodeOrToken[]
+                            {
                                 Parameter(
                                     Identifier("requestor"))
                                 .WithType(
-                                    IdentifierName("ICallbackRequestor")),
+                                    IdentifierName(nameof(ICallbackRequestor))),
                                 Token(SyntaxKind.CommaToken),
                                 Parameter(
                                     Identifier("messageName"))
@@ -153,15 +154,14 @@ namespace SJP.Avro.Tools.CodeGen
                                             Token(SyntaxKind.ObjectKeyword)))
                                     .WithRankSpecifiers(
                                         SingletonList(
-                                            ArrayRankSpecifier(
-                                                SingletonSeparatedList<ExpressionSyntax>(
-                                                    OmittedArraySizeExpression()))))),
+                                            ArrayRankSpecifier()))),
                                 Token(SyntaxKind.CommaToken),
                                 Parameter(
                                     Identifier("callback"))
                                 .WithType(
                                     PredefinedType(
-                                        Token(SyntaxKind.ObjectKeyword)))})))
+                                        Token(SyntaxKind.ObjectKeyword)))
+                            })))
                 .WithBody(
                     Block(
                         SwitchStatement(
@@ -190,14 +190,15 @@ namespace SJP.Avro.Tools.CodeGen
                                         SyntaxKind.SimpleMemberAccessExpression,
                                         IdentifierName("requestor"),
                                         GenericName(
-                                            Identifier("Request"))
+                                            Identifier(nameof(ICallbackRequestor.Request)))
                                         .WithTypeArgumentList(
                                             TypeArgumentList(
                                                 SingletonSeparatedList(responseType)))))
                                 .WithArgumentList(
                                     ArgumentList(
                                         SeparatedList<ArgumentSyntax>(
-                                            new SyntaxNodeOrToken[]{
+                                            new SyntaxNodeOrToken[]
+                                            {
                                                 Argument(
                                                     IdentifierName("messageName")),
                                                 Token(SyntaxKind.CommaToken),
@@ -205,7 +206,8 @@ namespace SJP.Avro.Tools.CodeGen
                                                     IdentifierName("args")),
                                                 Token(SyntaxKind.CommaToken),
                                                 Argument(
-                                                    IdentifierName("callback"))})))),
+                                                    IdentifierName("callback"))
+                                            })))),
                             BreakStatement()}));
         }
 

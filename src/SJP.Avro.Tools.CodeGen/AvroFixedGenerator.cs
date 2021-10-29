@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Avro;
+using Avro.Specific;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -45,7 +46,7 @@ namespace SJP.Avro.Tools.CodeGen
 
             var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), fixedSchema.Name)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
-                .AddBaseListTypes(SimpleBaseType(IdentifierName("SpecificFixed")))
+                .AddBaseListTypes(SimpleBaseType(IdentifierName(nameof(SpecificFixed))))
                 .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
                 .WithMembers(List(members))
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));

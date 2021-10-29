@@ -216,7 +216,7 @@ namespace SJP.Avro.Tools.CodeGen
             return MethodDeclaration(
                     PredefinedType(
                         Token(SyntaxKind.ObjectKeyword)),
-                    Identifier("Get"))
+                    Identifier(nameof(ISpecificRecord.Get)))
                 .WithModifiers(modifiers)
                 .WithParameterList(parameterList)
                 .WithBody(
@@ -235,18 +235,20 @@ namespace SJP.Avro.Tools.CodeGen
 
             var parameterList = ParameterList(
                 SeparatedList<ParameterSyntax>(
-                    new SyntaxNodeOrToken[]{
+                    new SyntaxNodeOrToken[]
+                    {
                         Parameter(
                             Identifier("fieldPos"))
-                        .WithType(
-                            PredefinedType(
-                                Token(SyntaxKind.IntKeyword))),
+                            .WithType(
+                                PredefinedType(
+                                    Token(SyntaxKind.IntKeyword))),
                         Token(SyntaxKind.CommaToken),
                         Parameter(
                             Identifier("fieldValue"))
-                        .WithType(
-                            PredefinedType(
-                                Token(SyntaxKind.ObjectKeyword)))}));
+                            .WithType(
+                                PredefinedType(
+                                    Token(SyntaxKind.ObjectKeyword)))
+                    }));
 
             var enumName = GetFieldEnumName(recordSchema);
             var localEnumVarName = GetLocalFieldEnumName(recordSchema);
@@ -286,14 +288,14 @@ namespace SJP.Avro.Tools.CodeGen
             return MethodDeclaration(
                     PredefinedType(
                         Token(SyntaxKind.VoidKeyword)),
-                    Identifier("Put"))
+                    Identifier(nameof(ISpecificRecord.Put)))
                 .WithModifiers(modifiers)
                 .WithParameterList(parameterList)
                 .WithBody(
                     Block(
                         intToEnumAssignment,
                         SwitchStatement(
-                            IdentifierName("transactionField"))
+                            IdentifierName(localEnumVarName))
                         .WithSections(
                             List(fieldCaseStatements))));
         }
@@ -327,7 +329,7 @@ namespace SJP.Avro.Tools.CodeGen
         private static ObjectCreationExpressionSyntax GenerateGetDecimalCase(Field field, int scale)
         {
             return ObjectCreationExpression(
-                IdentifierName("AvroDecimal"))
+                IdentifierName(nameof(AvroDecimal)))
                 .WithArgumentList(
                     ArgumentList(
                         SingletonSeparatedList(
@@ -337,12 +339,13 @@ namespace SJP.Avro.Tools.CodeGen
                                     InvocationExpression(
                                         MemberAccessExpression(
                                             SyntaxKind.SimpleMemberAccessExpression,
-                                            IdentifierName("Math"),
-                                            IdentifierName("Round")))
+                                            IdentifierName(nameof(Math)),
+                                            IdentifierName(nameof(Math.Round))))
                                     .WithArgumentList(
                                         ArgumentList(
                                             SeparatedList<ArgumentSyntax>(
-                                                new SyntaxNodeOrToken[]{
+                                                new SyntaxNodeOrToken[]
+                                                {
                                                     Argument(
                                                         IdentifierName(field.Name)),
                                                     Token(SyntaxKind.CommaToken),
@@ -354,15 +357,17 @@ namespace SJP.Avro.Tools.CodeGen
                                                     Argument(
                                                         MemberAccessExpression(
                                                             SyntaxKind.SimpleMemberAccessExpression,
-                                                            IdentifierName("MidpointRounding"),
-                                                            IdentifierName("AwayFromZero")))}))),
+                                                            IdentifierName(nameof(MidpointRounding)),
+                                                            IdentifierName(nameof(MidpointRounding.AwayFromZero))))
+                                                }))),
                                     ObjectCreationExpression(
                                         PredefinedType(
                                             Token(SyntaxKind.DecimalKeyword)))
                                     .WithArgumentList(
                                         ArgumentList(
                                             SeparatedList<ArgumentSyntax>(
-                                                new SyntaxNodeOrToken[]{
+                                                new SyntaxNodeOrToken[]
+                                                {
                                                     Argument(
                                                         LiteralExpression(
                                                             SyntaxKind.NumericLiteralExpression,
@@ -385,7 +390,8 @@ namespace SJP.Avro.Tools.CodeGen
                                                     Argument(
                                                         LiteralExpression(
                                                             SyntaxKind.NumericLiteralExpression,
-                                                            Literal(scale)))}))))))));
+                                                            Literal(scale)))
+                                                }))))))));
         }
 
         private static SwitchExpressionArmSyntax GenerateGetDefaultCaseStatement()
@@ -394,7 +400,7 @@ namespace SJP.Avro.Tools.CodeGen
                 DiscardPattern(),
                 ThrowExpression(
                     ObjectCreationExpression(
-                        IdentifierName("AvroRuntimeException"))
+                        IdentifierName(nameof(AvroRuntimeException)))
                     .WithArgumentList(
                         ArgumentList(
                             SingletonSeparatedList(
@@ -409,7 +415,7 @@ namespace SJP.Avro.Tools.CodeGen
                                             IdentifierName("fieldPos")),
                                         LiteralExpression(
                                             SyntaxKind.StringLiteralExpression,
-                                            Literal(" in Get()")))))))));
+                                            Literal($" in { nameof(ISpecificRecord.Get) }()")))))))));
         }
 
         private static SwitchSectionSyntax GeneratePutDefaultCaseStatement()
@@ -422,7 +428,7 @@ namespace SJP.Avro.Tools.CodeGen
                     SingletonList<StatementSyntax>(
                         ThrowStatement(
                             ObjectCreationExpression(
-                                IdentifierName("AvroRuntimeException"))
+                                IdentifierName(nameof(AvroRuntimeException)))
                             .WithArgumentList(
                                 ArgumentList(
                                     SingletonSeparatedList(
@@ -437,7 +443,7 @@ namespace SJP.Avro.Tools.CodeGen
                                                     IdentifierName("fieldPos")),
                                                 LiteralExpression(
                                                     SyntaxKind.StringLiteralExpression,
-                                                    Literal(" in Put()"))))))))));
+                                                    Literal($" in { nameof(ISpecificRecord.Put) }()"))))))))));
         }
 
         private static SwitchSectionSyntax GeneratePutCaseStatement(Field field, string enumClassName)
@@ -492,14 +498,14 @@ namespace SJP.Avro.Tools.CodeGen
                                     InvocationExpression(
                                         MemberAccessExpression(
                                             SyntaxKind.SimpleMemberAccessExpression,
-                                            IdentifierName("AvroDecimal"),
-                                            IdentifierName("ToDecimal")))
+                                            IdentifierName(nameof(AvroDecimal)),
+                                            IdentifierName(nameof(AvroDecimal.ToDecimal))))
                                     .WithArgumentList(
                                         ArgumentList(
                                             SingletonSeparatedList(
                                                 Argument(
                                                     CastExpression(
-                                                        IdentifierName("AvroDecimal"),
+                                                        IdentifierName(nameof(AvroDecimal)),
                                                         IdentifierName("fieldValue")))))))),
                             BreakStatement()
                         }));
@@ -516,7 +522,6 @@ namespace SJP.Avro.Tools.CodeGen
 
             return EnumDeclaration(enumName)
                 .AddModifiers(Token(SyntaxKind.PrivateKeyword))
-                //.WithLeadingTrivia(BuildTableComment(enumSchema.Name, enumSchema.Documentation))
                 .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
                 .WithMembers(SeparatedList(members))
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
