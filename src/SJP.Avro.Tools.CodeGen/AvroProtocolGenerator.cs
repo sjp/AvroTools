@@ -218,7 +218,7 @@ namespace SJP.Avro.Tools.CodeGen
             var parameterList = ParameterList(
                 SeparatedList(
                     message.Request.Fields
-                        .Select(BuildMessageParameter).ToList()));
+                        .ConvertAll(BuildMessageParameter)));
 
             var method = MethodDeclaration(
                     responseType,

@@ -16,7 +16,7 @@ namespace SJP.Avro.Tools.CodeGen
         public string Generate(string json)
         {
             var p = Protocol.Parse(json);
-            var schema = p.Types.First(t => t is RecordSchema);
+            var schema = p.Types.Last(t => t is RecordSchema);
 
             var recordSchema = schema as RecordSchema;
             var isError = recordSchema.Tag == Schema.Type.Error;

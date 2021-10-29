@@ -1,4 +1,5 @@
-﻿using Avro;
+﻿using System.Linq;
+using Avro;
 using NUnit.Framework;
 
 namespace SJP.Avro.Tools.CodeGen.Tests
@@ -122,9 +123,80 @@ namespace SJP.Avro.Tools.CodeGen.Tests
                 "null\",\"errors\":[\"TestError\"]},\"ping\":{\"request\":[],\"response\":\"null\",\"one-way\":t" +
                 "rue}}}";
 
+
+
             var result = protocolGenerator.Generate(schema);
 
             Assert.Pass(result);
+        }
+
+        [Test]
+        public static void Generate_GivenValidProtocolWithVariousNamespaces_GeneratesExpectedCode()
+        {
+            var protocolGenerator = new AvroProtocolGenerator();
+
+            var schema = @"{
+  ""protocol"" : ""TestNamespace"",
+  ""namespace"" : ""avro.test.protocol"",
+  ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
+  ""types"" : [ {
+    ""type"" : ""fixed"",
+    ""name"" : ""FixedInOtherNamespace"",
+    ""namespace"" : ""avro.test.fixed"",
+    ""size"" : 16
+  }, {
+    ""type"" : ""fixed"",
+    ""name"" : ""FixedInThisNamespace"",
+    ""size"" : 16
+  }, {
+    ""type"" : ""record"",
+    ""name"" : ""RecordInOtherNamespace"",
+    ""namespace"" : ""avro.test.record"",
+    ""fields"" : [ ]
+  }, {
+    ""type"" : ""error"",
+    ""name"" : ""ErrorInOtherNamespace"",
+    ""namespace"" : ""avro.test.error"",
+    ""fields"" : [ ]
+  }, {
+    ""type"" : ""enum"",
+    ""name"" : ""EnumInOtherNamespace"",
+    ""namespace"" : ""avro.test.enum"",
+    ""symbols"" : [ ""FOO"" ]
+  }, {
+    ""type"" : ""record"",
+    ""name"" : ""RefersToOthers"",
+    ""fields"" : [ {
+      ""name"" : ""someFixed"",
+      ""type"" : ""avro.test.fixed.FixedInOtherNamespace""
+    }, {
+      ""name"" : ""someRecord"",
+      ""type"" : ""avro.test.record.RecordInOtherNamespace""
+    }, {
+      ""name"" : ""someError"",
+      ""type"" : ""avro.test.error.ErrorInOtherNamespace""
+    }, {
+      ""name"" : ""someEnum"",
+      ""type"" : ""avro.test.enum.EnumInOtherNamespace""
+    }, {
+      ""name"" : ""thisFixed"",
+      ""type"" : ""FixedInThisNamespace""
+    } ]
+  } ],
+  ""messages"" : {
+  }
+}";
+
+
+
+            var result = protocolGenerator.Generate(schema);
+
+            var recordGenerator = new AvroRecordGenerator();
+
+            var rresult = recordGenerator.Generate(schema);
+
+            Assert.Pass(result);
+            Assert.Pass(rresult);
         }
     }
 }
