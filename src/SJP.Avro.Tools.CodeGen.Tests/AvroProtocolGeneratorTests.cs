@@ -396,7 +396,7 @@ namespace org.apache.avro.test
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
 
         [Test]
@@ -666,7 +666,7 @@ namespace org.apache.avro.test
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
     }
 }

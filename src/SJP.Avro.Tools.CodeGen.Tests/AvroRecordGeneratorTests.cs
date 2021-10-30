@@ -221,7 +221,7 @@ namespace avro.examples.baseball
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
 
         [Test]
@@ -369,7 +369,7 @@ namespace avro.examples.baseball
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
 
         [Test]
@@ -509,7 +509,7 @@ namespace avro.test.protocol
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
     }
 }

@@ -91,7 +91,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
 
         [Test]
@@ -135,7 +135,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     }}
 }}";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
 
         [Test]
@@ -185,7 +185,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
         }
     }
 }
