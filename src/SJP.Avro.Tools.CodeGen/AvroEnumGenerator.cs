@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Avro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -8,10 +9,25 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen
 {
+    /// <summary>
+    /// Generates C# enum types for Avro enumeration types.
+    /// </summary>
     public class AvroEnumGenerator
     {
+        /// <summary>
+        /// Creates a C# implementation of an Avro enumeration type.
+        /// </summary>
+        /// <param name="schema">A definition of an enum in Avro schema.</param>
+        /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+        /// <returns>A string representing a C# file containing an enum definition.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
         public string Generate(EnumSchema schema, string baseNamespace)
         {
+            if (schema == null)
+                throw new ArgumentNullException(nameof(schema));
+            if (string.IsNullOrWhiteSpace(baseNamespace))
+                throw new ArgumentNullException(nameof(baseNamespace));
+
             var ns = schema.Namespace ?? baseNamespace;
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));

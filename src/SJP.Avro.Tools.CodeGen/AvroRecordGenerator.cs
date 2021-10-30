@@ -11,10 +11,25 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen
 {
+    /// <summary>
+    /// Generates C# class files for Avro record or error types.
+    /// </summary>
     public class AvroRecordGenerator
     {
+        /// <summary>
+        /// Creates a C# implementation of an Avro record or error type.
+        /// </summary>
+        /// <param name="schema">A definition of a record/error type in Avro schema.</param>
+        /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+        /// <returns>A string representing a C# file containing a class definition.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
         public string Generate(RecordSchema schema, string baseNamespace)
         {
+            if (schema == null)
+                throw new ArgumentNullException(nameof(schema));
+            if (string.IsNullOrWhiteSpace(baseNamespace))
+                throw new ArgumentNullException(nameof(baseNamespace));
+
             var isError = schema.Tag == Schema.Type.Error;
             var ns = schema.Namespace ?? baseNamespace;
 

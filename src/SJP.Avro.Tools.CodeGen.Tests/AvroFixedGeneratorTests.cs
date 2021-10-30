@@ -9,9 +9,19 @@ namespace SJP.Avro.Tools.CodeGen.Tests
         private const string TestNamespace = "Test.Avro.Namespace";
 
         [Test]
-        public static void Generate_GivenValidFixedSchema_GeneratesExpectedCode()
+        public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
         {
-            var enumGenerator = new AvroFixedGenerator();
+            var fixedGenerator = new AvroFixedGenerator();
+
+            Assert.That(() => fixedGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
+        }
+
+        [TestCase((string)null)]
+        [TestCase("")]
+        [TestCase("    ")]
+        public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+        {
+            var fixedGenerator = new AvroFixedGenerator();
 
             var schema = Schema.Parse(@"{
     ""type"": ""fixed"",
@@ -22,7 +32,24 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ""foo"": ""bar""
 }") as FixedSchema;
 
-            var result = enumGenerator.Generate(schema, TestNamespace);
+            Assert.That(() => fixedGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+        }
+
+        [Test]
+        public static void Generate_GivenValidFixedSchema_GeneratesExpectedCode()
+        {
+            var fixedGenerator = new AvroFixedGenerator();
+
+            var schema = Schema.Parse(@"{
+    ""type"": ""fixed"",
+    ""name"": ""MD5"",
+    ""doc"": ""An MD5 hash."",
+    ""namespace"": ""org.apache.avro.test"",
+    ""size"": 16,
+    ""foo"": ""bar""
+}") as FixedSchema;
+
+            var result = fixedGenerator.Generate(schema, TestNamespace);
 
             const string expected = @"using System;
 using System.Collections.Generic;
@@ -54,7 +81,7 @@ namespace org.apache.avro.test
         [Test]
         public static void Generate_GivenFixedSchemaWithoutNamespace_GeneratesCodeWithDefaultNamespace()
         {
-            var enumGenerator = new AvroFixedGenerator();
+            var fixedGenerator = new AvroFixedGenerator();
 
             var schema = Schema.Parse(@"{
     ""type"": ""fixed"",
@@ -63,7 +90,7 @@ namespace org.apache.avro.test
     ""foo"": ""bar""
 }") as FixedSchema;
 
-            var result = enumGenerator.Generate(schema, TestNamespace);
+            var result = fixedGenerator.Generate(schema, TestNamespace);
 
             var expected = @$"using System;
 using System.Collections.Generic;

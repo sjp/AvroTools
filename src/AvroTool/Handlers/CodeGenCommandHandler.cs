@@ -108,10 +108,10 @@ namespace SJP.Avro.AvroTool.Handlers
                     var outputFilePath = Path.Combine(outputDir.FullName, schema.Name + ".cs");
                     var schemaOutput = schema.Tag switch
                     {
-                        AvroSchema.Type.Enumeration => _enumGenerator.Generate(schema as EnumSchema, baseNamespace),
-                        AvroSchema.Type.Fixed => _fixedGenerator.Generate(schema as FixedSchema, baseNamespace),
-                        AvroSchema.Type.Error => _recordGenerator.Generate(schema as RecordSchema, baseNamespace),
-                        AvroSchema.Type.Record => _recordGenerator.Generate(schema as RecordSchema, baseNamespace),
+                        AvroSchema.Type.Enumeration => _enumGenerator.Generate((EnumSchema)schema, baseNamespace),
+                        AvroSchema.Type.Fixed => _fixedGenerator.Generate((FixedSchema)schema, baseNamespace),
+                        AvroSchema.Type.Error => _recordGenerator.Generate((RecordSchema)schema, baseNamespace),
+                        AvroSchema.Type.Record => _recordGenerator.Generate((RecordSchema)schema, baseNamespace),
                         _ => null
                     };
                     if (schemaOutput.IsNullOrWhiteSpace())

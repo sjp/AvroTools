@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avro;
 using Avro.Specific;
@@ -10,10 +11,25 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen
 {
+    /// <summary>
+    /// Generates C# class files for Avro fixed types.
+    /// </summary>
     public class AvroFixedGenerator
     {
+        /// <summary>
+        /// Creates a C# implementation of an Avro fixed type.
+        /// </summary>
+        /// <param name="schema">A definition of a fixed type in Avro schema.</param>
+        /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+        /// <returns>A string representing a C# file containing a class definition.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
         public string Generate(FixedSchema schema, string baseNamespace)
         {
+            if (schema == null)
+                throw new ArgumentNullException(nameof(schema));
+            if (string.IsNullOrWhiteSpace(baseNamespace))
+                throw new ArgumentNullException(nameof(baseNamespace));
+
             var ns = schema.Namespace ?? baseNamespace;
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));

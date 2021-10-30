@@ -9,6 +9,43 @@ namespace SJP.Avro.Tools.CodeGen.Tests
         private const string TestNamespace = "Test.Avro.Namespace";
 
         [Test]
+        public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
+        {
+            var enumGenerator = new AvroEnumGenerator();
+
+            Assert.That(() => enumGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
+        }
+
+        [TestCase((string)null)]
+        [TestCase("")]
+        [TestCase("    ")]
+        public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+        {
+            var enumGenerator = new AvroEnumGenerator();
+
+            var schema = Schema.Parse(@"{
+    ""type"": ""enum"",
+    ""name"": ""Position"",
+    ""doc"": ""Test documentation"",
+    ""namespace"": ""avro.examples.baseball"",
+    ""symbols"": [
+        ""P"",
+        ""C"",
+        ""B1"",
+        ""B2"",
+        ""B3"",
+        ""SS"",
+        ""LF"",
+        ""CF"",
+        ""RF"",
+        ""DH""
+    ]
+}") as EnumSchema;
+
+            Assert.That(() => enumGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+        }
+
+        [Test]
         public static void Generate_GivenValidEnumSchema_GeneratesExpectedCode()
         {
             var enumGenerator = new AvroEnumGenerator();

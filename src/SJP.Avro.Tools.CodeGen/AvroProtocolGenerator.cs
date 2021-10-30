@@ -11,10 +11,25 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen
 {
+    /// <summary>
+    /// Generates C# class files for Avro protocol methods.
+    /// </summary>
     public class AvroProtocolGenerator
     {
+        /// <summary>
+        /// Creates a C# implementation of an Avro protocol.
+        /// </summary>
+        /// <param name="protocol">A definition of an Avro protocol.</param>
+        /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+        /// <returns>A string representing a C# file containing a class definition. Empty when no messages are present in the protocol.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
         public string Generate(Protocol protocol, string baseNamespace)
         {
+            if (protocol == null)
+                throw new ArgumentNullException(nameof(protocol));
+            if (string.IsNullOrWhiteSpace(baseNamespace))
+                throw new ArgumentNullException(nameof(baseNamespace));
+
             // no messages to generate
             if (protocol.Messages.Count == 0)
                 return string.Empty;
