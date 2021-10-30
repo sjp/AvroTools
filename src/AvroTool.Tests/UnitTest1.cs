@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace SJP.Schematic.Tool.Tests
+namespace SJP.Avro.AvroTool.Tests
 {
     [TestFixture]
     internal static class UnitTest1
