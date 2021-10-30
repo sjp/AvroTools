@@ -33,8 +33,8 @@ namespace SJP.Avro.AvroTool.Commands
 
             Handler = CommandHandler.Create<IConsole, FileInfo, bool, string, DirectoryInfo?, CancellationToken>(static (console, input, overwrite, @namespace, outputDir, cancellationToken) =>
             {
-                var handler = new CodeGenCommandHandler();
-                return handler.HandleCommandAsync(console, input, overwrite, @namespace, outputDir, cancellationToken);
+                var handler = new CodeGenCommandHandler(console);
+                return handler.HandleCommandAsync(input, overwrite, @namespace, outputDir, cancellationToken);
             });
         }
     }

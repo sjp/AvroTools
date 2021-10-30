@@ -25,11 +25,18 @@ namespace SJP.Avro.AvroTool.Handlers
         private readonly AvroProtocolGenerator _protocolGenerator = new();
         private readonly AvroRecordGenerator _recordGenerator = new();
 
-        public async Task<int> HandleCommandAsync(IConsole console, FileInfo input, bool overwrite, string baseNamespace, DirectoryInfo? outputDir, CancellationToken cancellationToken)
+        private readonly IConsole _console;
+
+        public CodeGenCommandHandler(IConsole console)
+        {
+            _console = console ?? throw new ArgumentNullException(nameof(console));
+        }
+
+        public async Task<int> HandleCommandAsync(FileInfo input, bool overwrite, string baseNamespace, DirectoryInfo? outputDir, CancellationToken cancellationToken)
         {
             if (!input.Exists)
             {
-                WriteError(console, "An input file could not be found at: " + input.FullName);
+                WriteError("An input file could not be found at: " + input.FullName);
                 return ErrorCode.Error;
             }
 
@@ -60,8 +67,8 @@ namespace SJP.Avro.AvroTool.Handlers
 
                     if (File.Exists(outputFilePath) && !overwrite)
                     {
-                        WriteError(console, "Unable to generate C# files. A file already exists.");
-                        WriteError(console, "    " + outputFilePath);
+                        WriteError("Unable to generate C# files. A file already exists.");
+                        WriteError("    " + outputFilePath);
                         return ErrorCode.Error;
                     }
                 }
@@ -71,9 +78,9 @@ namespace SJP.Avro.AvroTool.Handlers
                 var existingFiles = filenames.Where(File.Exists).ToList();
                 if (existingFiles.Count > 0 && !overwrite)
                 {
-                    WriteError(console, "Unable to generate C# files. One or more files exist.");
+                    WriteError("Unable to generate C# files. One or more files exist.");
                     foreach (var existingFile in existingFiles)
-                        WriteError(console, "    " + existingFile);
+                        WriteError("    " + existingFile);
                     return ErrorCode.Error;
                 }
 
@@ -81,7 +88,7 @@ namespace SJP.Avro.AvroTool.Handlers
                 {
                     if (protocol.Messages.Count == 0)
                     {
-                        WriteWarning(console, $"Skipping protocol message generation. Protocol '{ protocol.Name }' has no messages");
+                        WriteWarning($"Skipping protocol message generation. Protocol '{ protocol.Name }' has no messages");
                     }
                     else
                     {
@@ -92,7 +99,7 @@ namespace SJP.Avro.AvroTool.Handlers
                             File.Delete(outputFilePath);
 
                         await File.WriteAllTextAsync(outputFilePath, protocolOutput, cancellationToken).ConfigureAwait(false);
-                        WriteSuccess(console, "Generated " + outputFilePath);
+                        WriteSuccess("Generated " + outputFilePath);
                     }
                 }
 
@@ -114,17 +121,17 @@ namespace SJP.Avro.AvroTool.Handlers
                         File.Delete(outputFilePath);
 
                     await File.WriteAllTextAsync(outputFilePath, schemaOutput, cancellationToken).ConfigureAwait(false);
-                    WriteSuccess(console, "Generated " + outputFilePath);
+                    WriteSuccess("Generated " + outputFilePath);
                 }
 
                 return ErrorCode.Success;
             }
             catch (Exception ex)
             {
-                console.SetTerminalForegroundRed();
-                console.Error.WriteLine("Failed to generate C# files.");
-                console.Error.Write("    " + ex.Message);
-                console.ResetTerminalForegroundColor();
+                _console.SetTerminalForegroundRed();
+                _console.Error.WriteLine("Failed to generate C# files.");
+                _console.Error.Write("    " + ex.Message);
+                _console.ResetTerminalForegroundColor();
 
                 return ErrorCode.Error;
             }
@@ -224,25 +231,25 @@ namespace SJP.Avro.AvroTool.Handlers
             return result.HasValue;
         }
 
-        private static void WriteSuccess(IConsole console, string message)
+        private void WriteSuccess(string message)
         {
-            console.SetTerminalForegroundGreen();
-            console.Out.WriteLine(message);
-            console.ResetTerminalForegroundColor();
+            _console.SetTerminalForegroundGreen();
+            _console.Out.WriteLine(message);
+            _console.ResetTerminalForegroundColor();
         }
 
-        private static void WriteWarning(IConsole console, string message)
+        private void WriteWarning(string message)
         {
-            console.SetTerminalForegroundYellow();
-            console.Out.WriteLine(message);
-            console.ResetTerminalForegroundColor();
+            _console.SetTerminalForegroundYellow();
+            _console.Out.WriteLine(message);
+            _console.ResetTerminalForegroundColor();
         }
 
-        private static void WriteError(IConsole console, string message)
+        private void WriteError(string message)
         {
-            console.SetTerminalForegroundRed();
-            console.Error.WriteLine(message);
-            console.ResetTerminalForegroundColor();
+            _console.SetTerminalForegroundRed();
+            _console.Error.WriteLine(message);
+            _console.ResetTerminalForegroundColor();
         }
     }
 }

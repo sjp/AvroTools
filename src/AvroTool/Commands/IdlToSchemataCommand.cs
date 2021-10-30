@@ -30,8 +30,8 @@ namespace SJP.Avro.AvroTool.Commands
 
             Handler = CommandHandler.Create<IConsole, FileInfo, bool, DirectoryInfo?, CancellationToken>(static (console, idlfile, overwrite, outputDir, cancellationToken) =>
             {
-                var handler = new IdlToSchemataCommandHandler();
-                return handler.HandleCommandAsync(console, idlfile, overwrite, outputDir, cancellationToken);
+                var handler = new IdlToSchemataCommandHandler(console);
+                return handler.HandleCommandAsync(idlfile, overwrite, outputDir, cancellationToken);
             });
         }
     }
