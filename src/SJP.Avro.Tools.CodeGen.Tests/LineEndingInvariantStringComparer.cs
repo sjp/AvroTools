@@ -8,7 +8,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     /// <summary>
     /// A string comparer that ignores platform-specific line endings.
     /// </summary>
-    public sealed class LineEndingInvariantStringComparer : IEqualityComparer<string>
+    internal sealed class LineEndingInvariantStringComparer : IEqualityComparer<string>
     {
         private static readonly Regex _lineEndingRegex = new("\r\n|\n\r|\n|\r", RegexOptions.Compiled, TimeSpan.FromMilliseconds(100));
         private const string Crlf = "\r\n";
