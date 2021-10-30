@@ -10,8 +10,8 @@ using SJP.Avro.Tools;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 using Superpower.Model;
-using AvroProtocol = global::Avro.Protocol;
-using AvroSchema = global::Avro.Schema;
+using AvroProtocol = Avro.Protocol;
+using AvroSchema = Avro.Schema;
 
 namespace SJP.Avro.AvroTool.Handlers
 {

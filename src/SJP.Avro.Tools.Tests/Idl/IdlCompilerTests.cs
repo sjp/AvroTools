@@ -41,8 +41,7 @@ namespace SJP.Avro.Tools.Tests.Idl
                 Array.Empty<FixedDeclaration>(),
                 Array.Empty<EnumDeclaration>(),
                 Array.Empty<ErrorDeclaration>(),
-                Array.Empty<ImportDeclaration>()
-,
+                Array.Empty<ImportDeclaration>(),
                 new Dictionary<Identifier, MessageDeclaration>()
             );
 

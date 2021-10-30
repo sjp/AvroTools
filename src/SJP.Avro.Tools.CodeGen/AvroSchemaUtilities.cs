@@ -221,11 +221,8 @@ namespace SJP.Avro.Tools.CodeGen
                                 InvocationExpression(
                                     MemberAccessExpression(
                                         SyntaxKind.SimpleMemberAccessExpression,
-                                        MemberAccessExpression(
-                                            SyntaxKind.SimpleMemberAccessExpression,
-                                            IdentifierName("Avro"),
-                                            IdentifierName("Schema")),
-                                        IdentifierName("Parse")))
+                                        IdentifierName(nameof(Schema)),
+                                        IdentifierName(nameof(Schema.Parse))))
                                 .WithArgumentList(
                                     ArgumentList(
                                         SingletonSeparatedList(

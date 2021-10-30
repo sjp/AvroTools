@@ -8,7 +8,7 @@ using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
 using SJP.Avro.Tools.Idl.Model;
 using Superpower.Model;
-using AvroProtocol = global::Avro.Protocol;
+using AvroProtocol = Avro.Protocol;
 
 namespace SJP.Avro.AvroTool.Handlers
 {

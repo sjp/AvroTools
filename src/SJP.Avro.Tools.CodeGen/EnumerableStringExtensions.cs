@@ -7,7 +7,7 @@ namespace SJP.Avro.Tools.CodeGen
     /// <summary>
     /// Extension methods for working with a collection of strings.
     /// </summary>
-    public static class EnumerableStringExtensions
+    internal static class EnumerableStringExtensions
     {
         /// <summary>
         /// Orders namespaces in a conventional manner. System namespaces appear first, followed by other namespaces (again, in order).

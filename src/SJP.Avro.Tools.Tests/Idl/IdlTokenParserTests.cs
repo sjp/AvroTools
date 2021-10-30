@@ -24,7 +24,7 @@ namespace SJP.Avro.Tools.Tests.Idl
             var result = IdlTokenParsers.Protocol(tokenList);
 
             Assert.That(result.HasValue, Is.True);
-            Assert.That(result.HasValue, Is.Not.Null);
+            Assert.That(result.Value, Is.Not.Null);
         }
 
         private static IEnumerable<string> IdlSampleFilenames()
