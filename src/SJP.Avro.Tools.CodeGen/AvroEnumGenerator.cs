@@ -10,14 +10,14 @@ namespace SJP.Avro.Tools.CodeGen
 {
     public class AvroEnumGenerator
     {
-        public string Generate(string json)
+        public string Generate(string json, string baseNamespace)
         {
             var schema = Schema.Parse(json);
 
             var enumSchema = schema as EnumSchema;
             var ns = enumSchema.Namespace;
 
-            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? "FakeExample"));
+            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? baseNamespace));
 
             var orderedSymbols = enumSchema.Symbols;
 

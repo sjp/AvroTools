@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SJP.Avro.Tools.CodeGen", "S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SJP.Avro.Tools.CodeGen.Tests", "SJP.Avro.Tools.CodeGen.Tests\SJP.Avro.Tools.CodeGen.Tests.csproj", "{FAEDB1E9-638D-432B-AED2-E3C09C41EDD1}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvroTool", "AvroTool\AvroTool.csproj", "{2407ECE5-2416-4C8F-B0FC-B191CC5B4475}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvroTool.Tests", "AvroTool.Tests\AvroTool.Tests.csproj", "{D9F2B1CE-997A-4373-9C12-AA1790D2C1C5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{FAEDB1E9-638D-432B-AED2-E3C09C41EDD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FAEDB1E9-638D-432B-AED2-E3C09C41EDD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FAEDB1E9-638D-432B-AED2-E3C09C41EDD1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2407ECE5-2416-4C8F-B0FC-B191CC5B4475}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2407ECE5-2416-4C8F-B0FC-B191CC5B4475}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2407ECE5-2416-4C8F-B0FC-B191CC5B4475}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2407ECE5-2416-4C8F-B0FC-B191CC5B4475}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D9F2B1CE-997A-4373-9C12-AA1790D2C1C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D9F2B1CE-997A-4373-9C12-AA1790D2C1C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9F2B1CE-997A-4373-9C12-AA1790D2C1C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D9F2B1CE-997A-4373-9C12-AA1790D2C1C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

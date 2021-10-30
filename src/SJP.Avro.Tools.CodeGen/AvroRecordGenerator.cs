@@ -13,7 +13,7 @@ namespace SJP.Avro.Tools.CodeGen
 {
     public class AvroRecordGenerator
     {
-        public string Generate(string json)
+        public string Generate(string json, string baseNamespace)
         {
             var p = Protocol.Parse(json);
             var schema = p.Types.Last(t => t is RecordSchema);
@@ -22,7 +22,7 @@ namespace SJP.Avro.Tools.CodeGen
             var isError = recordSchema.Tag == Schema.Type.Error;
             var ns = recordSchema.Namespace;
 
-            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? "FakeExample"));
+            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? baseNamespace));
 
             var namespaces = GetRequiredNamespaces(recordSchema);
             var usingStatements = namespaces

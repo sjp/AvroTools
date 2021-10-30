@@ -7,6 +7,8 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     [TestFixture]
     internal static class AvroEnumGeneratorTests
     {
+        private const string TestNamespace = "Test.Avro.Namespace";
+
         [Test]
         public static void Generate_GivenValidEnumSchema_GeneratesExpectedCode()
         {
@@ -16,7 +18,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ""symbols"": [""P"", ""C"", ""B1"", ""B2"", ""B3"", ""SS"", ""LF"", ""CF"", ""RF"", ""DH""]
 }";
 
-            var result = enumGenerator.Generate(schema);
+            var result = enumGenerator.Generate(schema, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -73,7 +75,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
   }
 }";
 
-            var result = recordGenerator.Generate(schema);
+            var result = recordGenerator.Generate(schema, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -86,7 +88,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
             var schema = "{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.te" +
    "st\",\"size\":199,\"foo\":\"bar\"}";
 
-            var result = fixedGenerator.Generate(schema);
+            var result = fixedGenerator.Generate(schema, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -125,7 +127,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
 
 
 
-            var result = protocolGenerator.Generate(schema);
+            var result = protocolGenerator.Generate(schema, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -189,11 +191,11 @@ namespace SJP.Avro.Tools.CodeGen.Tests
 
 
 
-            var result = protocolGenerator.Generate(schema);
+            var result = protocolGenerator.Generate(schema, TestNamespace);
 
             var recordGenerator = new AvroRecordGenerator();
 
-            var rresult = recordGenerator.Generate(schema);
+            var rresult = recordGenerator.Generate(schema, TestNamespace);
 
             Assert.Pass(result);
             Assert.Pass(rresult);

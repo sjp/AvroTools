@@ -12,14 +12,14 @@ namespace SJP.Avro.Tools.CodeGen
 {
     public class AvroFixedGenerator
     {
-        public string Generate(string json)
+        public string Generate(string json, string baseNamespace)
         {
             var schema = Schema.Parse(json);
 
             var fixedSchema = schema as FixedSchema;
             var ns = fixedSchema.Namespace;
 
-            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? "FakeExample"));
+            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? baseNamespace));
 
             var namespaces = GetRequiredNamespaces();
             var usingStatements = namespaces
