@@ -13,24 +13,20 @@ namespace SJP.Avro.Tools.CodeGen
 {
     public class AvroRecordGenerator
     {
-        public string Generate(string json, string baseNamespace)
+        public string Generate(RecordSchema schema, string baseNamespace)
         {
-            var p = Protocol.Parse(json);
-            var schema = p.Types.Last(t => t is RecordSchema);
+            var isError = schema.Tag == Schema.Type.Error;
+            var ns = schema.Namespace ?? baseNamespace;
 
-            var recordSchema = schema as RecordSchema;
-            var isError = recordSchema.Tag == Schema.Type.Error;
-            var ns = recordSchema.Namespace;
+            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
 
-            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? baseNamespace));
-
-            var namespaces = GetRequiredNamespaces(recordSchema);
+            var namespaces = GetRequiredNamespaces(schema);
             var usingStatements = namespaces
                 .Select(static ns => ParseName(ns))
                 .Select(UsingDirective)
                 .ToList();
 
-            var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(recordSchema.ToString());
+            var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString());
             var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty();
 
             if (isError)
@@ -42,12 +38,12 @@ namespace SJP.Avro.Tools.CodeGen
                              Token(SyntaxKind.OverrideKeyword)));
             }
 
-            var properties = recordSchema.Fields
-                .ConvertAll(c => BuildField(c, recordSchema.Name));
+            var properties = schema.Fields
+                .ConvertAll(c => BuildField(c, schema.Name));
 
-            var getMethod = GenerateGetMethod(recordSchema);
-            var putMethod = GeneratePutMethod(recordSchema);
-            var enumDecl = GenerateFieldMappingEnum(recordSchema);
+            var getMethod = GenerateGetMethod(schema);
+            var putMethod = GeneratePutMethod(schema);
+            var enumDecl = GenerateFieldMappingEnum(schema);
 
             var members = new MemberDeclarationSyntax[]
             {
@@ -63,17 +59,17 @@ namespace SJP.Avro.Tools.CodeGen
 
             var baseType = isError ? nameof(SpecificException) : nameof(ISpecificRecord);
 
-            var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), recordSchema.Name)
+            var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), schema.Name)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .AddBaseListTypes(SimpleBaseType(IdentifierName(baseType)))
                 .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
                 .WithMembers(List(members))
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
-            if (recordSchema.Documentation != null)
+            if (schema.Documentation != null)
             {
                 generatedRecord = generatedRecord
-                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(recordSchema.Documentation));
+                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
             }
 
             var document = CompilationUnit()

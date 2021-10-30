@@ -5,10 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avro;
 using SJP.Avro.Tools;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
-using SJP.Avro.Tools.Idl.Model;
 using Superpower.Model;
 using AvroProtocol = global::Avro.Protocol;
 using AvroSchema = global::Avro.Schema;
@@ -79,24 +79,32 @@ namespace SJP.Avro.AvroTool.Handlers
 
                 if (protocol != null)
                 {
-                    var outputFilePath = Path.Combine(outputDir.FullName, protocol.Name + ".cs");
-                    var protocolOutput = _protocolGenerator.Generate(protocol.ToString(), baseNamespace);
+                    if (protocol.Messages.Count == 0)
+                    {
+                        WriteWarning(console, $"Skipping protocol message generation. Protocol '{ protocol.Name }' has no messages");
+                    }
+                    else
+                    {
+                        var outputFilePath = Path.Combine(outputDir.FullName, protocol.Name + ".cs");
+                        var protocolOutput = _protocolGenerator.Generate(protocol, baseNamespace);
 
-                    if (File.Exists(outputFilePath))
-                        File.Delete(outputFilePath);
+                        if (File.Exists(outputFilePath))
+                            File.Delete(outputFilePath);
 
-                    await File.WriteAllTextAsync(outputFilePath, protocolOutput, cancellationToken).ConfigureAwait(false);
+                        await File.WriteAllTextAsync(outputFilePath, protocolOutput, cancellationToken).ConfigureAwait(false);
+                        WriteSuccess(console, "Generated " + outputFilePath);
+                    }
                 }
 
                 foreach (var schema in schemas)
                 {
                     var outputFilePath = Path.Combine(outputDir.FullName, schema.Name + ".cs");
-                    var schemaJson = schema.ToString();
                     var schemaOutput = schema.Tag switch
                     {
-                        AvroSchema.Type.Enumeration => _enumGenerator.Generate(schemaJson, baseNamespace),
-                        AvroSchema.Type.Fixed => _fixedGenerator.Generate(schemaJson, baseNamespace),
-                        AvroSchema.Type.Record => _recordGenerator.Generate(schemaJson, baseNamespace),
+                        AvroSchema.Type.Enumeration => _enumGenerator.Generate(schema as EnumSchema, baseNamespace),
+                        AvroSchema.Type.Fixed => _fixedGenerator.Generate(schema as FixedSchema, baseNamespace),
+                        AvroSchema.Type.Error => _recordGenerator.Generate(schema as RecordSchema, baseNamespace),
+                        AvroSchema.Type.Record => _recordGenerator.Generate(schema as RecordSchema, baseNamespace),
                         _ => null
                     };
                     if (schemaOutput.IsNullOrWhiteSpace())
@@ -106,6 +114,7 @@ namespace SJP.Avro.AvroTool.Handlers
                         File.Delete(outputFilePath);
 
                     await File.WriteAllTextAsync(outputFilePath, schemaOutput, cancellationToken).ConfigureAwait(false);
+                    WriteSuccess(console, "Generated " + outputFilePath);
                 }
 
                 return ErrorCode.Success;
@@ -199,7 +208,7 @@ namespace SJP.Avro.AvroTool.Handlers
             return tokenizeResult.HasValue;
         }
 
-        private static bool TryGetProtocol(TokenList<IdlToken> tokens, out Protocol protocol)
+        private static bool TryGetProtocol(TokenList<IdlToken> tokens, out Tools.Idl.Model.Protocol protocol)
         {
             var result = IdlTokenParsers.Protocol(tokens);
 
@@ -215,10 +224,24 @@ namespace SJP.Avro.AvroTool.Handlers
             return result.HasValue;
         }
 
-        private static void WriteError(IConsole console, string errorMessage)
+        private static void WriteSuccess(IConsole console, string message)
+        {
+            console.SetTerminalForegroundGreen();
+            console.Out.WriteLine(message);
+            console.ResetTerminalForegroundColor();
+        }
+
+        private static void WriteWarning(IConsole console, string message)
+        {
+            console.SetTerminalForegroundYellow();
+            console.Out.WriteLine(message);
+            console.ResetTerminalForegroundColor();
+        }
+
+        private static void WriteError(IConsole console, string message)
         {
             console.SetTerminalForegroundRed();
-            console.Error.WriteLine(errorMessage);
+            console.Error.WriteLine(message);
             console.ResetTerminalForegroundColor();
         }
     }

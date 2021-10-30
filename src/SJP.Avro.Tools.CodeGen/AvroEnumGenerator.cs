@@ -10,22 +10,19 @@ namespace SJP.Avro.Tools.CodeGen
 {
     public class AvroEnumGenerator
     {
-        public string Generate(string json, string baseNamespace)
+        public string Generate(EnumSchema schema, string baseNamespace)
         {
-            var schema = Schema.Parse(json);
+            var ns = schema.Namespace ?? baseNamespace;
 
-            var enumSchema = schema as EnumSchema;
-            var ns = enumSchema.Namespace;
+            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
 
-            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? baseNamespace));
-
-            var orderedSymbols = enumSchema.Symbols;
+            var orderedSymbols = schema.Symbols;
 
             // reorder to place default in front (so that default(Enum) == defaultValue)
-            if (enumSchema.Default != null)
+            if (schema.Default != null)
             {
-                orderedSymbols = new[] { enumSchema.Default }
-                    .Concat(orderedSymbols.Where(s => s != enumSchema.Default))
+                orderedSymbols = new[] { schema.Default }
+                    .Concat(orderedSymbols.Where(s => s != schema.Default))
                     .ToList();
             }
 
@@ -33,16 +30,16 @@ namespace SJP.Avro.Tools.CodeGen
                 .Select(m => EnumMemberDeclaration(m))
                 .ToList();
 
-            var generatedEnum = EnumDeclaration(enumSchema.Name)
+            var generatedEnum = EnumDeclaration(schema.Name)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
                 .WithMembers(SeparatedList(members))
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
-            if (enumSchema.Documentation != null)
+            if (schema.Documentation != null)
             {
                 generatedEnum = generatedEnum
-                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(enumSchema.Documentation));
+                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
             }
 
             var document = CompilationUnit()

@@ -18,7 +18,8 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ""symbols"": [""P"", ""C"", ""B1"", ""B2"", ""B3"", ""SS"", ""LF"", ""CF"", ""RF"", ""DH""]
 }";
 
-            var result = enumGenerator.Generate(schema, TestNamespace);
+            var parsedSchema = Schema.Parse(schema) as EnumSchema;
+            var result = enumGenerator.Generate(parsedSchema, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -75,7 +76,9 @@ namespace SJP.Avro.Tools.CodeGen.Tests
   }
 }";
 
-            var result = recordGenerator.Generate(schema, TestNamespace);
+            var parsedProtocol = Protocol.Parse(schema);
+            var parsedSchema = parsedProtocol.Types.Last() as RecordSchema;
+            var result = recordGenerator.Generate(parsedSchema, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -88,7 +91,8 @@ namespace SJP.Avro.Tools.CodeGen.Tests
             var schema = "{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.te" +
    "st\",\"size\":199,\"foo\":\"bar\"}";
 
-            var result = fixedGenerator.Generate(schema, TestNamespace);
+            var fixedSchema = Schema.Parse(schema) as FixedSchema;
+            var result = fixedGenerator.Generate(fixedSchema, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -126,8 +130,8 @@ namespace SJP.Avro.Tools.CodeGen.Tests
                 "rue}}}";
 
 
-
-            var result = protocolGenerator.Generate(schema, TestNamespace);
+            var parsedProtocol = Protocol.Parse(schema);
+            var result = protocolGenerator.Generate(parsedProtocol, TestNamespace);
 
             Assert.Pass(result);
         }
@@ -190,12 +194,12 @@ namespace SJP.Avro.Tools.CodeGen.Tests
 }";
 
 
-
-            var result = protocolGenerator.Generate(schema, TestNamespace);
+            var parsedProtocol = Protocol.Parse(schema);
+            var result = protocolGenerator.Generate(parsedProtocol, TestNamespace);
 
             var recordGenerator = new AvroRecordGenerator();
-
-            var rresult = recordGenerator.Generate(schema, TestNamespace);
+            var parsedSchema = parsedProtocol.Types.Last() as RecordSchema;
+            var rresult = recordGenerator.Generate(parsedSchema, TestNamespace);
 
             Assert.Pass(result);
             Assert.Pass(rresult);

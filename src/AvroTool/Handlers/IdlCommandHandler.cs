@@ -51,7 +51,7 @@ namespace SJP.Avro.AvroTool.Handlers
                 await File.WriteAllTextAsync(outputPath, output, cancellationToken).ConfigureAwait(false);
 
                 console.SetTerminalForegroundGreen();
-                console.Out.Write($"Successfully generated { outputPath }!");
+                console.Out.Write($"Generated { outputPath }");
                 console.ResetTerminalForegroundColor();
 
                 return ErrorCode.Success;

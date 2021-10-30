@@ -13,9 +13,11 @@ namespace SJP.Avro.Tools.CodeGen
 {
     public class AvroProtocolGenerator
     {
-        public string Generate(string json, string baseNamespace)
+        public string Generate(Protocol protocol, string baseNamespace)
         {
-            var protocol = Protocol.Parse(json);
+            // no messages to generate
+            if (protocol.Messages.Count == 0)
+                return string.Empty;
 
             var namespaceDeclaration = NamespaceDeclaration(ParseName(protocol.Namespace ?? baseNamespace));
 

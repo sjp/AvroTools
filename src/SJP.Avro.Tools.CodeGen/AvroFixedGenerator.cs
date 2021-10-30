@@ -12,14 +12,11 @@ namespace SJP.Avro.Tools.CodeGen
 {
     public class AvroFixedGenerator
     {
-        public string Generate(string json, string baseNamespace)
+        public string Generate(FixedSchema schema, string baseNamespace)
         {
-            var schema = Schema.Parse(json);
+            var ns = schema.Namespace ?? baseNamespace;
 
-            var fixedSchema = schema as FixedSchema;
-            var ns = fixedSchema.Namespace;
-
-            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns ?? baseNamespace));
+            var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
 
             var namespaces = GetRequiredNamespaces();
             var usingStatements = namespaces
@@ -27,14 +24,14 @@ namespace SJP.Avro.Tools.CodeGen
                 .Select(UsingDirective)
                 .ToList();
 
-            var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(fixedSchema.ToString());
+            var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString());
             var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty()
                 .WithModifiers(
                     TokenList(
                         Token(SyntaxKind.PublicKeyword),
                         Token(SyntaxKind.OverrideKeyword)));
-            var fixedSizeProp = CreateFixedSizeProperty(fixedSchema.Size);
-            var ctor = CreateConstructor(fixedSchema.Name);
+            var fixedSizeProp = CreateFixedSizeProperty(schema.Size);
+            var ctor = CreateConstructor(schema.Name);
 
             var members = new MemberDeclarationSyntax[]
             {
@@ -44,17 +41,17 @@ namespace SJP.Avro.Tools.CodeGen
                 ctor
             };
 
-            var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), fixedSchema.Name)
+            var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), schema.Name)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .AddBaseListTypes(SimpleBaseType(IdentifierName(nameof(SpecificFixed))))
                 .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
                 .WithMembers(List(members))
                 .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
-            if (fixedSchema.Documentation != null)
+            if (schema.Documentation != null)
             {
                 generatedRecord = generatedRecord
-                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(fixedSchema.Documentation));
+                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
             }
 
             var document = CompilationUnit()

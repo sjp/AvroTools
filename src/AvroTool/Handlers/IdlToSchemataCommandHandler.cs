@@ -59,7 +59,7 @@ namespace SJP.Avro.AvroTool.Handlers
 
                     await File.WriteAllTextAsync(schemaFilename, schema.ToString(), cancellationToken).ConfigureAwait(false);
                     console.SetTerminalForegroundGreen();
-                    console.Out.Write($"Successfully generated { schemaFilename }");
+                    console.Out.WriteLine($"Generated { schemaFilename }");
                     console.ResetTerminalForegroundColor();
                 }
 
