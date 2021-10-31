@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using System.IO;
 using System.Threading;
 using SJP.Avro.AvroTool.Handlers;
+using SJP.Avro.Tools;
 
 namespace SJP.Avro.AvroTool.Commands
 {
@@ -30,7 +31,12 @@ namespace SJP.Avro.AvroTool.Commands
 
             Handler = CommandHandler.Create<IConsole, FileInfo, bool, DirectoryInfo?, CancellationToken>(static (console, idlfile, overwrite, outputDir, cancellationToken) =>
             {
-                var handler = new IdlCommandHandler(console);
+                var handler = new IdlCommandHandler(
+                    console,
+                    new Tools.Idl.IdlTokenizer(),
+                    new IdlCompiler(new DefaultFileProvider())
+                );
+
                 return handler.HandleCommandAsync(idlfile, overwrite, outputDir, cancellationToken);
             });
         }

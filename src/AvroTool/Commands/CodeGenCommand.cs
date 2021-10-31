@@ -3,6 +3,8 @@ using System.CommandLine.Invocation;
 using System.IO;
 using System.Threading;
 using SJP.Avro.AvroTool.Handlers;
+using SJP.Avro.Tools;
+using SJP.Avro.Tools.CodeGen;
 
 namespace SJP.Avro.AvroTool.Commands
 {
@@ -33,7 +35,13 @@ namespace SJP.Avro.AvroTool.Commands
 
             Handler = CommandHandler.Create<IConsole, FileInfo, bool, string, DirectoryInfo?, CancellationToken>(static (console, input, overwrite, @namespace, outputDir, cancellationToken) =>
             {
-                var handler = new CodeGenCommandHandler(console);
+                var handler = new CodeGenCommandHandler(
+                    console,
+                    new Tools.Idl.IdlTokenizer(),
+                    new IdlCompiler(new DefaultFileProvider()),
+                    new CodeGeneratorResolver()
+                );
+
                 return handler.HandleCommandAsync(input, overwrite, @namespace, outputDir, cancellationToken);
             });
         }

@@ -17,19 +17,22 @@ namespace SJP.Avro.AvroTool.Handlers
 {
     internal sealed class CodeGenCommandHandler
     {
-        private readonly IdlTokenizer _tokenizer = new();
-        private readonly IdlCompiler _compiler = new(new DefaultFileProvider());
-
-        private readonly AvroEnumGenerator _enumGenerator = new();
-        private readonly AvroFixedGenerator _fixedGenerator = new();
-        private readonly AvroProtocolGenerator _protocolGenerator = new();
-        private readonly AvroRecordGenerator _recordGenerator = new();
-
         private readonly IConsole _console;
+        private readonly IdlTokenizer _tokenizer;
+        private readonly IdlCompiler _compiler;
+        private readonly ICodeGeneratorResolver _codeGeneratorResolver;
 
-        public CodeGenCommandHandler(IConsole console)
+        public CodeGenCommandHandler(
+            IConsole console,
+            IdlTokenizer idlTokenizer,
+            IdlCompiler idlCompiler,
+            ICodeGeneratorResolver codeGeneratorResolver
+        )
         {
             _console = console ?? throw new ArgumentNullException(nameof(console));
+            _tokenizer = idlTokenizer ?? throw new ArgumentNullException(nameof(idlTokenizer));
+            _compiler = idlCompiler ?? throw new ArgumentNullException(nameof(idlCompiler));
+            _codeGeneratorResolver = codeGeneratorResolver ?? throw new ArgumentNullException(nameof(codeGeneratorResolver));
         }
 
         public async Task<int> HandleCommandAsync(FileInfo input, bool overwrite, string baseNamespace, DirectoryInfo? outputDir, CancellationToken cancellationToken)
@@ -93,7 +96,8 @@ namespace SJP.Avro.AvroTool.Handlers
                     else
                     {
                         var outputFilePath = Path.Combine(outputDir.FullName, protocol.Name + ".cs");
-                        var protocolOutput = _protocolGenerator.Generate(protocol, baseNamespace);
+                        var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
+                        var protocolOutput = protocolGenerator.Generate(protocol, baseNamespace);
 
                         if (File.Exists(outputFilePath))
                             File.Delete(outputFilePath);
@@ -106,14 +110,16 @@ namespace SJP.Avro.AvroTool.Handlers
                 foreach (var schema in schemas)
                 {
                     var outputFilePath = Path.Combine(outputDir.FullName, schema.Name + ".cs");
+
                     var schemaOutput = schema.Tag switch
                     {
-                        AvroSchema.Type.Enumeration => _enumGenerator.Generate((EnumSchema)schema, baseNamespace),
-                        AvroSchema.Type.Fixed => _fixedGenerator.Generate((FixedSchema)schema, baseNamespace),
-                        AvroSchema.Type.Error => _recordGenerator.Generate((RecordSchema)schema, baseNamespace),
-                        AvroSchema.Type.Record => _recordGenerator.Generate((RecordSchema)schema, baseNamespace),
+                        AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)schema, baseNamespace),
+                        AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)schema, baseNamespace),
+                        AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)schema, baseNamespace),
+                        AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)schema, baseNamespace),
                         _ => null
                     };
+
                     if (schemaOutput.IsNullOrWhiteSpace())
                         continue;
 

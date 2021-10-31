@@ -14,14 +14,19 @@ namespace SJP.Avro.AvroTool.Handlers
 {
     internal sealed class IdlToSchemataCommandHandler
     {
-        private readonly IdlTokenizer _tokenizer = new();
-        private readonly IdlCompiler _compiler = new(new DefaultFileProvider());
-
         private readonly IConsole _console;
+        private readonly IdlTokenizer _tokenizer;
+        private readonly IdlCompiler _compiler;
 
-        public IdlToSchemataCommandHandler(IConsole console)
+        public IdlToSchemataCommandHandler(
+            IConsole console,
+            IdlTokenizer idlTokenizer,
+            IdlCompiler idlCompiler
+        )
         {
             _console = console ?? throw new ArgumentNullException(nameof(console));
+            _tokenizer = idlTokenizer ?? throw new ArgumentNullException(nameof(idlTokenizer));
+            _compiler = idlCompiler ?? throw new ArgumentNullException(nameof(idlCompiler));
         }
 
         public async Task<int> HandleCommandAsync(FileInfo idlFile, bool overwrite, DirectoryInfo? outputDir, CancellationToken cancellationToken)
