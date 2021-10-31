@@ -14,7 +14,7 @@ namespace SJP.Avro.Tools.CodeGen
     /// <summary>
     /// Generates C# class files for Avro record or error types.
     /// </summary>
-    public class AvroRecordGenerator
+    public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     {
         /// <summary>
         /// Creates a C# implementation of an Avro record or error type.

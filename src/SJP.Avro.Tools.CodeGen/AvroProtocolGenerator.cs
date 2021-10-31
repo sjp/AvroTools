@@ -14,7 +14,7 @@ namespace SJP.Avro.Tools.CodeGen
     /// <summary>
     /// Generates C# class files for Avro protocol methods.
     /// </summary>
-    public class AvroProtocolGenerator
+    public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     {
         /// <summary>
         /// Creates a C# implementation of an Avro protocol.

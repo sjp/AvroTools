@@ -14,7 +14,7 @@ namespace SJP.Avro.Tools.CodeGen
     /// <summary>
     /// Generates C# class files for Avro fixed types.
     /// </summary>
-    public class AvroFixedGenerator
+    public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
     {
         /// <summary>
         /// Creates a C# implementation of an Avro fixed type.

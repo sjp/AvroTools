@@ -12,7 +12,7 @@ namespace SJP.Avro.Tools.CodeGen
     /// <summary>
     /// Generates C# enum types for Avro enumeration types.
     /// </summary>
-    public class AvroEnumGenerator
+    public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
     {
         /// <summary>
         /// Creates a C# implementation of an Avro enumeration type.
