@@ -20,7 +20,7 @@ namespace SJP.Avro.Tools.Idl.Model
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentNullException(nameof(path));
-            if (type == ImportType.Unknown || !Enum.IsDefined<ImportType>(type))
+            if (type == ImportType.Unknown || !Enum.IsDefined(type))
                 throw new ArgumentOutOfRangeException(nameof(type), $"Invalid import type provided. Received '{ (type == ImportType.Unknown ? "Unknown" : ((int)type).ToString()) }'");
 
             Type = type;
