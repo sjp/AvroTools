@@ -1,5 +1,8 @@
 ﻿namespace SJP.Avro.Tools.Idl.Model
 {
+    /// <summary>
+    /// Defines the possible options by which Avro definitions can be imported into an IDL document.
+    /// </summary>
     public enum ImportType
     {
         /// <summary>

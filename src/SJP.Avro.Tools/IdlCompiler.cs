@@ -10,10 +10,18 @@ using Superpower.Model;
 
 namespace SJP.Avro.Tools
 {
+    /// <summary>
+    /// A compiler used to generate a JSON protocol from an Avro IDL protocol.
+    /// </summary>
     public class IdlCompiler
     {
         private readonly IFileProvider _fileProvider;
 
+        /// <summary>
+        /// Constructs a compiler used to generate a JSON protocol from an Avro IDL protocol.
+        /// </summary>
+        /// <param name="fileProvider">A file provider, primarily used to construct and access relative paths.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="fileProvider"/> is <c>null</c>.</exception>
         public IdlCompiler(IFileProvider fileProvider)
         {
             _fileProvider = fileProvider ?? throw new ArgumentNullException(nameof(fileProvider));
@@ -41,6 +49,13 @@ namespace SJP.Avro.Tools
             return JObject.Parse(input);
         }
 
+        /// <summary>
+        /// Compiles an IDL protocol into a JSON definition of the same protocol.
+        /// </summary>
+        /// <param name="filePath">A path representing the source location of <paramref name="protocol"/>.</param>
+        /// <param name="protocol">A parsed protocol definition from an IDL document.</param>
+        /// <returns>A string containing JSON text that represents an Avro protocol.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c>. Alternatively if <paramref name="filePath"/> is <c>null</c>, empty or whitespace.</exception>
         public string Compile(string filePath, Idl.Model.Protocol protocol)
         {
             if (filePath.IsNullOrWhiteSpace())

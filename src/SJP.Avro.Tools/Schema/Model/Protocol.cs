@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public record Protocol
+    internal record Protocol
     {
         [JsonProperty("protocol")]
         public string Name { get; set; } = default!;

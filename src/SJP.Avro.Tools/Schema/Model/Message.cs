@@ -5,7 +5,7 @@ using Newtonsoft.Json.Linq;
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public record Message
+    internal record Message
     {
         [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
         public string? Documentation { get; set; }

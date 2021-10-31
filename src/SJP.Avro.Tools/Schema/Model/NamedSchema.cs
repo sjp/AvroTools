@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public abstract record NamedSchema
+    internal abstract record NamedSchema
     {
         [JsonProperty("name")]
         public string Name { get; set; } = default!;

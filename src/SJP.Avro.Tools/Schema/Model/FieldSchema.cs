@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public record FieldSchema
+    internal record FieldSchema
     {
         /// <summary>
         /// List of aliases for the field name.

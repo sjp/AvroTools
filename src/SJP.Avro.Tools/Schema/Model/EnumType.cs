@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public record EnumType : NamedSchema
+    internal record EnumType : NamedSchema
     {
         [JsonProperty("type")]
         public string Type { get; } = "enum";

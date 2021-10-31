@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public record Record : NamedSchema
+    internal record Record : NamedSchema
     {
         [JsonProperty("type")]
         public string Type { get; } = "record";

@@ -8,6 +8,9 @@ using Superpower.Parsers;
 
 namespace SJP.Avro.Tools.Idl
 {
+    /// <summary>
+    /// A set of parser combinators used to construct Avro IDL definitions.
+    /// </summary>
     public static class IdlTokenParsers
     {
         private static TokenListParser<IdlToken, int> IntNumber =>

@@ -2,7 +2,7 @@
 
 namespace SJP.Avro.Tools.Schema.Model
 {
-    public record UuidType
+    internal record UuidType
     {
         [JsonProperty("type")]
         public string Type { get; } = "string";

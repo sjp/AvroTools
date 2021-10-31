@@ -1,9 +1,24 @@
 ﻿namespace SJP.Avro.Tools
 {
+    /// <summary>
+    /// Provides access to files from a physical (or virtual) file system.
+    /// </summary>
     public interface IFileProvider
     {
-        string GetFileContents(string basePath, string filePath);
+        /// <summary>
+        /// Constructs a path that is relative to a base path.
+        /// </summary>
+        /// <param name="basePath">A base path that is used to construct a full path.</param>
+        /// <param name="relativePath">A path that is relative to the given base path.</param>
+        /// <returns>A string representing a file path.</returns>
+        string GetFileContents(string basePath, string relativePath);
 
-        string CreatePath(string basePath, string filePath);
+        /// <summary>
+        /// Retrieves the contents of a file at a described location.
+        /// </summary>
+        /// <param name="basePath">A base path that is used to construct a full path.</param>
+        /// <param name="relativePath">A path that is relative to the given base path.</param>
+        /// <returns>The contents of a file relative to the given base path.</returns>
+        string CreatePath(string basePath, string relativePath);
     }
 }

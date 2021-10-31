@@ -2,8 +2,16 @@
 
 namespace SJP.Avro.Tools.Idl.Model
 {
+    /// <summary>
+    /// Defines an Avro identifier value.
+    /// </summary>
     public record Identifier
     {
+        /// <summary>
+        /// Constructs an Avro identifier.
+        /// </summary>
+        /// <param name="identifier">The value of the identifier.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="identifier"/> is <c>null</c>, empty or whitespace.</exception>
         public Identifier(string identifier)
         {
             if (identifier.IsNullOrWhiteSpace())
@@ -12,6 +20,9 @@ namespace SJP.Avro.Tools.Idl.Model
             Value = StripQuoting(identifier);
         }
 
+        /// <summary>
+        /// The value of the identifier, with any required quoting characters removed.
+        /// </summary>
         public string Value { get; }
 
         private static string StripQuoting(string identifier)
