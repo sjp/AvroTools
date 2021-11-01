@@ -8,14 +8,14 @@
         <Features>strict</Features>
         <AnalysisLevel>latest</AnalysisLevel>
         <Copyright>Copyright © Simon Potter 2021</Copyright>
-        <RepositoryUrl>https://github.com/sjp/SJP.Avro.Tools.git</RepositoryUrl>
+        <RepositoryUrl>https://github.com/sjp/AvroTools.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <NeutralLanguage>en-US</NeutralLanguage>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Authors>Simon Potter</Authors>
         <Company></Company>
         <Product />
-        <PackageProjectUrl>https://github.com/sjp/SJP.Avro.Tools</PackageProjectUrl>
+        <PackageProjectUrl>https://github.com/sjp/AvroTools</PackageProjectUrl>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>

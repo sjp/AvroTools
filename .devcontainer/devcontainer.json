@@ -1,5 +1,5 @@
 {
-	"name": "SJP.Avro.Tools Development",
+	"name": "SJP.AvroTools Development",
 	"build": {
 		"dockerfile": "Dockerfile",
 		"args": { 
