@@ -59,6 +59,11 @@ namespace SJP.Avro.AvroTool.Handlers
                 protocol = idlParsedProtocol;
                 schemas = idlParsedProtocol.Types.ToList();
             }
+            else
+            {
+                WriteError("Input file unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.");
+                return ErrorCode.Error;
+            }
 
             outputDir ??= input.Directory!;
 
