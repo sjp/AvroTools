@@ -12,7 +12,7 @@ One other benefit of this project is avoiding the pre-requisite for a Java runti
 
 ## Features
 
-* Compile [Avro IDL](https://avro.apache.org/docs/1.10.2/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/current/spec.html).
+* Compile [Avro IDL](https://avro.apache.org/docs/1.10.2/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/current/spec.html#Protocol+Declaration).
 * Compile [Avro IDL](https://avro.apache.org/docs/1.10.2/idl.html) to [Avro Schema](https://avro.apache.org/docs/current/spec.html#schemas).
 * Generate C# classes for protocols and schemas.
 
