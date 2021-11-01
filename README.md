@@ -155,7 +155,7 @@ protocol TestProtocol {
   void Ping();
 }
 
-$ dotnet run --project src/AvroTool codegen sample.avdl
+$ dotnet run --project src/AvroTool codegen sample.avdl Test.Code.Namespace
 Generated /home/sjp/repos/SJP.Avro.Tools/TestProtocol.cs
 Generated /home/sjp/repos/SJP.Avro.Tools/TestRecord.cs
 
