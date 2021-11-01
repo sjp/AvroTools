@@ -16,7 +16,7 @@ namespace SJP.Avro.AvroTool.Commands
             var inputFileArg = new Argument<FileInfo>("input", "An IDL, protocol or schema file to generate C# code from.");
             AddArgument(inputFileArg);
 
-            var namespaceArg = new Argument<FileInfo>("namespace", "A base namespace to use for generated files.");
+            var namespaceArg = new Argument<string>("namespace", "A base namespace to use for generated files.");
             AddArgument(namespaceArg);
 
             var overwriteOption = new Option<bool>(
