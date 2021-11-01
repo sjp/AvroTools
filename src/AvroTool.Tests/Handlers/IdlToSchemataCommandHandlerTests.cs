@@ -59,7 +59,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None).ConfigureAwait(false);
             var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc")).ConfigureAwait(false);
 
             const string expectedResultFileContents = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
@@ -74,7 +74,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
             var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -89,7 +89,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -106,7 +106,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -124,7 +124,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -142,7 +142,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Zero);
         }
@@ -159,7 +159,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
             File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
             // expect an error in overwriting if in the same dir
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, null, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, null, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -181,7 +181,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }

@@ -72,7 +72,7 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
             var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
 
             const string expectedResultFileContents = @"using System;
@@ -141,7 +141,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
             var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
 
             const string expectedResultFileContents = @"using System;
@@ -181,7 +181,6 @@ namespace SJP.Arvo.CodeGen.Test
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
         }
 
-
         [Test]
         public async Task HandleAsync_GivenValidParametersForProtocolInput_WritesExpectedOutput()
         {
@@ -192,7 +191,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
             var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
 
             const string expectedResultFileContents = @"using System;
@@ -242,7 +241,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
             var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
 
             const string expectedResultFileContents = @"using System;
@@ -307,7 +306,7 @@ namespace SJP.Arvo.CodeGen.Test
             var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -322,7 +321,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -339,7 +338,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -357,7 +356,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -375,7 +374,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -393,7 +392,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Zero);
         }
@@ -411,7 +410,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Zero);
         }
@@ -428,7 +427,7 @@ namespace SJP.Arvo.CodeGen.Test
             File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
             // expect an error in overwriting if in the same dir
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, null, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, null, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
@@ -450,7 +449,7 @@ namespace SJP.Arvo.CodeGen.Test
 
             var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None);
+            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
             Assert.That(result, Is.Not.Zero);
         }
