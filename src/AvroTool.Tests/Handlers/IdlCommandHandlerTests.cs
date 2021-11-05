@@ -167,9 +167,12 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
         }
 
         [Test]
-        public async Task HandleAsync_GivenMissingDirectory_ResolvesToSourceFileDir()
+        public async Task HandleAsync_GivenMissingDirectory_ResolvesToCurrentDir()
         {
             const string input = SimpleTestIdl;
+
+            var originalDir = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(_tempDir.DirectoryPath);
 
             var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
             File.WriteAllText(sourceFile.FullName, input);
@@ -179,6 +182,9 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 
             // expect an error in overwriting if in the same dir
             var result = await _commandHandler.HandleCommandAsync(sourceFile, false, null, CancellationToken.None).ConfigureAwait(false);
+
+            // restore dir
+            Directory.SetCurrentDirectory(originalDir);
 
             Assert.That(result, Is.Not.Zero);
         }

@@ -42,7 +42,7 @@ namespace SJP.Avro.AvroTool.Handlers
             if (!TryGetProtocol(tokens, out var protocol))
                 return ErrorCode.Error;
 
-            outputDir ??= idlFile.Directory!;
+            outputDir ??= new DirectoryInfo(Directory.GetCurrentDirectory());
 
             var protocolFileName = protocol.Name.Value + ".avpr";
             var outputPath = Path.Combine(outputDir.FullName, protocolFileName);

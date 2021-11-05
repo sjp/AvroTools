@@ -65,7 +65,7 @@ namespace SJP.Avro.AvroTool.Handlers
                 return ErrorCode.Error;
             }
 
-            outputDir ??= input.Directory!;
+            outputDir ??= new DirectoryInfo(Directory.GetCurrentDirectory());
 
             try
             {
