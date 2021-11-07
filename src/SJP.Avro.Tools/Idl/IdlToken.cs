@@ -306,10 +306,22 @@ namespace SJP.Avro.Tools.Idl
         TimeMs,
 
         /// <summary>
+        /// The <c>time_micros</c> keyword.
+        /// </summary>
+        [Token(Category = "keyword", Example = "time_micros")]
+        TimeMicros,
+
+        /// <summary>
         /// The <c>timestamp_ms</c> keyword.
         /// </summary>
         [Token(Category = "keyword", Example = "timestamp_ms")]
         TimestampMs,
+
+        /// <summary>
+        /// The <c>timestamp_micros</c> keyword.
+        /// </summary>
+        [Token(Category = "keyword", Example = "timestamp_micros")]
+        TimestampMicros,
 
         /// <summary>
         /// The <c>decimal</c> keyword.
@@ -322,6 +334,12 @@ namespace SJP.Avro.Tools.Idl
         /// </summary>
         [Token(Category = "keyword", Example = "local_timestamp_ms")]
         LocalTimestampMs,
+
+        /// <summary>
+        /// The <c>local_timestamp_micros</c> keyword.
+        /// </summary>
+        [Token(Category = "keyword", Example = "local_timestamp_micros")]
+        LocalTimestampMicros,
 
         /// <summary>
         /// The <c>uuid</c> keyword.

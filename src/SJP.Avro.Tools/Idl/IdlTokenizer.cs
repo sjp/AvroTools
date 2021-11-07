@@ -171,9 +171,13 @@ namespace SJP.Avro.Tools.Idl
             new IdlKeyword("void", IdlToken.Void),
             new IdlKeyword("date", IdlToken.Date),
             new IdlKeyword("time_ms", IdlToken.TimeMs),
+            new IdlKeyword("time_micros", IdlToken.TimeMicros),
             new IdlKeyword("timestamp_ms", IdlToken.TimestampMs),
-            new IdlKeyword("decimal", IdlToken.Decimal),
+            new IdlKeyword("timestamp_micros", IdlToken.TimestampMicros),
             new IdlKeyword("local_timestamp_ms", IdlToken.LocalTimestampMs),
+            new IdlKeyword("local_timestamp_micros", IdlToken.LocalTimestampMicros),
+            new IdlKeyword("decimal", IdlToken.Decimal),
+            new IdlKeyword("duration", IdlToken.Duration),
             new IdlKeyword("uuid", IdlToken.Uuid)
         };
     }

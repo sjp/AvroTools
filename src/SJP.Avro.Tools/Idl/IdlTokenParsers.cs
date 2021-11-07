@@ -35,8 +35,11 @@ namespace SJP.Avro.Tools.Idl
                 .Then(p => Token.EqualTo(IdlToken.Date)
                 .Or(Token.EqualTo(IdlToken.Duration))
                 .Or(Token.EqualTo(IdlToken.TimeMs))
+                .Or(Token.EqualTo(IdlToken.TimeMicros))
                 .Or(Token.EqualTo(IdlToken.TimestampMs))
+                .Or(Token.EqualTo(IdlToken.TimestampMicros))
                 .Or(Token.EqualTo(IdlToken.LocalTimestampMs))
+                .Or(Token.EqualTo(IdlToken.LocalTimestampMicros))
                 .Or(Token.EqualTo(IdlToken.Uuid))
                 .Select(_ => new LogicalType(_.ToStringValue(), p) as AvroType));
 

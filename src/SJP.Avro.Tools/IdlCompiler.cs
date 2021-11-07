@@ -327,8 +327,11 @@ namespace SJP.Avro.Tools
                     "date" => new DateType() as object,
                     "duration" => new DurationType(),
                     "time_ms" => new TimeMillisType(),
+                    "time_micros" => new TimeMicrosType(),
                     "timestamp_ms" => new TimestampMillisType(),
+                    "timestamp_micros" => new TimestampMicrosType(),
                     "local_timestamp_ms" => new LocalTimestampMillisType(),
+                    "local_timestamp_micros" => new LocalTimestampMicrosType(),
                     "uuid" => new UuidType(),
                     _ => throw new ArgumentOutOfRangeException(logicalType.Name)
                 };
