@@ -12,9 +12,16 @@ One other benefit of this project is avoiding the pre-requisite for a Java runti
 
 ## Features
 
-* Compile [Avro IDL](https://avro.apache.org/docs/1.10.2/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/current/spec.html#Protocol+Declaration).
-* Compile [Avro IDL](https://avro.apache.org/docs/1.10.2/idl.html) to [Avro Schema](https://avro.apache.org/docs/current/spec.html#schemas).
+* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/current/spec.html#Protocol+Declaration).
+* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to [Avro Schema](https://avro.apache.org/docs/current/spec.html#schemas).
 * Generate C# classes for protocols and schemas.
+* Supports additional logical types compared to reference compiler. Note that these may not be usable in practice but can be compiled to compatible Avro Protocol/Schema. The following additional logical types are supported in IDL:
+  * `uuid`
+  * `time-micros`
+  * `timestamp-micros`
+  * `local-timestamp-ms`
+  * `local-timestamp-micros`
+  * `duration`
 
 ## Usage
 
