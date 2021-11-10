@@ -2,7 +2,7 @@
 	"name": "SJP.AvroTools Development",
 	"build": {
 		"dockerfile": "Dockerfile",
-		"args": { 
+		"args": {
 			"VARIANT": "6.0"
 		}
 	},
