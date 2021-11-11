@@ -92,7 +92,7 @@ namespace org.apache.avro.test
 
             var result = fixedGenerator.Generate(schema, TestNamespace);
 
-            var expected = @$"using System;
+            const string expected = @$"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;

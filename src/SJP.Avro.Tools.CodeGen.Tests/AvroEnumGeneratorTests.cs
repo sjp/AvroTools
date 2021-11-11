@@ -118,7 +118,7 @@ namespace SJP.Avro.Tools.CodeGen.Tests
 
             var result = enumGenerator.Generate(schema, TestNamespace);
 
-            var expected = @$"namespace { TestNamespace }
+            const string expected = @$"namespace { TestNamespace }
 {{
     public enum Position
     {{
