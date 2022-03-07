@@ -1,9 +1,9 @@
-﻿using System.CommandLine;
-using System.CommandLine.Invocation;
+﻿using SJP.Avro.AvroTool.Handlers;
+using SJP.Avro.Tools;
+using System.CommandLine;
+using System.CommandLine.NamingConventionBinder;
 using System.IO;
 using System.Threading;
-using SJP.Avro.AvroTool.Handlers;
-using SJP.Avro.Tools;
 
 namespace SJP.Avro.AvroTool.Commands
 {

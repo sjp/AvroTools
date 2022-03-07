@@ -4,6 +4,7 @@ using System.CommandLine.Builder;
 using System.CommandLine.Help;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using SJP.Avro.AvroTool.Commands;
@@ -12,13 +13,7 @@ namespace SJP.Avro.AvroTool
 {
     internal static class Program
     {
-        public static Task<int> Main(string[] args)
-        {
-            var root = new RootCommand();
-            root.Handler = CommandHandler.Create<IConsole, IHelpBuilder>((console, help) =>
-            {
-                // looks a bit gross but avoids a newline
-                console.Out.Write(@"    ___                 ______            __
+        private const string TitleText = @"    ___                 ______            __
    /   |_   ___________/_  __/___  ____  / /
   / /| | | / / ___/ __ \/ / / __ \/ __ \/ /
  / ___ | |/ / /  / /_/ / / / /_/ / /_/ / /
@@ -26,20 +21,23 @@ namespace SJP.Avro.AvroTool
 
 The helpful Avro compiler tool.
 
-");
+";
 
-                help.Write(root);
-                return 1;
-            });
+        public static Task<int> Main(string[] args)
+        {
+            var root = new RootCommand();
 
             root.AddCommand(new IdlCommand());
             root.AddCommand(new IdlToSchemataCommand());
             root.AddCommand(new CodeGenCommand());
 
             var builder = new CommandLineBuilder(root);
-            builder.UseHelp();
+            builder.UseHelp(ctx =>
+            {
+                ctx.HelpBuilder.CustomizeLayout(_ =>
+                    HelpBuilder.Default.GetLayout().Skip(1).Prepend(hctx => hctx.Output.Write(TitleText)));
+            });
             builder.UseVersionOption();
-            builder.UseDebugDirective();
             builder.UseParseErrorReporting();
             builder.ParseResponseFileAs(ResponseFileHandling.ParseArgsAsSpaceSeparated);
             builder.CancelOnProcessTermination();
