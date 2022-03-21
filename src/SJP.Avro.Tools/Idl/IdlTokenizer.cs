@@ -2,149 +2,149 @@
 using Superpower;
 using Superpower.Model;
 
-namespace SJP.Avro.Tools.Idl
+namespace SJP.Avro.Tools.Idl;
+
+/// <summary>
+/// A tokenizer for Avro IDL documents.
+/// </summary>
+/// <seealso cref="Tokenizer{TKind}" />
+public class IdlTokenizer : Tokenizer<IdlToken>
 {
-    /// <summary>
-    /// A tokenizer for Avro IDL documents.
-    /// </summary>
-    /// <seealso cref="Tokenizer{TKind}" />
-    public class IdlTokenizer : Tokenizer<IdlToken>
+    static IdlTokenizer()
     {
-        static IdlTokenizer()
-        {
-            SimpleOps['<'] = IdlToken.LessThan;
-            SimpleOps['>'] = IdlToken.GreaterThan;
-            SimpleOps['='] = IdlToken.Equals;
-            SimpleOps[','] = IdlToken.Comma;
-            SimpleOps['.'] = IdlToken.Dot;
-            SimpleOps['('] = IdlToken.LParen;
-            SimpleOps[')'] = IdlToken.RParen;
-            SimpleOps['{'] = IdlToken.LBrace;
-            SimpleOps['}'] = IdlToken.RBrace;
-            SimpleOps['['] = IdlToken.LBracket;
-            SimpleOps[']'] = IdlToken.RBracket;
-            SimpleOps['`'] = IdlToken.Backtick;
-            SimpleOps[';'] = IdlToken.Semicolon;
-            SimpleOps[':'] = IdlToken.Colon;
-            SimpleOps['@'] = IdlToken.At;
-        }
+        SimpleOps['<'] = IdlToken.LessThan;
+        SimpleOps['>'] = IdlToken.GreaterThan;
+        SimpleOps['='] = IdlToken.Equals;
+        SimpleOps[','] = IdlToken.Comma;
+        SimpleOps['.'] = IdlToken.Dot;
+        SimpleOps['('] = IdlToken.LParen;
+        SimpleOps[')'] = IdlToken.RParen;
+        SimpleOps['{'] = IdlToken.LBrace;
+        SimpleOps['}'] = IdlToken.RBrace;
+        SimpleOps['['] = IdlToken.LBracket;
+        SimpleOps[']'] = IdlToken.RBracket;
+        SimpleOps['`'] = IdlToken.Backtick;
+        SimpleOps[';'] = IdlToken.Semicolon;
+        SimpleOps[':'] = IdlToken.Colon;
+        SimpleOps['@'] = IdlToken.At;
+    }
 
-        /// <summary>
-        /// Tokenizes Avro IDL text.
-        /// </summary>
-        /// <param name="span">The input span to tokenize.</param>
-        /// <returns>A list of parsed tokens.</returns>
-        protected override IEnumerable<Result<IdlToken>> Tokenize(TextSpan span)
-        {
-            var next = SkipWhiteSpace(span);
-            if (!next.HasValue)
-                yield break;
+    /// <summary>
+    /// Tokenizes Avro IDL text.
+    /// </summary>
+    /// <param name="span">The input span to tokenize.</param>
+    /// <returns>A list of parsed tokens.</returns>
+    protected override IEnumerable<Result<IdlToken>> Tokenize(TextSpan span)
+    {
+        var next = SkipWhiteSpace(span);
+        if (!next.HasValue)
+            yield break;
 
-            do
+        do
+        {
+            if (next.Value == '/')
             {
-                if (next.Value == '/')
+                var docComment = IdlTextParsers.IdlDocComment(next.Location);
+                var comment = IdlTextParsers.IdlComment(next.Location);
+                if (docComment.HasValue)
                 {
-                    var docComment = IdlTextParsers.IdlDocComment(next.Location);
-                    var comment = IdlTextParsers.IdlComment(next.Location);
-                    if (docComment.HasValue)
-                    {
-                        yield return Result.Value(IdlToken.DocComment, docComment.Location, docComment.Remainder);
-                        next = docComment.Remainder.ConsumeChar();
-                    }
-                    else if (comment.HasValue)
-                    {
-                        yield return Result.Value(IdlToken.Comment, comment.Location, comment.Remainder);
-                        next = comment.Remainder.ConsumeChar();
-                    }
+                    yield return Result.Value(IdlToken.DocComment, docComment.Location, docComment.Remainder);
+                    next = docComment.Remainder.ConsumeChar();
                 }
-                else if (next.Value == '"')
+                else if (comment.HasValue)
                 {
-                    var str = IdlTextParsers.IdlString(next.Location);
-                    if (str.HasValue)
-                    {
-                        yield return Result.Value(IdlToken.StringLiteral, str.Location, str.Remainder);
-                        next = str.Remainder.ConsumeChar();
-                    }
+                    yield return Result.Value(IdlToken.Comment, comment.Location, comment.Remainder);
+                    next = comment.Remainder.ConsumeChar();
                 }
-                else if (next.Value == '`')
+            }
+            else if (next.Value == '"')
+            {
+                var str = IdlTextParsers.IdlString(next.Location);
+                if (str.HasValue)
                 {
-                    var ident = IdlTextParsers.QuotedIdentifier(next.Location);
-                    if (ident.HasValue)
-                    {
-                        yield return Result.Value(IdlToken.Identifier, ident.Location, ident.Remainder);
-                        next = ident.Remainder.ConsumeChar();
-                    }
+                    yield return Result.Value(IdlToken.StringLiteral, str.Location, str.Remainder);
+                    next = str.Remainder.ConsumeChar();
                 }
-                else if (next.Value.IsDigit() || next.Value == '-')
+            }
+            else if (next.Value == '`')
+            {
+                var ident = IdlTextParsers.QuotedIdentifier(next.Location);
+                if (ident.HasValue)
                 {
-                    var real = IdlTextParsers.IdlNumber(next.Location);
-                    if (!real.HasValue)
-                        yield return Result.CastEmpty<TextSpan, IdlToken>(real);
-                    else
-                        yield return Result.Value(IdlToken.Number, real.Location, real.Remainder);
+                    yield return Result.Value(IdlToken.Identifier, ident.Location, ident.Remainder);
+                    next = ident.Remainder.ConsumeChar();
+                }
+            }
+            else if (next.Value.IsDigit() || next.Value == '-')
+            {
+                var real = IdlTextParsers.IdlNumber(next.Location);
+                if (!real.HasValue)
+                    yield return Result.CastEmpty<TextSpan, IdlToken>(real);
+                else
+                    yield return Result.Value(IdlToken.Number, real.Location, real.Remainder);
 
-                    next = real.Remainder.ConsumeChar();
-                }
-                else if (next.Value == '@')
+                next = real.Remainder.ConsumeChar();
+            }
+            else if (next.Value == '@')
+            {
+                var propertyName = IdlTextParsers.IdlPropertyName(next.Location);
+                if (propertyName.HasValue)
                 {
-                    var propertyName = IdlTextParsers.IdlPropertyName(next.Location);
-                    if (propertyName.HasValue)
-                    {
-                        yield return Result.Value(IdlToken.PropertyName, propertyName.Location, propertyName.Remainder);
-                        next = propertyName.Remainder.ConsumeChar();
-                    }
+                    yield return Result.Value(IdlToken.PropertyName, propertyName.Location, propertyName.Remainder);
+                    next = propertyName.Remainder.ConsumeChar();
                 }
-                else if (next.Value.IsLetter())
+            }
+            else if (next.Value.IsLetter())
+            {
+                var beginIdentifier = next.Location;
+                do
                 {
-                    var beginIdentifier = next.Location;
-                    do
-                    {
-                        next = next.Remainder.ConsumeChar();
-                    }
-                    while (next.HasValue && (next.Value.IsLetterOrDigit() || next.Value == '_' || next.Value == '.'));
+                    next = next.Remainder.ConsumeChar();
+                }
+                while (next.HasValue && (next.Value.IsLetterOrDigit() || next.Value == '_' || next.Value == '.'));
 
-                    if (TryGetKeyword(beginIdentifier.Until(next.Location), out var keyword))
-                        yield return Result.Value(keyword, beginIdentifier, next.Location);
-                    else
-                        yield return Result.Value(IdlToken.Identifier, beginIdentifier, next.Location);
+                if (TryGetKeyword(beginIdentifier.Until(next.Location), out var keyword))
+                    yield return Result.Value(keyword, beginIdentifier, next.Location);
+                else
+                    yield return Result.Value(IdlToken.Identifier, beginIdentifier, next.Location);
+            }
+            else
+            {
+                if (next.Value < SimpleOps.Length && SimpleOps[next.Value] != IdlToken.None)
+                {
+                    yield return Result.Value(SimpleOps[next.Value], next.Location, next.Remainder);
+                    next = next.Remainder.ConsumeChar();
                 }
                 else
                 {
-                    if (next.Value < SimpleOps.Length && SimpleOps[next.Value] != IdlToken.None)
-                    {
-                        yield return Result.Value(SimpleOps[next.Value], next.Location, next.Remainder);
-                        next = next.Remainder.ConsumeChar();
-                    }
-                    else
-                    {
-                        yield return Result.Empty<IdlToken>(next.Location);
-                        next = next.Remainder.ConsumeChar();
-                    }
-                }
-
-                next = SkipWhiteSpace(next.Location);
-            } while (next.HasValue);
-        }
-
-        private static bool TryGetKeyword(TextSpan span, out IdlToken keyword)
-        {
-            foreach (var kw in IdlKeywords)
-            {
-                if (span.EqualsValue(kw.Text))
-                {
-                    keyword = kw.Token;
-                    return true;
+                    yield return Result.Empty<IdlToken>(next.Location);
+                    next = next.Remainder.ConsumeChar();
                 }
             }
 
-            keyword = IdlToken.None;
-            return false;
+            next = SkipWhiteSpace(next.Location);
+        } while (next.HasValue);
+    }
+
+    private static bool TryGetKeyword(TextSpan span, out IdlToken keyword)
+    {
+        foreach (var kw in IdlKeywords)
+        {
+            if (span.EqualsValue(kw.Text))
+            {
+                keyword = kw.Token;
+                return true;
+            }
         }
 
-        private static readonly IdlToken[] SimpleOps = new IdlToken[128];
+        keyword = IdlToken.None;
+        return false;
+    }
 
-        private static readonly IdlKeyword[] IdlKeywords =
-        {
+    private static readonly IdlToken[] SimpleOps = new IdlToken[128];
+
+    private static readonly IdlKeyword[] IdlKeywords =
+    {
             new IdlKeyword("array", IdlToken.Array),
             new IdlKeyword("boolean", IdlToken.Boolean),
             new IdlKeyword("double", IdlToken.Double),
@@ -180,5 +180,4 @@ namespace SJP.Avro.Tools.Idl
             new IdlKeyword("duration", IdlToken.Duration),
             new IdlKeyword("uuid", IdlToken.Uuid)
         };
-    }
 }

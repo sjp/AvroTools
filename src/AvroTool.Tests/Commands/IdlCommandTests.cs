@@ -1,15 +1,14 @@
 using NUnit.Framework;
 using SJP.Avro.AvroTool.Commands;
 
-namespace SJP.Avro.AvroTool.Tests.Commands
+namespace SJP.Avro.AvroTool.Tests.Commands;
+
+[TestFixture]
+internal static class IdlCommandTests
 {
-    [TestFixture]
-    internal static class IdlCommandTests
+    [Test]
+    public static void Ctor_WhenInvoked_ConstructsWithoutError()
     {
-        [Test]
-        public static void Ctor_WhenInvoked_ConstructsWithoutError()
-        {
-            Assert.That(() => new IdlCommand(), Throws.Nothing);
-        }
+        Assert.That(() => new IdlCommand(), Throws.Nothing);
     }
 }

@@ -1,13 +1,12 @@
 ﻿using Newtonsoft.Json;
 
-namespace SJP.Avro.Tools.Schema.Model
-{
-    internal record TimestampMillisType
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "long";
+namespace SJP.Avro.Tools.Schema.Model;
 
-        [JsonProperty("logicalType")]
-        public string LogicalType { get; } = "timestamp-millis";
-    }
+internal record TimestampMillisType
+{
+    [JsonProperty("type")]
+    public string Type { get; } = "long";
+
+    [JsonProperty("logicalType")]
+    public string LogicalType { get; } = "timestamp-millis";
 }

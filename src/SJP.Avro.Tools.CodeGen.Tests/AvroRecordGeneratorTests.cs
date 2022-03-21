@@ -2,29 +2,29 @@
 using Avro;
 using NUnit.Framework;
 
-namespace SJP.Avro.Tools.CodeGen.Tests
+namespace SJP.Avro.Tools.CodeGen.Tests;
+
+[TestFixture]
+internal static class AvroRecordGeneratorTests
 {
-    [TestFixture]
-    internal static class AvroRecordGeneratorTests
+    private const string TestNamespace = "Test.Avro.Namespace";
+
+    [Test]
+    public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
     {
-        private const string TestNamespace = "Test.Avro.Namespace";
+        var recordGenerator = new AvroRecordGenerator();
 
-        [Test]
-        public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
-        {
-            var recordGenerator = new AvroRecordGenerator();
+        Assert.That(() => recordGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
+    }
 
-            Assert.That(() => recordGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
-        }
+    [TestCase((string)null)]
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    {
+        var recordGenerator = new AvroRecordGenerator();
 
-        [TestCase((string)null)]
-        [TestCase("")]
-        [TestCase("    ")]
-        public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
-        {
-            var recordGenerator = new AvroRecordGenerator();
-
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
   ""protocol"" : ""Baseball"",
   ""namespace"" : ""avro.examples.baseball"",
   ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
@@ -71,17 +71,17 @@ namespace SJP.Avro.Tools.CodeGen.Tests
   }
 }");
 
-            var schema = protocol.Types.Last() as RecordSchema;
+        var schema = protocol.Types.Last() as RecordSchema;
 
-            Assert.That(() => recordGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
-        }
+        Assert.That(() => recordGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+    }
 
-        [Test]
-        public static void Generate_GivenValidRecordType_GeneratesExpectedCode()
-        {
-            var recordGenerator = new AvroRecordGenerator();
+    [Test]
+    public static void Generate_GivenValidRecordType_GeneratesExpectedCode()
+    {
+        var recordGenerator = new AvroRecordGenerator();
 
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
   ""protocol"" : ""Baseball"",
   ""namespace"" : ""avro.examples.baseball"",
   ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
@@ -128,10 +128,10 @@ namespace SJP.Avro.Tools.CodeGen.Tests
   }
 }");
 
-            var schema = protocol.Types.Last() as RecordSchema;
-            var result = recordGenerator.Generate(schema, TestNamespace);
+        var schema = protocol.Types.Last() as RecordSchema;
+        var result = recordGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @"using System;
+        const string expected = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -221,15 +221,15 @@ namespace avro.examples.baseball
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public static void Generate_GivenValidErrorType_GeneratesExpectedCode()
-        {
-            var recordGenerator = new AvroRecordGenerator();
+    [Test]
+    public static void Generate_GivenValidErrorType_GeneratesExpectedCode()
+    {
+        var recordGenerator = new AvroRecordGenerator();
 
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
   ""protocol"" : ""Baseball"",
   ""namespace"" : ""avro.examples.baseball"",
   ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
@@ -276,10 +276,10 @@ namespace avro.examples.baseball
   }
 }");
 
-            var schema = protocol.Types.Last() as RecordSchema;
-            var result = recordGenerator.Generate(schema, TestNamespace);
+        var schema = protocol.Types.Last() as RecordSchema;
+        var result = recordGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @"using System;
+        const string expected = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -369,15 +369,15 @@ namespace avro.examples.baseball
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public static void Generate_GivenFieldsWithVariousNamespaces_GeneratesExpectedCode()
-        {
-            var recordGenerator = new AvroRecordGenerator();
+    [Test]
+    public static void Generate_GivenFieldsWithVariousNamespaces_GeneratesExpectedCode()
+    {
+        var recordGenerator = new AvroRecordGenerator();
 
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
   ""protocol"" : ""TestNamespace"",
   ""namespace"" : ""avro.test.protocol"",
   ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
@@ -429,10 +429,10 @@ namespace avro.examples.baseball
   }
 }");
 
-            var schema = protocol.Types.Last() as RecordSchema;
-            var result = recordGenerator.Generate(schema, TestNamespace);
+        var schema = protocol.Types.Last() as RecordSchema;
+        var result = recordGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @"using System;
+        const string expected = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -509,7 +509,6 @@ namespace avro.test.protocol
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
     }
 }

@@ -2,17 +2,16 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace SJP.Avro.Tools.Schema.Model
+namespace SJP.Avro.Tools.Schema.Model;
+
+internal record EnumType : NamedSchema
 {
-    internal record EnumType : NamedSchema
-    {
-        [JsonProperty("type")]
-        public string Type { get; } = "enum";
+    [JsonProperty("type")]
+    public string Type { get; } = "enum";
 
-        [JsonProperty("symbols")]
-        public IEnumerable<string> Symbols { get; set; } = Array.Empty<string>();
+    [JsonProperty("symbols")]
+    public IEnumerable<string> Symbols { get; set; } = Array.Empty<string>();
 
-        [JsonProperty("default", NullValueHandling = NullValueHandling.Ignore)]
-        public string? DefaultValue { get; set; }
-    }
+    [JsonProperty("default", NullValueHandling = NullValueHandling.Ignore)]
+    public string? DefaultValue { get; set; }
 }

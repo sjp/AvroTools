@@ -11,14 +11,14 @@ using SJP.Avro.Tools;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 
-namespace SJP.Avro.AvroTool.Tests.Handlers
-{
-    [TestFixture]
-    internal class CodeGenCommandHandlerTests
-    {
-        private const string TestNamespace = "SJP.Arvo.CodeGen.Test";
+namespace SJP.Avro.AvroTool.Tests.Handlers;
 
-        private const string SimpleTestIdl = @"protocol TestProtocol {
+[TestFixture]
+internal class CodeGenCommandHandlerTests
+{
+    private const string TestNamespace = "SJP.Arvo.CodeGen.Test";
+
+    private const string SimpleTestIdl = @"protocol TestProtocol {
   record TestRecord {
     string FirstName;
     string LastName;
@@ -26,56 +26,56 @@ namespace SJP.Avro.AvroTool.Tests.Handlers
 }
 ";
 
-        private const string SimpleTestIdlWithMessages = @"protocol TestProtocol {
+    private const string SimpleTestIdlWithMessages = @"protocol TestProtocol {
   void `error`();
   void `void`();
 }";
 
-        private const string SimpleTestProtocol = @"{""protocol"":""TestProtocol"",""types"":[],""messages"":{""error"":{""request"":[],""response"":""null""},""void"":{""request"":[],""response"":""null""}}}";
+    private const string SimpleTestProtocol = @"{""protocol"":""TestProtocol"",""types"":[],""messages"":{""error"":{""request"":[],""response"":""null""},""void"":{""request"":[],""response"":""null""}}}";
 
-        private const string SimpleTestSchema = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
+    private const string SimpleTestSchema = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
 
-        private TemporaryDirectory _tempDir;
-        private Mock<IConsole> _console;
-        private CodeGenCommandHandler _commandHandler;
+    private TemporaryDirectory _tempDir;
+    private Mock<IConsole> _console;
+    private CodeGenCommandHandler _commandHandler;
 
-        [SetUp]
-        public void Setup()
-        {
-            _tempDir = new TemporaryDirectory();
+    [SetUp]
+    public void Setup()
+    {
+        _tempDir = new TemporaryDirectory();
 
-            _console = new Mock<IConsole>(MockBehavior.Strict);
-            _console.Setup(c => c.Out).Returns(Mock.Of<IStandardStreamWriter>());
-            _console.Setup(c => c.Error).Returns(Mock.Of<IStandardStreamWriter>());
+        _console = new Mock<IConsole>(MockBehavior.Strict);
+        _console.Setup(c => c.Out).Returns(Mock.Of<IStandardStreamWriter>());
+        _console.Setup(c => c.Error).Returns(Mock.Of<IStandardStreamWriter>());
 
-            _commandHandler = new CodeGenCommandHandler(
-                _console.Object,
-                new IdlTokenizer(),
-                new IdlCompiler(new DefaultFileProvider()),
-                new CodeGeneratorResolver()
-            );
-        }
+        _commandHandler = new CodeGenCommandHandler(
+            _console.Object,
+            new IdlTokenizer(),
+            new IdlCompiler(new DefaultFileProvider()),
+            new CodeGeneratorResolver()
+        );
+    }
 
-        [TearDown]
-        public void TearDown()
-        {
-            _tempDir?.Dispose();
-        }
+    [TearDown]
+    public void TearDown()
+    {
+        _tempDir?.Dispose();
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenValidParameters_WritesExpectedOutput()
-        {
-            const string input = SimpleTestIdl;
+    [Test]
+    public async Task HandleAsync_GivenValidParameters_WritesExpectedOutput()
+    {
+        const string input = SimpleTestIdl;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
-            var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
 
-            const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -127,24 +127,24 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-            Assert.That(result, Is.Zero);
-            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.Zero);
+        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenValidParametersForIdlWithProtocol_WritesExpectedOutput()
-        {
-            const string input = SimpleTestIdlWithMessages;
+    [Test]
+    public async Task HandleAsync_GivenValidParametersForIdlWithProtocol_WritesExpectedOutput()
+    {
+        const string input = SimpleTestIdlWithMessages;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
-            var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
 
-            const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.IO;
@@ -177,24 +177,24 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-            Assert.That(result, Is.Zero);
-            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.Zero);
+        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenValidParametersForProtocolInput_WritesExpectedOutput()
-        {
-            const string input = SimpleTestProtocol;
+    [Test]
+    public async Task HandleAsync_GivenValidParametersForProtocolInput_WritesExpectedOutput()
+    {
+        const string input = SimpleTestProtocol;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
-            var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
 
-            const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.IO;
@@ -227,24 +227,24 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-            Assert.That(result, Is.Zero);
-            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.Zero);
+        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenValidParametersForSchemaInput_WritesExpectedOutput()
-        {
-            const string input = SimpleTestSchema;
+    [Test]
+    public async Task HandleAsync_GivenValidParametersForSchemaInput_WritesExpectedOutput()
+    {
+        const string input = SimpleTestSchema;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
-            var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
 
-            const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -296,168 +296,167 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-            Assert.That(result, Is.Zero);
-            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.Zero);
+        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenMissingFile_ReturnsError()
-        {
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+    [Test]
+    public async Task HandleAsync_GivenMissingFile_ReturnsError()
+    {
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Not.Zero);
-        }
+        Assert.That(result, Is.Not.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenInvalidTokens_ReturnsError()
-        {
-            const string input = "%";
+    [Test]
+    public async Task HandleAsync_GivenInvalidTokens_ReturnsError()
+    {
+        const string input = "%";
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Not.Zero);
-        }
+        Assert.That(result, Is.Not.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
-        {
-            const string input = @"record Foo {{
+    [Test]
+    public async Task HandleAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
+    {
+        const string input = @"record Foo {{
     string label;
 }}";
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Not.Zero);
-        }
+        Assert.That(result, Is.Not.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenOutputAlreadyExistsWithoutOverwrite_ReturnsError()
-        {
-            const string input = SimpleTestIdl;
+    [Test]
+    public async Task HandleAsync_GivenOutputAlreadyExistsWithoutOverwrite_ReturnsError()
+    {
+        const string input = SimpleTestIdl;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            // copy to ensure it already exists
-            File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
+        // copy to ensure it already exists
+        File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Not.Zero);
-        }
+        Assert.That(result, Is.Not.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenOutputAlreadyExistsWithoutOverwriteForProtocol_ReturnsError()
-        {
-            const string input = SimpleTestProtocol;
+    [Test]
+    public async Task HandleAsync_GivenOutputAlreadyExistsWithoutOverwriteForProtocol_ReturnsError()
+    {
+        const string input = SimpleTestProtocol;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            // copy to ensure it already exists
-            File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
+        // copy to ensure it already exists
+        File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Not.Zero);
-        }
+        Assert.That(result, Is.Not.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenOutputAlreadyExistsWithOverwrite_Succeeds()
-        {
-            const string input = SimpleTestIdl;
+    [Test]
+    public async Task HandleAsync_GivenOutputAlreadyExistsWithOverwrite_Succeeds()
+    {
+        const string input = SimpleTestIdl;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            // copy to ensure it already exists
-            File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
+        // copy to ensure it already exists
+        File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Zero);
-        }
+        Assert.That(result, Is.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenOutputAlreadyExistsWithOverwriteForProtocol_Succeeds()
-        {
-            const string input = SimpleTestProtocol;
+    [Test]
+    public async Task HandleAsync_GivenOutputAlreadyExistsWithOverwriteForProtocol_Succeeds()
+    {
+        const string input = SimpleTestProtocol;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            // copy to ensure it already exists
-            File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
+        // copy to ensure it already exists
+        File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Zero);
-        }
+        Assert.That(result, Is.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenMissingDirectory_ResolvesToCurrentDir()
-        {
-            const string input = SimpleTestIdl;
+    [Test]
+    public async Task HandleAsync_GivenMissingDirectory_ResolvesToCurrentDir()
+    {
+        const string input = SimpleTestIdl;
 
-            var originalDir = Directory.GetCurrentDirectory();
-            Directory.SetCurrentDirectory(_tempDir.DirectoryPath);
+        var originalDir = Directory.GetCurrentDirectory();
+        Directory.SetCurrentDirectory(_tempDir.DirectoryPath);
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            // copy to ensure it already exists
-            File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
+        // copy to ensure it already exists
+        File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
-            // expect an error in overwriting if in the same dir
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, null, CancellationToken.None).ConfigureAwait(false);
+        // expect an error in overwriting if in the same dir
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, false, TestNamespace, null, CancellationToken.None).ConfigureAwait(false);
 
-            // restore dir
-            Directory.SetCurrentDirectory(originalDir);
+        // restore dir
+        Directory.SetCurrentDirectory(originalDir);
 
-            Assert.That(result, Is.Not.Zero);
-        }
+        Assert.That(result, Is.Not.Zero);
+    }
 
-        [Test]
-        public async Task HandleAsync_GivenErrorInCompilation_ReturnsError()
-        {
-            var consoleWriter = new Mock<IStandardStreamWriter>();
-            consoleWriter
-                .Setup(c => c.Write(It.IsAny<string>()))
-                .Throws(new Exception("test ex"));
+    [Test]
+    public async Task HandleAsync_GivenErrorInCompilation_ReturnsError()
+    {
+        var consoleWriter = new Mock<IStandardStreamWriter>();
+        consoleWriter
+            .Setup(c => c.Write(It.IsAny<string>()))
+            .Throws(new Exception("test ex"));
 
-            _console.Setup(c => c.Out).Returns(consoleWriter.Object);
+        _console.Setup(c => c.Out).Returns(consoleWriter.Object);
 
-            const string input = SimpleTestIdl;
+        const string input = SimpleTestIdl;
 
-            var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-            File.WriteAllText(sourceFile.FullName, input);
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, input);
 
-            var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-            var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
+        var result = await _commandHandler.HandleCommandAsync(sourceFile, true, TestNamespace, sourceDir, CancellationToken.None).ConfigureAwait(false);
 
-            Assert.That(result, Is.Not.Zero);
-        }
+        Assert.That(result, Is.Not.Zero);
     }
 }

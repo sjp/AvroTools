@@ -2,29 +2,29 @@
 using Avro;
 using NUnit.Framework;
 
-namespace SJP.Avro.Tools.CodeGen.Tests
+namespace SJP.Avro.Tools.CodeGen.Tests;
+
+[TestFixture]
+internal static class AvroProtocolGeneratorTests
 {
-    [TestFixture]
-    internal static class AvroProtocolGeneratorTests
+    private const string TestNamespace = "Test.Avro.Namespace";
+
+    [Test]
+    public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
     {
-        private const string TestNamespace = "Test.Avro.Namespace";
+        var protocolGenerator = new AvroProtocolGenerator();
 
-        [Test]
-        public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
-        {
-            var protocolGenerator = new AvroProtocolGenerator();
+        Assert.That(() => protocolGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
+    }
 
-            Assert.That(() => protocolGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
-        }
+    [TestCase((string)null)]
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    {
+        var protocolGenerator = new AvroProtocolGenerator();
 
-        [TestCase((string)null)]
-        [TestCase("")]
-        [TestCase("    ")]
-        public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
-        {
-            var protocolGenerator = new AvroProtocolGenerator();
-
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
   ""protocol"" : ""Baseball"",
   ""namespace"" : ""avro.examples.baseball"",
   ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
@@ -71,15 +71,15 @@ namespace SJP.Avro.Tools.CodeGen.Tests
   }
 }");
 
-            Assert.That(() => protocolGenerator.Generate(protocol, baseNamepace), Throws.ArgumentNullException);
-        }
+        Assert.That(() => protocolGenerator.Generate(protocol, baseNamepace), Throws.ArgumentNullException);
+    }
 
-        [Test]
-        public static void Generate_GivenNoMessages_ReturnsEmptyString()
-        {
-            var protocolGenerator = new AvroProtocolGenerator();
+    [Test]
+    public static void Generate_GivenNoMessages_ReturnsEmptyString()
+    {
+        var protocolGenerator = new AvroProtocolGenerator();
 
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
   ""protocol"" : ""Baseball"",
   ""namespace"" : ""avro.examples.baseball"",
   ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
@@ -126,17 +126,17 @@ namespace SJP.Avro.Tools.CodeGen.Tests
   }
 }");
 
-            var result = protocolGenerator.Generate(protocol, TestNamespace);
+        var result = protocolGenerator.Generate(protocol, TestNamespace);
 
-            Assert.That(result, Is.Empty);
-        }
+        Assert.That(result, Is.Empty);
+    }
 
-        [Test]
-        public static void Generate_GivenValidProtocol_GeneratesExpectedCode()
-        {
-            var protocolGenerator = new AvroProtocolGenerator();
+    [Test]
+    public static void Generate_GivenValidProtocol_GeneratesExpectedCode()
+    {
+        var protocolGenerator = new AvroProtocolGenerator();
 
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
     ""protocol"": ""Simple"",
     ""namespace"": ""org.apache.avro.test"",
     ""doc"": ""* A simple test case."",
@@ -332,9 +332,9 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     }
 }");
 
-            var result = protocolGenerator.Generate(protocol, TestNamespace);
+        var result = protocolGenerator.Generate(protocol, TestNamespace);
 
-            const string expected = @"using System;
+        const string expected = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.IO;
@@ -396,15 +396,15 @@ namespace org.apache.avro.test
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public static void Generate_GivenValidProtocolWithComplexDocumentation_GeneratesExpectedCode()
-        {
-            var protocolGenerator = new AvroProtocolGenerator();
+    [Test]
+    public static void Generate_GivenValidProtocolWithComplexDocumentation_GeneratesExpectedCode()
+    {
+        var protocolGenerator = new AvroProtocolGenerator();
 
-            var protocol = Protocol.Parse(@"{
+        var protocol = Protocol.Parse(@"{
     ""protocol"": ""Simple"",
     ""namespace"": ""org.apache.avro.test"",
     ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
@@ -600,9 +600,9 @@ namespace org.apache.avro.test
     }
 }");
 
-            var result = protocolGenerator.Generate(protocol, TestNamespace);
+        var result = protocolGenerator.Generate(protocol, TestNamespace);
 
-            const string expected = @"using System;
+        const string expected = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.IO;
@@ -666,7 +666,6 @@ namespace org.apache.avro.test
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
     }
 }

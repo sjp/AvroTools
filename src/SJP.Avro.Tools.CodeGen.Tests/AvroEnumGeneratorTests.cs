@@ -1,29 +1,29 @@
 ﻿using Avro;
 using NUnit.Framework;
 
-namespace SJP.Avro.Tools.CodeGen.Tests
+namespace SJP.Avro.Tools.CodeGen.Tests;
+
+[TestFixture]
+internal static class AvroEnumGeneratorTests
 {
-    [TestFixture]
-    internal static class AvroEnumGeneratorTests
+    private const string TestNamespace = "Test.Avro.Namespace";
+
+    [Test]
+    public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
     {
-        private const string TestNamespace = "Test.Avro.Namespace";
+        var enumGenerator = new AvroEnumGenerator();
 
-        [Test]
-        public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
-        {
-            var enumGenerator = new AvroEnumGenerator();
+        Assert.That(() => enumGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
+    }
 
-            Assert.That(() => enumGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
-        }
+    [TestCase((string)null)]
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    {
+        var enumGenerator = new AvroEnumGenerator();
 
-        [TestCase((string)null)]
-        [TestCase("")]
-        [TestCase("    ")]
-        public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
-        {
-            var enumGenerator = new AvroEnumGenerator();
-
-            var schema = Schema.Parse(@"{
+        var schema = Schema.Parse(@"{
     ""type"": ""enum"",
     ""name"": ""Position"",
     ""doc"": ""Test documentation"",
@@ -42,15 +42,15 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ]
 }") as EnumSchema;
 
-            Assert.That(() => enumGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
-        }
+        Assert.That(() => enumGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+    }
 
-        [Test]
-        public static void Generate_GivenValidEnumSchema_GeneratesExpectedCode()
-        {
-            var enumGenerator = new AvroEnumGenerator();
+    [Test]
+    public static void Generate_GivenValidEnumSchema_GeneratesExpectedCode()
+    {
+        var enumGenerator = new AvroEnumGenerator();
 
-            var schema = Schema.Parse(@"{
+        var schema = Schema.Parse(@"{
     ""type"": ""enum"",
     ""name"": ""Position"",
     ""doc"": ""Test documentation"",
@@ -69,9 +69,9 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ]
 }") as EnumSchema;
 
-            var result = enumGenerator.Generate(schema, TestNamespace);
+        var result = enumGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @"namespace avro.examples.baseball
+        const string expected = @"namespace avro.examples.baseball
 {
     /// <summary>
     /// Test documentation
@@ -91,15 +91,15 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public static void Generate_GivenEnumSchemaMissingNamespace_GeneratesWithDefaultNamespace()
-        {
-            var enumGenerator = new AvroEnumGenerator();
+    [Test]
+    public static void Generate_GivenEnumSchemaMissingNamespace_GeneratesWithDefaultNamespace()
+    {
+        var enumGenerator = new AvroEnumGenerator();
 
-            var schema = Schema.Parse(@"{
+        var schema = Schema.Parse(@"{
     ""type"": ""enum"",
     ""name"": ""Position"",
     ""symbols"": [
@@ -116,9 +116,9 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ]
 }") as EnumSchema;
 
-            var result = enumGenerator.Generate(schema, TestNamespace);
+        var result = enumGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @$"namespace { TestNamespace }
+        const string expected = @$"namespace { TestNamespace }
 {{
     public enum Position
     {{
@@ -135,15 +135,15 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     }}
 }}";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public static void Generate_GivenEnumSchemaWithDefault_OrdersDefaultValueFirst()
-        {
-            var enumGenerator = new AvroEnumGenerator();
+    [Test]
+    public static void Generate_GivenEnumSchemaWithDefault_OrdersDefaultValueFirst()
+    {
+        var enumGenerator = new AvroEnumGenerator();
 
-            var schema = Schema.Parse(@"{
+        var schema = Schema.Parse(@"{
     ""type"": ""enum"",
     ""name"": ""Position"",
     ""doc"": ""Test documentation"",
@@ -163,9 +163,9 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ]
 }") as EnumSchema;
 
-            var result = enumGenerator.Generate(schema, TestNamespace);
+        var result = enumGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @"namespace avro.examples.baseball
+        const string expected = @"namespace avro.examples.baseball
 {
     /// <summary>
     /// Test documentation
@@ -185,7 +185,6 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
     }
 }

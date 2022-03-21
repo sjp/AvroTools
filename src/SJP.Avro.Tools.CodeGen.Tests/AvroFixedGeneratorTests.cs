@@ -1,29 +1,29 @@
 ﻿using Avro;
 using NUnit.Framework;
 
-namespace SJP.Avro.Tools.CodeGen.Tests
+namespace SJP.Avro.Tools.CodeGen.Tests;
+
+[TestFixture]
+internal static class AvroFixedGeneratorTests
 {
-    [TestFixture]
-    internal static class AvroFixedGeneratorTests
+    private const string TestNamespace = "Test.Avro.Namespace";
+
+    [Test]
+    public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
     {
-        private const string TestNamespace = "Test.Avro.Namespace";
+        var fixedGenerator = new AvroFixedGenerator();
 
-        [Test]
-        public static void Generate_GivenNullSchema_ThrowsArgumentNullException()
-        {
-            var fixedGenerator = new AvroFixedGenerator();
+        Assert.That(() => fixedGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
+    }
 
-            Assert.That(() => fixedGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
-        }
+    [TestCase((string)null)]
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    {
+        var fixedGenerator = new AvroFixedGenerator();
 
-        [TestCase((string)null)]
-        [TestCase("")]
-        [TestCase("    ")]
-        public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
-        {
-            var fixedGenerator = new AvroFixedGenerator();
-
-            var schema = Schema.Parse(@"{
+        var schema = Schema.Parse(@"{
     ""type"": ""fixed"",
     ""name"": ""MD5"",
     ""doc"": ""An MD5 hash."",
@@ -32,15 +32,15 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ""foo"": ""bar""
 }") as FixedSchema;
 
-            Assert.That(() => fixedGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
-        }
+        Assert.That(() => fixedGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+    }
 
-        [Test]
-        public static void Generate_GivenValidFixedSchema_GeneratesExpectedCode()
-        {
-            var fixedGenerator = new AvroFixedGenerator();
+    [Test]
+    public static void Generate_GivenValidFixedSchema_GeneratesExpectedCode()
+    {
+        var fixedGenerator = new AvroFixedGenerator();
 
-            var schema = Schema.Parse(@"{
+        var schema = Schema.Parse(@"{
     ""type"": ""fixed"",
     ""name"": ""MD5"",
     ""doc"": ""An MD5 hash."",
@@ -49,9 +49,9 @@ namespace SJP.Avro.Tools.CodeGen.Tests
     ""foo"": ""bar""
 }") as FixedSchema;
 
-            var result = fixedGenerator.Generate(schema, TestNamespace);
+        var result = fixedGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @"using System;
+        const string expected = @"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -75,24 +75,24 @@ namespace org.apache.avro.test
     }
 }";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+    }
 
-        [Test]
-        public static void Generate_GivenFixedSchemaWithoutNamespace_GeneratesCodeWithDefaultNamespace()
-        {
-            var fixedGenerator = new AvroFixedGenerator();
+    [Test]
+    public static void Generate_GivenFixedSchemaWithoutNamespace_GeneratesCodeWithDefaultNamespace()
+    {
+        var fixedGenerator = new AvroFixedGenerator();
 
-            var schema = Schema.Parse(@"{
+        var schema = Schema.Parse(@"{
     ""type"": ""fixed"",
     ""name"": ""MD5"",
     ""size"": 16,
     ""foo"": ""bar""
 }") as FixedSchema;
 
-            var result = fixedGenerator.Generate(schema, TestNamespace);
+        var result = fixedGenerator.Generate(schema, TestNamespace);
 
-            const string expected = @$"using System;
+        const string expected = @$"using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -113,7 +113,6 @@ namespace { TestNamespace }
     }}
 }}";
 
-            Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
-        }
+        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
     }
 }
