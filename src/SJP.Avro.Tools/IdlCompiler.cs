@@ -220,9 +220,9 @@ public class IdlCompiler
                     if (importIdlNs.IsNullOrWhiteSpace() || t["namespace"] != null)
                         return t;
 
-                        // explicitly setting a namespace, will be filtered out if needed
-                        // during a simplification step later
-                        t["namespace"] = importIdlNs;
+                    // explicitly setting a namespace, will be filtered out if needed
+                    // during a simplification step later
+                    t["namespace"] = importIdlNs;
 
                     return t;
                 })

@@ -77,7 +77,7 @@ internal static class IdlTextParsers
                 }
 
                 return endDocComment(content); // Will fail, because we're at the end-of-input.
-                };
+            };
         }
     }
 
