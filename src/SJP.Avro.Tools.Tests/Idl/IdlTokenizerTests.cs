@@ -17,8 +17,11 @@ internal static class IdlTokenizerTests
         var tokenizeResult = tokenizer.TryTokenize(input);
         var tokens = tokenizeResult.Value.ToList();
 
-        Assert.That(tokenizeResult.HasValue, Is.True);
-        Assert.That(tokens, Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(tokenizeResult.HasValue, Is.True);
+            Assert.That(tokens, Is.Not.Empty);
+        });
     }
 
     private static IEnumerable<string> IdlSampleFilenames()

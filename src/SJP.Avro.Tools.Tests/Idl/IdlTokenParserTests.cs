@@ -23,8 +23,11 @@ internal static class IdlTokenParserTests
 
         var result = IdlTokenParsers.Protocol(tokenList);
 
-        Assert.That(result.HasValue, Is.True);
-        Assert.That(result.Value, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HasValue, Is.True);
+            Assert.That(result.Value, Is.Not.Null);
+        });
     }
 
     private static IEnumerable<string> IdlSampleFilenames()
