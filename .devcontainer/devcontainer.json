@@ -10,5 +10,7 @@
 	"extensions": [
 		"ms-dotnettools.csharp"
 	],
+	"runArgs": ["--userns=keep-id"],
+	"containerUser": "vscode",
 	"remoteUser": "vscode"
 }
