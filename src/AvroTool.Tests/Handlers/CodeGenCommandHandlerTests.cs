@@ -127,8 +127,11 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-        Assert.That(result, Is.Zero);
-        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        });
     }
 
     [Test]
@@ -177,8 +180,11 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-        Assert.That(result, Is.Zero);
-        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        });
     }
 
     [Test]
@@ -227,8 +233,11 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-        Assert.That(result, Is.Zero);
-        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        });
     }
 
     [Test]
@@ -296,8 +305,11 @@ namespace SJP.Arvo.CodeGen.Test
     }
 }";
 
-        Assert.That(result, Is.Zero);
-        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        });
     }
 
     [Test]

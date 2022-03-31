@@ -83,8 +83,11 @@ internal class IdlCommandHandlerTests
   ""messages"": {}
 }";
 
-        Assert.That(result, Is.Zero);
-        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        });
     }
 
     [Test]

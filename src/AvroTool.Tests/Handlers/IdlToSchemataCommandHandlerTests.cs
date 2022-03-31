@@ -64,8 +64,11 @@ internal class IdlToSchemataCommandHandlerTests
 
         const string expectedResultFileContents = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
 
-        Assert.That(result, Is.Zero);
-        Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
+        });
     }
 
     [Test]
