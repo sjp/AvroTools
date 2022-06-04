@@ -39,7 +39,6 @@ The helpful Avro compiler tool.
         });
         builder.UseVersionOption();
         builder.UseParseErrorReporting();
-        builder.ParseResponseFileAs(ResponseFileHandling.ParseArgsAsSpaceSeparated);
         builder.CancelOnProcessTermination();
         builder.UseExceptionHandler(HandleException);
 
