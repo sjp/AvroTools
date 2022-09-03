@@ -21,8 +21,7 @@ internal static class SyntaxUtilities
     /// <exception cref="ArgumentNullException"><paramref name="comment"/> is <c>null</c>.</exception>
     public static SyntaxTriviaList BuildCommentTrivia(string comment)
     {
-        if (comment == null)
-            throw new ArgumentNullException(nameof(comment));
+        ArgumentNullException.ThrowIfNull(comment);
 
         var commentLines = GetLines(comment);
         var commentNodes = commentLines.Count > 1
@@ -41,8 +40,7 @@ internal static class SyntaxUtilities
 
     private static IReadOnlyCollection<string> GetLines(string comment)
     {
-        if (comment == null)
-            throw new ArgumentNullException(nameof(comment));
+        ArgumentNullException.ThrowIfNull(comment);
 
         var result = comment.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim().TrimStart('*').Trim())

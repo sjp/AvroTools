@@ -23,8 +23,7 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
     public string Generate(EnumSchema schema, string baseNamespace)
     {
-        if (schema == null)
-            throw new ArgumentNullException(nameof(schema));
+        ArgumentNullException.ThrowIfNull(schema);
         if (string.IsNullOrWhiteSpace(baseNamespace))
             throw new ArgumentNullException(nameof(baseNamespace));
 

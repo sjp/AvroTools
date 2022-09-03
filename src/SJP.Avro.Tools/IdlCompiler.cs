@@ -60,8 +60,7 @@ public class IdlCompiler
     {
         if (filePath.IsNullOrWhiteSpace())
             throw new ArgumentNullException(nameof(filePath));
-        if (protocol == null)
-            throw new ArgumentNullException(nameof(protocol));
+        ArgumentNullException.ThrowIfNull(protocol);
 
         var protocolNamespace = GetNamespaceFromProperties(protocol.Properties);
 

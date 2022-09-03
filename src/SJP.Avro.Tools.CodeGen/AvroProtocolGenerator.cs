@@ -25,8 +25,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
     public string Generate(Protocol protocol, string baseNamespace)
     {
-        if (protocol == null)
-            throw new ArgumentNullException(nameof(protocol));
+        ArgumentNullException.ThrowIfNull(protocol);
         if (string.IsNullOrWhiteSpace(baseNamespace))
             throw new ArgumentNullException(nameof(baseNamespace));
 

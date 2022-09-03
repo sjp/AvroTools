@@ -25,8 +25,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
     public string Generate(RecordSchema schema, string baseNamespace)
     {
-        if (schema == null)
-            throw new ArgumentNullException(nameof(schema));
+        ArgumentNullException.ThrowIfNull(schema);
         if (string.IsNullOrWhiteSpace(baseNamespace))
             throw new ArgumentNullException(nameof(baseNamespace));
 
