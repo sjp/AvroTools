@@ -425,7 +425,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                         IdentifierName("fieldPos")),
                                     LiteralExpression(
                                         SyntaxKind.StringLiteralExpression,
-                                        Literal($" in { nameof(ISpecificRecord.Get) }()")))))))));
+                                        Literal($" in {nameof(ISpecificRecord.Get)}()")))))))));
     }
 
     private static SwitchSectionSyntax GeneratePutDefaultCaseStatement()
@@ -453,7 +453,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                                 IdentifierName("fieldPos")),
                                             LiteralExpression(
                                                 SyntaxKind.StringLiteralExpression,
-                                                Literal($" in { nameof(ISpecificRecord.Put) }()"))))))))));
+                                                Literal($" in {nameof(ISpecificRecord.Put)}()"))))))))));
     }
 
     private static SwitchSectionSyntax GeneratePutCaseStatement(Field field, string enumClassName)

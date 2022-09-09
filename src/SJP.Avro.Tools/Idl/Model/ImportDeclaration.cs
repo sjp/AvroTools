@@ -21,7 +21,7 @@ public record ImportDeclaration : NamedSchemaDeclaration
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentNullException(nameof(path));
         if (type == ImportType.Unknown || !Enum.IsDefined(type))
-            throw new ArgumentOutOfRangeException(nameof(type), $"Invalid import type provided. Received '{ (type == ImportType.Unknown ? "Unknown" : ((int)type).ToString()) }'");
+            throw new ArgumentOutOfRangeException(nameof(type), $"Invalid import type provided. Received '{(type == ImportType.Unknown ? "Unknown" : ((int)type).ToString())}'");
 
         Type = type;
         Path = Unescape(path);

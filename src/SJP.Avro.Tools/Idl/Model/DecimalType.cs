@@ -20,11 +20,11 @@ public record DecimalType : LogicalType
         : base("bytes", properties)
     {
         if (precision <= 0)
-            throw new ArgumentOutOfRangeException(nameof(precision), $"The precision for a decimal type must a positive integer greater than zero. Given precision: '{ precision }'.");
+            throw new ArgumentOutOfRangeException(nameof(precision), $"The precision for a decimal type must a positive integer greater than zero. Given precision: '{precision}'.");
         if (scale <= 0)
-            throw new ArgumentOutOfRangeException(nameof(scale), $"The scale for a decimal type must a positive integer greater than zero. Given scale: '{ scale }'.");
+            throw new ArgumentOutOfRangeException(nameof(scale), $"The scale for a decimal type must a positive integer greater than zero. Given scale: '{scale}'.");
         if (scale > precision)
-            throw new ArgumentOutOfRangeException(nameof(scale), $"The scale for a decimal type must be no greater than the precision. Given precision: '{ precision }' and scale: '{ scale }'.");
+            throw new ArgumentOutOfRangeException(nameof(scale), $"The scale for a decimal type must be no greater than the precision. Given precision: '{precision}' and scale: '{scale}'.");
 
         Precision = precision;
         Scale = scale;

@@ -118,7 +118,7 @@ internal static class AvroEnumGeneratorTests
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
-        const string expected = @$"namespace { TestNamespace }
+        const string expected = @$"namespace {TestNamespace}
 {{
     public enum Position
     {{

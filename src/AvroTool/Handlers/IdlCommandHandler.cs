@@ -63,7 +63,7 @@ internal sealed class IdlCommandHandler
             await File.WriteAllTextAsync(outputPath, output, cancellationToken).ConfigureAwait(false);
 
             _console.SetTerminalForegroundGreen();
-            _console.Out.Write($"Generated { outputPath }");
+            _console.Out.Write($"Generated {outputPath}");
             _console.ResetTerminalForegroundColor();
 
             return ErrorCode.Success;

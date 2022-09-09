@@ -96,7 +96,7 @@ internal sealed class CodeGenCommandHandler
             {
                 if (protocol.Messages.Count == 0)
                 {
-                    WriteWarning($"Skipping protocol message generation. Protocol '{ protocol.Name }' has no messages");
+                    WriteWarning($"Skipping protocol message generation. Protocol '{protocol.Name}' has no messages");
                 }
                 else
                 {

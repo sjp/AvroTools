@@ -71,7 +71,7 @@ internal sealed class IdlToSchemataCommandHandler
 
                 await File.WriteAllTextAsync(schemaFilename, schema.ToString(), cancellationToken).ConfigureAwait(false);
                 _console.SetTerminalForegroundGreen();
-                _console.Out.WriteLine($"Generated { schemaFilename }");
+                _console.Out.WriteLine($"Generated {schemaFilename}");
                 _console.ResetTerminalForegroundColor();
             }
 

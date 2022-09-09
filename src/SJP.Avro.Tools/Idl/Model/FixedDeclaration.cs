@@ -27,7 +27,7 @@ public record FixedDeclaration : NamedSchemaDeclaration
     ) : base(comment, properties, position)
     {
         if (size < 1)
-            throw new ArgumentOutOfRangeException(nameof(size), $"A fixed type must have a size of at least zero. Given: '{ size }'.");
+            throw new ArgumentOutOfRangeException(nameof(size), $"A fixed type must have a size of at least zero. Given: '{size}'.");
 
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Size = size;

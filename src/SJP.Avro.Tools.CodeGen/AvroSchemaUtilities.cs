@@ -52,7 +52,7 @@ internal static class AvroSchemaUtilities
             "local-timestamp-micros" => IdentifierName(nameof(DateTime)),
             "duration" => IdentifierName(nameof(TimeSpan)),
             "uuid" => IdentifierName(Token(SyntaxKind.StringKeyword)),
-            _ => throw new ArgumentOutOfRangeException($"Unable to resolve a type for logicalType of '{ logicalSchema.Name }'")
+            _ => throw new ArgumentOutOfRangeException($"Unable to resolve a type for logicalType of '{logicalSchema.Name}'")
         };
     }
 

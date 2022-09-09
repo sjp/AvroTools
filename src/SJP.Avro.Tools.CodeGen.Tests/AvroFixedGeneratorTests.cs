@@ -97,7 +97,7 @@ using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
 
-namespace { TestNamespace }
+namespace {TestNamespace}
 {{
     public record MD5 : SpecificFixed
     {{

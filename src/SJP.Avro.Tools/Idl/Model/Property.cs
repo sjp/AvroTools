@@ -23,7 +23,7 @@ public record Property
         if (name.IsNullOrWhiteSpace())
             throw new ArgumentNullException(nameof(name));
         if (!name.StartsWith(PropertyPrefix))
-            throw new ArgumentException($"The given property name '{ name }' does not start with '{ PropertyPrefix }'.", nameof(name));
+            throw new ArgumentException($"The given property name '{name}' does not start with '{PropertyPrefix}'.", nameof(name));
 
         Name = TrimNamespacePrefix(name);
         Value = value ?? throw new ArgumentNullException(nameof(value));
