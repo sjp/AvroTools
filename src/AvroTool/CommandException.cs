@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.Serialization;
 
 namespace SJP.Avro.AvroTool;
 
@@ -17,11 +16,6 @@ internal class CommandException : Exception
 
     public CommandException(string message, Exception innerException)
         : base(message, innerException)
-    {
-    }
-
-    protected CommandException(SerializationInfo info, StreamingContext context)
-        : base(info, context)
     {
     }
 }

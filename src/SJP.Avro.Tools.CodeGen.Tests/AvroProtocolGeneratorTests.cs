@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Avro;
+﻿using Avro;
 using NUnit.Framework;
 
 namespace SJP.Avro.Tools.CodeGen.Tests;
