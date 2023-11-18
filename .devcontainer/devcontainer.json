@@ -6,10 +6,14 @@
 			"VARIANT": "8.0"
 		}
 	},
-	"settings": { },
-	"extensions": [
-		"ms-dotnettools.csharp"
-	],
+	"customizations": {
+		"vscode": {
+			"settings": { },
+			"extensions": [
+				"ms-dotnettools.csharp"
+			]
+		}
+	},
 	"runArgs": ["--userns=keep-id"],
 	"containerUser": "vscode",
 	"remoteUser": "vscode"
