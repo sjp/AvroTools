@@ -89,7 +89,7 @@ public class IdlCompiler
         foreach (var fieldType in referenceTypeFieldProperties)
         {
             if (!typePropertyLookup.TryGetValue(fieldType.Name.Value, out var props))
-                props = new List<Idl.Model.Property>();
+                props = [];
 
             props.AddRange(fieldType.Properties);
             typePropertyLookup[fieldType.Name.Value] = props;

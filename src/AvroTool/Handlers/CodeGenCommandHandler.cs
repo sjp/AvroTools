@@ -48,16 +48,16 @@ internal sealed class CodeGenCommandHandler
         if (TryParseAvroProtocol(input, out var inputProtocol))
         {
             protocol = inputProtocol;
-            schemas = inputProtocol.Types.ToList();
+            schemas = [..inputProtocol.Types];
         }
         else if (TryParseAvroSchema(input, out var inputSchema))
         {
-            schemas = new List<AvroSchema> { inputSchema };
+            schemas = [inputSchema];
         }
         else if (TryParseAvroProtocolFromIdl(input, out var idlParsedProtocol))
         {
             protocol = idlParsedProtocol;
-            schemas = idlParsedProtocol.Types.ToList();
+            schemas = [..idlParsedProtocol.Types];
         }
         else
         {

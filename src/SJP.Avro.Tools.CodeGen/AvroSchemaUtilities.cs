@@ -178,10 +178,9 @@ internal static class AvroSchemaUtilities
                                                 Literal(json)))))))))))
             .WithModifiers(
                     TokenList(
-                        new[]{
-                                Token(SyntaxKind.PrivateKeyword),
-                                Token(SyntaxKind.StaticKeyword),
-                                Token(SyntaxKind.ReadOnlyKeyword)}));
+                        Token(SyntaxKind.PrivateKeyword),
+                        Token(SyntaxKind.StaticKeyword),
+                        Token(SyntaxKind.ReadOnlyKeyword)));
     }
 
     public static PropertyDeclarationSyntax CreateProtocolProperty()
@@ -232,10 +231,9 @@ internal static class AvroSchemaUtilities
                                                 Literal(json)))))))))))
             .WithModifiers(
                     TokenList(
-                        new[]{
-                                Token(SyntaxKind.PrivateKeyword),
-                                Token(SyntaxKind.StaticKeyword),
-                                Token(SyntaxKind.ReadOnlyKeyword)}));
+                        Token(SyntaxKind.PrivateKeyword),
+                        Token(SyntaxKind.StaticKeyword),
+                        Token(SyntaxKind.ReadOnlyKeyword)));
     }
 
     public static PropertyDeclarationSyntax CreateSchemaProperty()

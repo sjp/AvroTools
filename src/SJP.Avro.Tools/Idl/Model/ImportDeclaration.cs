@@ -39,7 +39,7 @@ public record ImportDeclaration : NamedSchemaDeclaration
 
     private static string Unescape(string value)
     {
-        if (!value.StartsWith("\"") && !value.EndsWith("\""))
+        if (!value.StartsWith('"') && !value.EndsWith('"'))
             return value;
 
         var trimmed = value[1..^1];

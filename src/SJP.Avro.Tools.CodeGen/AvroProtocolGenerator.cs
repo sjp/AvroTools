@@ -128,7 +128,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
             MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
             UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
-            NamedSchema namedSchema => namedSchema.Namespace != null ? new[] { namedSchema.Namespace } : Array.Empty<string>(),
+            NamedSchema namedSchema => namedSchema.Namespace != null ? [namedSchema.Namespace] : Array.Empty<string>(),
             _ => Array.Empty<string>()
         };
     }

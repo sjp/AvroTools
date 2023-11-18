@@ -6,8 +6,8 @@ namespace SJP.Avro.Tools.Idl;
 
 internal static class IdlTextParsers
 {
-    private static readonly string[] ExpectedSignOrLetter = { "sign", "infinity" };
-    private static readonly string[] ExpectedInfinity = { "infinity" };
+    private static readonly string[] ExpectedSignOrLetter = ["sign", "infinity"];
+    private static readonly string[] ExpectedInfinity = ["infinity"];
 
     /// <summary>
     /// Infinity optional +/- sign.
