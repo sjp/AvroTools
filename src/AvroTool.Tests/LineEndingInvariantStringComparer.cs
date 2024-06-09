@@ -1,20 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.RegularExpressions;
 
 namespace SJP.Avro.AvroTool.Tests;
 
 /// <summary>
 /// A string comparer that ignores platform-specific line endings.
 /// </summary>
-internal sealed partial class LineEndingInvariantStringComparer : IEqualityComparer<string>
+internal sealed class LineEndingInvariantStringComparer : IEqualityComparer<string>
 {
-    [GeneratedRegex("\r\n|\n\r|\n|\r", RegexOptions.Compiled, matchTimeoutMilliseconds: 100)]
-    private static partial Regex LineEndingRegex();
-
-    private const string Crlf = "\r\n";
-
     private readonly StringComparer _comparer;
 
     /// <summary>
@@ -79,9 +73,9 @@ internal sealed partial class LineEndingInvariantStringComparer : IEqualityCompa
     public bool Equals([AllowNull] string x, [AllowNull] string y)
     {
         if (x != null)
-            x = NormalizeNewlines(x);
+            x = x.ReplaceLineEndings();
         if (y != null)
-            y = NormalizeNewlines(y);
+            y = y.ReplaceLineEndings();
 
         return _comparer.Equals(x, y);
     }
@@ -96,8 +90,6 @@ internal sealed partial class LineEndingInvariantStringComparer : IEqualityCompa
     {
         ArgumentNullException.ThrowIfNull(obj);
 
-        return _comparer.GetHashCode(NormalizeNewlines(obj));
+        return _comparer.GetHashCode(obj.ReplaceLineEndings());
     }
-
-    private static string NormalizeNewlines(string input) => LineEndingRegex().Replace(input, Crlf);
 }
