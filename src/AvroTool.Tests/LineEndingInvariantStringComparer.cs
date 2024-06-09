@@ -8,9 +8,11 @@ namespace SJP.Avro.AvroTool.Tests;
 /// <summary>
 /// A string comparer that ignores platform-specific line endings.
 /// </summary>
-internal sealed class LineEndingInvariantStringComparer : IEqualityComparer<string>
+internal sealed partial class LineEndingInvariantStringComparer : IEqualityComparer<string>
 {
-    private static readonly Regex _lineEndingRegex = new("\r\n|\n\r|\n|\r", RegexOptions.Compiled, TimeSpan.FromMilliseconds(100));
+    [GeneratedRegex("\r\n|\n\r|\n|\r", RegexOptions.Compiled, matchTimeoutMilliseconds: 100)]
+    private static partial Regex LineEndingRegex();
+
     private const string Crlf = "\r\n";
 
     private readonly StringComparer _comparer;
@@ -97,5 +99,5 @@ internal sealed class LineEndingInvariantStringComparer : IEqualityComparer<stri
         return _comparer.GetHashCode(NormalizeNewlines(obj));
     }
 
-    private static string NormalizeNewlines(string input) => _lineEndingRegex.Replace(input, Crlf);
+    private static string NormalizeNewlines(string input) => LineEndingRegex().Replace(input, Crlf);
 }
