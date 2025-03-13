@@ -10,3 +10,7 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every week
       interval: "weekly"
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: weekly
