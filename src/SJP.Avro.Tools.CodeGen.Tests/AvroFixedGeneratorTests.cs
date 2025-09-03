@@ -19,7 +19,7 @@ internal static class AvroFixedGeneratorTests
     [TestCase((string)null)]
     [TestCase("")]
     [TestCase("    ")]
-    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamespace)
     {
         var fixedGenerator = new AvroFixedGenerator();
 
@@ -32,7 +32,7 @@ internal static class AvroFixedGeneratorTests
     ""foo"": ""bar""
 }") as FixedSchema;
 
-        Assert.That(() => fixedGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+        Assert.That(() => fixedGenerator.Generate(schema, baseNamespace), Throws.ArgumentNullException);
     }
 
     [Test]
@@ -75,7 +75,7 @@ namespace org.apache.avro.test
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 
     [Test]
@@ -113,6 +113,6 @@ namespace {TestNamespace}
     }}
 }}";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 }

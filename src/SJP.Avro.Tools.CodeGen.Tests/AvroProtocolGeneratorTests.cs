@@ -19,7 +19,7 @@ internal static class AvroProtocolGeneratorTests
     [TestCase((string)null)]
     [TestCase("")]
     [TestCase("    ")]
-    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamespace)
     {
         var protocolGenerator = new AvroProtocolGenerator();
 
@@ -70,7 +70,7 @@ internal static class AvroProtocolGeneratorTests
   }
 }");
 
-        Assert.That(() => protocolGenerator.Generate(protocol, baseNamepace), Throws.ArgumentNullException);
+        Assert.That(() => protocolGenerator.Generate(protocol, baseNamespace), Throws.ArgumentNullException);
     }
 
     [Test]
@@ -395,7 +395,7 @@ namespace org.apache.avro.test
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 
     [Test]
@@ -665,6 +665,6 @@ namespace org.apache.avro.test
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 }

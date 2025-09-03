@@ -20,7 +20,7 @@ internal static class AvroRecordGeneratorTests
     [TestCase((string)null)]
     [TestCase("")]
     [TestCase("    ")]
-    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamespace)
     {
         var recordGenerator = new AvroRecordGenerator();
 
@@ -73,7 +73,7 @@ internal static class AvroRecordGeneratorTests
 
         var schema = protocol.Types.Last() as RecordSchema;
 
-        Assert.That(() => recordGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+        Assert.That(() => recordGenerator.Generate(schema, baseNamespace), Throws.ArgumentNullException);
     }
 
     [Test]
@@ -221,7 +221,7 @@ namespace avro.examples.baseball
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 
     [Test]
@@ -369,7 +369,7 @@ namespace avro.examples.baseball
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 
     [Test]
@@ -509,6 +509,6 @@ namespace avro.test.protocol
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 }

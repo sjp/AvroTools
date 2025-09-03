@@ -19,7 +19,7 @@ internal static class AvroEnumGeneratorTests
     [TestCase((string)null)]
     [TestCase("")]
     [TestCase("    ")]
-    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamepace)
+    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamespace)
     {
         var enumGenerator = new AvroEnumGenerator();
 
@@ -42,7 +42,7 @@ internal static class AvroEnumGeneratorTests
     ]
 }") as EnumSchema;
 
-        Assert.That(() => enumGenerator.Generate(schema, baseNamepace), Throws.ArgumentNullException);
+        Assert.That(() => enumGenerator.Generate(schema, baseNamespace), Throws.ArgumentNullException);
     }
 
     [Test]
@@ -91,7 +91,7 @@ internal static class AvroEnumGeneratorTests
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 
     [Test]
@@ -135,7 +135,7 @@ internal static class AvroEnumGeneratorTests
     }}
 }}";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 
     [Test]
@@ -185,6 +185,6 @@ internal static class AvroEnumGeneratorTests
     }
 }";
 
-        Assert.That(result, Is.EqualTo(expected).Using(LineEndingInvariantStringComparer.Ordinal));
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 }
