@@ -21,14 +21,16 @@ internal static class AvroFixedGeneratorTests
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""fixed"",
-    ""name"": ""MD5"",
-    ""doc"": ""An MD5 hash."",
-    ""namespace"": ""org.apache.avro.test"",
-    ""size"": 16,
-    ""foo"": ""bar""
-}") as FixedSchema;
+        var schema = Schema.Parse("""
+{
+    "type": "fixed",
+    "name": "MD5",
+    "doc": "An MD5 hash.",
+    "namespace": "org.apache.avro.test",
+    "size": 16,
+    "foo": "bar"
+}
+""") as FixedSchema;
 
         Assert.That(() => fixedGenerator.Generate(schema, null), Throws.ArgumentNullException);
     }
@@ -39,14 +41,16 @@ internal static class AvroFixedGeneratorTests
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""fixed"",
-    ""name"": ""MD5"",
-    ""doc"": ""An MD5 hash."",
-    ""namespace"": ""org.apache.avro.test"",
-    ""size"": 16,
-    ""foo"": ""bar""
-}") as FixedSchema;
+        var schema = Schema.Parse("""
+{
+    "type": "fixed",
+    "name": "MD5",
+    "doc": "An MD5 hash.",
+    "namespace": "org.apache.avro.test",
+    "size": 16,
+    "foo": "bar"
+}
+""") as FixedSchema;
 
         Assert.That(() => fixedGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
     }
@@ -56,18 +60,21 @@ internal static class AvroFixedGeneratorTests
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""fixed"",
-    ""name"": ""MD5"",
-    ""doc"": ""An MD5 hash."",
-    ""namespace"": ""org.apache.avro.test"",
-    ""size"": 16,
-    ""foo"": ""bar""
-}") as FixedSchema;
+        var schema = Schema.Parse("""
+{
+    "type": "fixed",
+    "name": "MD5",
+    "doc": "An MD5 hash.",
+    "namespace": "org.apache.avro.test",
+    "size": 16,
+    "foo": "bar"
+}
+""") as FixedSchema;
 
         var result = fixedGenerator.Generate(schema, TestNamespace);
 
-        const string expected = @"using System;
+        const string expected = """
+using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -79,7 +86,7 @@ namespace org.apache.avro.test
     /// </summary>
     public record MD5 : SpecificFixed
     {
-        private static readonly Schema _schema = Schema.Parse(""{\""type\"":\""fixed\"",\""name\"":\""MD5\"",\""doc\"":\""An MD5 hash.\"",\""namespace\"":\""org.apache.avro.test\"",\""size\"":16,\""foo\"":\""bar\""}"");
+        private static readonly Schema _schema = Schema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.test\",\"size\":16,\"foo\":\"bar\"}");
 
         public override Schema Schema { get; } = _schema;
 
@@ -89,7 +96,8 @@ namespace org.apache.avro.test
         {
         }
     }
-}";
+}
+""";
 
         Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
@@ -99,35 +107,39 @@ namespace org.apache.avro.test
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""fixed"",
-    ""name"": ""MD5"",
-    ""size"": 16,
-    ""foo"": ""bar""
-}") as FixedSchema;
+        var schema = Schema.Parse("""
+{
+    "type": "fixed",
+    "name": "MD5",
+    "size": 16,
+    "foo": "bar"
+}
+""") as FixedSchema;
 
         var result = fixedGenerator.Generate(schema, TestNamespace);
 
-        const string expected = @$"using System;
+        const string expected = $$"""
+using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
 
-namespace {TestNamespace}
-{{
+namespace {{TestNamespace}}
+{
     public record MD5 : SpecificFixed
-    {{
-        private static readonly Schema _schema = Schema.Parse(""{{\""type\"":\""fixed\"",\""name\"":\""MD5\"",\""size\"":16,\""foo\"":\""bar\""}}"");
+    {
+        private static readonly Schema _schema = Schema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"size\":16,\"foo\":\"bar\"}");
 
-        public override Schema Schema {{ get; }} = _schema;
+        public override Schema Schema { get; } = _schema;
 
-        public static uint FixedSize {{ get; }} = 16;
+        public static uint FixedSize { get; } = 16;
 
         public MD5() : base(FixedSize)
-        {{
-        }}
-    }}
-}}";
+        {
+        }
+    }
+}
+""";
 
         Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }

@@ -70,26 +70,28 @@ internal class IdlCommandTests
         var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr")).ConfigureAwait(false);
 
-        const string expectedResultFileContents = @"{
-  ""protocol"": ""TestProtocol"",
-  ""types"": [
+        const string expectedResultFileContents = """
+{
+  "protocol": "TestProtocol",
+  "types": [
     {
-      ""type"": ""record"",
-      ""fields"": [
+      "type": "record",
+      "fields": [
         {
-          ""name"": ""FirstName"",
-          ""type"": ""string""
+          "name": "FirstName",
+          "type": "string"
         },
         {
-          ""name"": ""LastName"",
-          ""type"": ""string""
+          "name": "LastName",
+          "type": "string"
         }
       ],
-      ""name"": ""TestRecord""
+      "name": "TestRecord"
     }
   ],
-  ""messages"": {}
-}";
+  "messages": {}
+}
+""";
 
         using (Assert.EnterMultipleScope())
         {

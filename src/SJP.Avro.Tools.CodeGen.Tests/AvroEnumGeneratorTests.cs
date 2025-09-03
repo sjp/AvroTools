@@ -21,24 +21,26 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""enum"",
-    ""name"": ""Position"",
-    ""doc"": ""Test documentation"",
-    ""namespace"": ""avro.examples.baseball"",
-    ""symbols"": [
-        ""P"",
-        ""C"",
-        ""B1"",
-        ""B2"",
-        ""B3"",
-        ""SS"",
-        ""LF"",
-        ""CF"",
-        ""RF"",
-        ""DH""
+        var schema = Schema.Parse("""
+{
+    "type": "enum",
+    "name": "Position",
+    "doc": "Test documentation",
+    "namespace": "avro.examples.baseball",
+    "symbols": [
+        "P",
+        "C",
+        "B1",
+        "B2",
+        "B3",
+        "SS",
+        "LF",
+        "CF",
+        "RF",
+        "DH"
     ]
-}") as EnumSchema;
+}
+""") as EnumSchema;
 
         Assert.That(() => enumGenerator.Generate(schema, null), Throws.ArgumentNullException);
     }
@@ -49,24 +51,26 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""enum"",
-    ""name"": ""Position"",
-    ""doc"": ""Test documentation"",
-    ""namespace"": ""avro.examples.baseball"",
-    ""symbols"": [
-        ""P"",
-        ""C"",
-        ""B1"",
-        ""B2"",
-        ""B3"",
-        ""SS"",
-        ""LF"",
-        ""CF"",
-        ""RF"",
-        ""DH""
+        var schema = Schema.Parse("""
+{
+    "type": "enum",
+    "name": "Position",
+    "doc": "Test documentation",
+    "namespace": "avro.examples.baseball",
+    "symbols": [
+        "P",
+        "C",
+        "B1",
+        "B2",
+        "B3",
+        "SS",
+        "LF",
+        "CF",
+        "RF",
+        "DH"
     ]
-}") as EnumSchema;
+}
+""") as EnumSchema;
 
         Assert.That(() => enumGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
     }
@@ -76,24 +80,26 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""enum"",
-    ""name"": ""Position"",
-    ""doc"": ""Test documentation"",
-    ""namespace"": ""avro.examples.baseball"",
-    ""symbols"": [
-        ""P"",
-        ""C"",
-        ""B1"",
-        ""B2"",
-        ""B3"",
-        ""SS"",
-        ""LF"",
-        ""CF"",
-        ""RF"",
-        ""DH""
+        var schema = Schema.Parse("""
+{
+    "type": "enum",
+    "name": "Position",
+    "doc": "Test documentation",
+    "namespace": "avro.examples.baseball",
+    "symbols": [
+        "P",
+        "C",
+        "B1",
+        "B2",
+        "B3",
+        "SS",
+        "LF",
+        "CF",
+        "RF",
+        "DH"
     ]
-}") as EnumSchema;
+}
+""") as EnumSchema;
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
@@ -125,22 +131,24 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""enum"",
-    ""name"": ""Position"",
-    ""symbols"": [
-        ""P"",
-        ""C"",
-        ""B1"",
-        ""B2"",
-        ""B3"",
-        ""SS"",
-        ""LF"",
-        ""CF"",
-        ""RF"",
-        ""DH""
+        var schema = Schema.Parse("""
+{
+    "type": "enum",
+    "name": "Position",
+    "symbols": [
+        "P",
+        "C",
+        "B1",
+        "B2",
+        "B3",
+        "SS",
+        "LF",
+        "CF",
+        "RF",
+        "DH"
     ]
-}") as EnumSchema;
+}
+""") as EnumSchema;
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
@@ -169,25 +177,27 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse(@"{
-    ""type"": ""enum"",
-    ""name"": ""Position"",
-    ""doc"": ""Test documentation"",
-    ""namespace"": ""avro.examples.baseball"",
-    ""default"": ""CF"",
-    ""symbols"": [
-        ""P"",
-        ""C"",
-        ""B1"",
-        ""B2"",
-        ""B3"",
-        ""SS"",
-        ""LF"",
-        ""CF"",
-        ""RF"",
-        ""DH""
+        var schema = Schema.Parse("""
+{
+    "type": "enum",
+    "name": "Position",
+    "doc": "Test documentation",
+    "namespace": "avro.examples.baseball",
+    "default": "CF",
+    "symbols": [
+        "P",
+        "C",
+        "B1",
+        "B2",
+        "B3",
+        "SS",
+        "LF",
+        "CF",
+        "RF",
+        "DH"
     ]
-}") as EnumSchema;
+}
+""") as EnumSchema;
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 

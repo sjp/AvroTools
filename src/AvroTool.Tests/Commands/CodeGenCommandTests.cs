@@ -85,7 +85,8 @@ internal class CodeGenCommandTests
         var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
 
-        const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = """
+using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -94,7 +95,7 @@ namespace SJP.Arvo.CodeGen.Test
 {
     public record TestRecord : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse(""{\""type\"":\""record\"",\""name\"":\""TestRecord\"",\""fields\"":[{\""name\"":\""FirstName\"",\""type\"":\""string\""},{\""name\"":\""LastName\"",\""type\"":\""string\""}]}"");
+        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
 
         public Schema Schema { get; } = _schema;
 
@@ -109,7 +110,7 @@ namespace SJP.Arvo.CodeGen.Test
             {
                 TestRecordField.FirstName => FirstName,
                 TestRecordField.LastName => LastName,
-                _ => throw new AvroRuntimeException(""Bad index "" + fieldPos + "" in Get()"")
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -125,7 +126,7 @@ namespace SJP.Arvo.CodeGen.Test
                     LastName = (string)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException(""Bad index "" + fieldPos + "" in Put()"");
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -135,7 +136,8 @@ namespace SJP.Arvo.CodeGen.Test
             LastName
         }
     }
-}";
+}
+""";
 
         using (Assert.EnterMultipleScope())
         {
@@ -163,7 +165,8 @@ namespace SJP.Arvo.CodeGen.Test
         var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
 
-        const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = """
+using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.IO;
@@ -173,7 +176,7 @@ namespace SJP.Arvo.CodeGen.Test
 {
     public abstract record TestProtocol : ISpecificProtocol
     {
-        private static readonly Protocol _protocol = Protocol.Parse(""{\""protocol\"":\""TestProtocol\"",\""types\"":[],\""messages\"":{\""error\"":{\""request\"":[],\""response\"":\""null\""},\""void\"":{\""request\"":[],\""response\"":\""null\""}}}"");
+        private static readonly Protocol _protocol = Protocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
 
         public Protocol Protocol { get; } = _protocol;
 
@@ -181,10 +184,10 @@ namespace SJP.Arvo.CodeGen.Test
         {
             switch (messageName)
             {
-                case ""error"":
+                case "error":
                     requestor.Request<object>(messageName, args, callback);
                     break;
-                case ""void"":
+                case "void":
                     requestor.Request<object>(messageName, args, callback);
                     break;
             }
@@ -194,7 +197,8 @@ namespace SJP.Arvo.CodeGen.Test
 
         public abstract void void();
     }
-}";
+}
+""";
 
         using (Assert.EnterMultipleScope())
         {
@@ -222,7 +226,8 @@ namespace SJP.Arvo.CodeGen.Test
         var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
 
-        const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = """
+using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.IO;
@@ -232,7 +237,7 @@ namespace SJP.Arvo.CodeGen.Test
 {
     public abstract record TestProtocol : ISpecificProtocol
     {
-        private static readonly Protocol _protocol = Protocol.Parse(""{\""protocol\"":\""TestProtocol\"",\""types\"":[],\""messages\"":{\""error\"":{\""request\"":[],\""response\"":\""null\""},\""void\"":{\""request\"":[],\""response\"":\""null\""}}}"");
+        private static readonly Protocol _protocol = Protocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
 
         public Protocol Protocol { get; } = _protocol;
 
@@ -240,10 +245,10 @@ namespace SJP.Arvo.CodeGen.Test
         {
             switch (messageName)
             {
-                case ""error"":
+                case "error":
                     requestor.Request<object>(messageName, args, callback);
                     break;
-                case ""void"":
+                case "void":
                     requestor.Request<object>(messageName, args, callback);
                     break;
             }
@@ -253,7 +258,8 @@ namespace SJP.Arvo.CodeGen.Test
 
         public abstract void void();
     }
-}";
+}
+""";
 
         using (Assert.EnterMultipleScope())
         {
@@ -281,7 +287,8 @@ namespace SJP.Arvo.CodeGen.Test
         var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
 
-        const string expectedResultFileContents = @"using System;
+        const string expectedResultFileContents = """
+using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
@@ -290,7 +297,7 @@ namespace SJP.Arvo.CodeGen.Test
 {
     public record TestRecord : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse(""{\""type\"":\""record\"",\""name\"":\""TestRecord\"",\""fields\"":[{\""name\"":\""FirstName\"",\""type\"":\""string\""},{\""name\"":\""LastName\"",\""type\"":\""string\""}]}"");
+        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
 
         public Schema Schema { get; } = _schema;
 
@@ -305,7 +312,7 @@ namespace SJP.Arvo.CodeGen.Test
             {
                 TestRecordField.FirstName => FirstName,
                 TestRecordField.LastName => LastName,
-                _ => throw new AvroRuntimeException(""Bad index "" + fieldPos + "" in Get()"")
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -321,7 +328,7 @@ namespace SJP.Arvo.CodeGen.Test
                     LastName = (string)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException(""Bad index "" + fieldPos + "" in Put()"");
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -331,7 +338,8 @@ namespace SJP.Arvo.CodeGen.Test
             LastName
         }
     }
-}";
+}
+""";
 
         using (Assert.EnterMultipleScope())
         {
