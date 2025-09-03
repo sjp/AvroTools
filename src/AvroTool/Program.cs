@@ -1,91 +1,56 @@
-﻿using System;
-using System.CommandLine;
-using System.CommandLine.Builder;
-using System.CommandLine.Help;
-using System.CommandLine.Invocation;
-using System.CommandLine.Parsing;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AvroTool.Commands;
+using Spectre.Console;
+using Spectre.Console.Cli;
 
 namespace AvroTool;
 
 internal static class Program
 {
-    private const string TitleText = @"    ___                 ______            __
-   /   |_   ___________/_  __/___  ____  / /
-  / /| | | / / ___/ __ \/ / / __ \/ __ \/ /
- / ___ | |/ / /  / /_/ / / / /_/ / /_/ / /
-/_/  |_|___/_/   \____/_/  \____/\____/_/
-
-The helpful Avro compiler tool.
-
-";
-
     public static Task<int> Main(string[] args)
     {
-        var root = new RootCommand();
+        var app = new CommandApp();
 
-        root.AddCommand(new IdlCommand());
-        root.AddCommand(new IdlToSchemataCommand());
-        root.AddCommand(new CodeGenCommand());
-
-        var builder = new CommandLineBuilder(root);
-        builder.UseHelp(ctx =>
+        app.Configure(config =>
         {
-            ctx.HelpBuilder.CustomizeLayout(_ =>
-                HelpBuilder.Default.GetLayout().Skip(1).Prepend(hctx => hctx.Output.Write(TitleText)));
-        });
-        builder.UseVersionOption();
-        builder.UseParseErrorReporting();
-        builder.CancelOnProcessTermination();
-        builder.UseExceptionHandler(HandleException);
+            config.SetApplicationName("avrotool");
+            config.SetApplicationVersion(GetVersion());
 
-        var parser = builder.Build();
-        return parser.InvokeAsync(args);
+            config.AddCommand<IdlCommand>("idl").WithDescription("Generates a JSON protocol file from an Avro IDL file.");
+            config.AddCommand<IdlToSchemataCommand>("idl2schemata").WithDescription("Extract JSON schemata of the types from an Avro IDL file.");
+            config.AddCommand<CodeGenCommand>("codegen").WithDescription("Generates C# code for a given Avro IDL, protocol or schema.");
+
+            config.PropagateExceptions();
+            config.ValidateExamples();
+            config.SetInterceptor(new HelpInterceptor());
+            config.SetExceptionHandler((ex, _) =>
+            {
+                AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
+            });
+        });
+
+        return app.RunAsync(args);
     }
 
-    private static void HandleException(Exception exception, InvocationContext context)
+    private static string GetVersion()
     {
-        context.Console.ResetTerminalForegroundColor();
-        context.Console.SetTerminalForegroundRed();
+        var assembly = Assembly.GetEntryAssembly()!;
+        var assemblyVersion = assembly.GetName().Version!;
+        return $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}";
+    }
+}
 
-        if (exception is TargetInvocationException tie &&
-            tie.InnerException is not null)
-        {
-            exception = tie.InnerException;
-        }
+internal sealed class HelpInterceptor : ICommandInterceptor
+{
+    public void Intercept(CommandContext context, CommandSettings settings)
+    {
+        AnsiConsole.Write(new FigletText("AvroTool").LeftJustified().Color(Color.Blue));
+        AnsiConsole.WriteLine("The helpful Avro compiler tool.");
+        AnsiConsole.WriteLine();
+    }
 
-        // take the first if present
-        if (exception is AggregateException ae && ae.InnerExceptions.Count > 0)
-        {
-            exception = ae.InnerExceptions[0];
-        }
-
-        if (exception is OperationCanceledException)
-        {
-            context.Console.Error.WriteLine("...canceled.");
-        }
-        else if (exception is CommandException command)
-        {
-            context.Console.Error.WriteLine($"The '{context.ParseResult.CommandResult.Command.Name}' command failed:");
-            context.Console.Error.WriteLine($"    {command.Message}");
-
-            if (command.InnerException != null)
-            {
-                context.Console.Error.WriteLine();
-                context.Console.Error.WriteLine(command.InnerException.ToString());
-            }
-        }
-        else
-        {
-            context.Console.Error.WriteLine("An unhandled exception has occurred: ");
-            context.Console.Error.WriteLine(exception.ToString());
-        }
-
-        context.Console.ResetTerminalForegroundColor();
-
-        context.ExitCode = 1;
+    public void InterceptResult(CommandContext context, CommandSettings settings, ref int result)
+    {
     }
 }

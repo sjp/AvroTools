@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Superpower;
 using Superpower.Model;
 
@@ -8,7 +9,7 @@ namespace SJP.Avro.Tools.Idl;
 /// A tokenizer for Avro IDL documents.
 /// </summary>
 /// <seealso cref="Tokenizer{TKind}" />
-public class IdlTokenizer : Tokenizer<IdlToken>
+public class IdlTokenizer : Tokenizer<IdlToken>, IIdlTokenizer
 {
     static IdlTokenizer()
     {

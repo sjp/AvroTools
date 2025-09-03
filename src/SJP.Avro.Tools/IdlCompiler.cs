@@ -13,7 +13,7 @@ namespace SJP.Avro.Tools;
 /// <summary>
 /// A compiler used to generate a JSON protocol from an Avro IDL protocol.
 /// </summary>
-public class IdlCompiler
+public class IdlCompiler : IIdlCompiler
 {
     private readonly IFileProvider _fileProvider;
 
