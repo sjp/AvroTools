@@ -1,7 +1,7 @@
+using AvroTool.Commands;
 using NUnit.Framework;
-using SJP.Avro.AvroTool.Commands;
 
-namespace SJP.Avro.AvroTool.Tests.Commands;
+namespace AvroTool.Tests.Commands;
 
 [TestFixture]
 internal static class IdlCommandTests

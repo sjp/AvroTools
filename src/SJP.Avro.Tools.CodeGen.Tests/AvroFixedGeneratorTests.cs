@@ -16,10 +16,8 @@ internal static class AvroFixedGeneratorTests
         Assert.That(() => fixedGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
     }
 
-    [TestCase((string)null)]
-    [TestCase("")]
-    [TestCase("    ")]
-    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamespace)
+    [Test]
+    public static void Generate_GivenNullBaseNamespace_ThrowsArgumentNullException()
     {
         var fixedGenerator = new AvroFixedGenerator();
 
@@ -32,7 +30,25 @@ internal static class AvroFixedGeneratorTests
     ""foo"": ""bar""
 }") as FixedSchema;
 
-        Assert.That(() => fixedGenerator.Generate(schema, baseNamespace), Throws.ArgumentNullException);
+        Assert.That(() => fixedGenerator.Generate(schema, null), Throws.ArgumentNullException);
+    }
+
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenEmptyOrWhitespaceBaseNamespace_ThrowsArgumentException(string baseNamespace)
+    {
+        var fixedGenerator = new AvroFixedGenerator();
+
+        var schema = Schema.Parse(@"{
+    ""type"": ""fixed"",
+    ""name"": ""MD5"",
+    ""doc"": ""An MD5 hash."",
+    ""namespace"": ""org.apache.avro.test"",
+    ""size"": 16,
+    ""foo"": ""bar""
+}") as FixedSchema;
+
+        Assert.That(() => fixedGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
     }
 
     [Test]

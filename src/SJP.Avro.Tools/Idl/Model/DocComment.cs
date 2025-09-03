@@ -14,12 +14,11 @@ public record DocComment
     /// Constructs a comment used for documentation purposes.
     /// </summary>
     /// <param name="comment">A documentation-level comment.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="comment"/> is <c>null</c>, empty or whitespace.</exception>
-    /// <exception cref="ArgumentException"><paramref name="comment"/> does not start with '/**' or end with '*/'.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="comment"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="comment"/> empty or whitespace, or <paramref name="comment"/> does not start with '/**' or end with '*/'.</exception>
     public DocComment(string comment)
     {
-        if (comment.IsNullOrWhiteSpace())
-            throw new ArgumentNullException(nameof(comment));
+        ArgumentException.ThrowIfNullOrWhiteSpace(comment);
         if (!comment.StartsWith(CommentPrefix) || !comment.EndsWith(CommentSuffix))
             throw new ArgumentException($"A doccomment must start with '{CommentPrefix}' and end with '{CommentSuffix}', given: {comment}", nameof(comment));
 

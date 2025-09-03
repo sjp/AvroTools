@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SJP.Avro.AvroTool;
+namespace AvroTool;
 
 [Serializable]
 internal class CommandException : Exception

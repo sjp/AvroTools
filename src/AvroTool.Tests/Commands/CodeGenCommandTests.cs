@@ -1,7 +1,7 @@
-﻿using NUnit.Framework;
-using SJP.Avro.AvroTool.Commands;
+﻿using AvroTool.Commands;
+using NUnit.Framework;
 
-namespace SJP.Avro.AvroTool.Tests.Commands;
+namespace AvroTool.Tests.Commands;
 
 [TestFixture]
 internal static class CodeGenCommandTests

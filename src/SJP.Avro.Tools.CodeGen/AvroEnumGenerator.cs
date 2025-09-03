@@ -20,12 +20,12 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
     /// <param name="schema">A definition of an enum in Avro schema.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
     /// <returns>A string representing a C# file containing an enum definition.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
     public string Generate(EnumSchema schema, string baseNamespace)
     {
         ArgumentNullException.ThrowIfNull(schema);
-        if (string.IsNullOrWhiteSpace(baseNamespace))
-            throw new ArgumentNullException(nameof(baseNamespace));
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);
 
         var ns = schema.Namespace ?? baseNamespace;
 

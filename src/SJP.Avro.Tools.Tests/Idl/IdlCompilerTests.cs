@@ -28,10 +28,8 @@ internal class IdlCompilerTests
         Assert.That(() => new IdlCompiler(null), Throws.ArgumentNullException);
     }
 
-    [TestCase((string)null)]
-    [TestCase("")]
-    [TestCase("        ")]
-    public void Compile_GivenNullFilePath_ThrowsArgNullException(string filePath)
+    [Test]
+    public void Compile_GivenNullFilePath_ThrowsArgNullException()
     {
         var testProtocol = new Protocol(
             null,
@@ -45,7 +43,26 @@ internal class IdlCompilerTests
             new Dictionary<Identifier, MessageDeclaration>()
         );
 
-        Assert.That(() => _compiler.Compile(filePath, testProtocol), Throws.ArgumentNullException);
+        Assert.That(() => _compiler.Compile(null, testProtocol), Throws.ArgumentNullException);
+    }
+
+    [TestCase("")]
+    [TestCase("        ")]
+    public void Compile_GivenEmptyOrWhiteSpaceFilePath_ThrowsArgException(string filePath)
+    {
+        var testProtocol = new Protocol(
+            null,
+            new Identifier("fake_protocol"),
+            Array.Empty<Property>(),
+            Array.Empty<RecordDeclaration>(),
+            Array.Empty<FixedDeclaration>(),
+            Array.Empty<EnumDeclaration>(),
+            Array.Empty<ErrorDeclaration>(),
+            Array.Empty<ImportDeclaration>(),
+            new Dictionary<Identifier, MessageDeclaration>()
+        );
+
+        Assert.That(() => _compiler.Compile(filePath, testProtocol), Throws.ArgumentException);
     }
 
     [Test]

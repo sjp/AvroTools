@@ -9,7 +9,7 @@ using SJP.Avro.Tools.Idl;
 using SJP.Avro.Tools.Idl.Model;
 using Superpower.Model;
 
-namespace SJP.Avro.AvroTool.Handlers;
+namespace AvroTool.Handlers;
 
 internal sealed class IdlCommandHandler
 {

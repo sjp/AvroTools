@@ -14,12 +14,12 @@ public record ImportDeclaration : NamedSchemaDeclaration
     /// <param name="type">The type of document being imported.</param>
     /// <param name="path">The (relative) path of the document to import, relative to the parent document.</param>
     /// <param name="position">The position of the import within the source document.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="path"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="path"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is empty or whitespace.</exception>
     public ImportDeclaration(ImportType type, string path, int position)
-        : base(null, Array.Empty<Property>(), position)
+        : base(null, [], position)
     {
-        if (string.IsNullOrWhiteSpace(path))
-            throw new ArgumentNullException(nameof(path));
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (type == ImportType.Unknown || !Enum.IsDefined(type))
             throw new ArgumentOutOfRangeException(nameof(type), $"Invalid import type provided. Received '{(type == ImportType.Unknown ? "Unknown" : ((int)type).ToString())}'");
 

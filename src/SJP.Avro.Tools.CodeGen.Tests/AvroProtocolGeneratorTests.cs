@@ -16,10 +16,8 @@ internal static class AvroProtocolGeneratorTests
         Assert.That(() => protocolGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
     }
 
-    [TestCase((string)null)]
-    [TestCase("")]
-    [TestCase("    ")]
-    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamespace)
+    [Test]
+    public static void Generate_GivenNullBaseNamespace_ThrowsArgumentNullException()
     {
         var protocolGenerator = new AvroProtocolGenerator();
 
@@ -70,7 +68,63 @@ internal static class AvroProtocolGeneratorTests
   }
 }");
 
-        Assert.That(() => protocolGenerator.Generate(protocol, baseNamespace), Throws.ArgumentNullException);
+        Assert.That(() => protocolGenerator.Generate(protocol, null), Throws.ArgumentNullException);
+    }
+
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenEmptyOrWhitespaceBaseNamespace_ThrowsArgumentException(string baseNamespace)
+    {
+        var protocolGenerator = new AvroProtocolGenerator();
+
+        var protocol = Protocol.Parse(@"{
+  ""protocol"" : ""Baseball"",
+  ""namespace"" : ""avro.examples.baseball"",
+  ""doc"" : ""* Licensed to the Apache Software Foundation (ASF) under one\r\n * or more contributor license agreements.  See the NOTICE file\r\n * distributed with this work for additional information\r\n * regarding copyright ownership.  The ASF licenses this file\r\n * to you under the Apache License, Version 2.0 (the\r\n * \""License\""); you may not use this file except in compliance\r\n * with the License.  You may obtain a copy of the License at\r\n *\r\n *     https://www.apache.org/licenses/LICENSE-2.0\r\n *\r\n * Unless required by applicable law or agreed to in writing, software\r\n * distributed under the License is distributed on an \""AS IS\"" BASIS,\r\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n * See the License for the specific language governing permissions and\r\n * limitations under the License."",
+  ""types"" : [ {
+    ""type"" : ""enum"",
+    ""name"" : ""Position"",
+    ""symbols"" : [ ""P"", ""C"", ""B1"", ""B2"", ""B3"", ""SS"", ""LF"", ""CF"", ""RF"", ""DH"" ]
+  }, {
+    ""type"" : ""record"",
+    ""name"" : ""Player"",
+    ""fields"" : [ {
+      ""name"" : ""number"",
+      ""type"" : ""int""
+    }, {
+      ""name"" : ""first_name"",
+      ""type"" : ""string""
+    }, {
+      ""name"" : ""middle_name"",
+      ""doc"": ""wololololo"",
+      ""type"": [ ""null"", ""string"" ]
+    }, {
+      ""name"" : ""last_name"",
+      ""type"" : ""string""
+    }, {
+      ""name"" : ""test_num"", ""type"": {
+      ""type"" : ""bytes"",
+      ""logicalType"": ""decimal"",
+      ""precision"": 18,
+      ""scale"": 5
+    }}, {
+      ""name"" : ""position"",
+      ""type"" : {
+        ""type"" : ""array"",
+        ""items"" : ""Position""
+      }}, {
+      ""name"" : ""positionLookup"",
+      ""type"" : {
+        ""type"" : ""map"",
+        ""values"" : ""Position""
+      }}
+    ]
+  } ],
+  ""messages"" : {
+  }
+}");
+
+        Assert.That(() => protocolGenerator.Generate(protocol, baseNamespace), Throws.ArgumentException);
     }
 
     [Test]

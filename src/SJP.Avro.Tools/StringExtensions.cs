@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 
 namespace SJP.Avro.Tools;
 
@@ -9,20 +8,6 @@ namespace SJP.Avro.Tools;
 /// </summary>
 public static class StringExtensions
 {
-    /// <summary>
-    /// Indicates whether the specified string is <c>null</c> or an empty string (<c>""</c>).
-    /// </summary>
-    /// <param name="input">The string to test.</param>
-    /// <returns><c>true</c> if <paramref name="input"/> is <c>null</c> or an empty string (<c>""</c>); otherwise, <c>false</c>.</returns>
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this string? input) => string.IsNullOrEmpty(input);
-
-    /// <summary>
-    /// Indicates whether the specified string is <c>null</c> or empty, or consists only of white-space characters.
-    /// </summary>
-    /// <param name="input">The string to test.</param>
-    /// <returns><c>true</c> if <paramref name="input"/> is <c>null</c> or an empty string (<c>""</c>); or if <paramref name="input"/> consists exclusively of white-space characters otherwise, <c>false</c>.</returns>
-    public static bool IsNullOrWhiteSpace([NotNullWhen(false)] this string? input) => string.IsNullOrWhiteSpace(input);
-
     /// <summary>
     /// Concatenates the members of a constructed <see cref="IEnumerable{String}"/>, using the specified separator between each member.
     /// </summary>

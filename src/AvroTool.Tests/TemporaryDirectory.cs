@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace SJP.Avro.AvroTool.Tests;
+namespace AvroTool.Tests;
 
 /// <summary>
 /// A temporary directory that will be deleted once disposed.

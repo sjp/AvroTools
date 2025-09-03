@@ -16,8 +16,7 @@ internal static class EmbeddedResource
 
     private static string GetStringResourceByName(string resourceName)
     {
-        if (string.IsNullOrWhiteSpace(resourceName))
-            throw new ArgumentNullException(nameof(resourceName));
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
 
         var asm = Assembly.GetExecutingAssembly();
         var namePrefix = asm.GetName().Name + ".";

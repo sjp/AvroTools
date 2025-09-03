@@ -129,8 +129,8 @@ internal static class AvroSchemaUtilities
         return false;
     }
 
-    private static readonly IEnumerable<string> ValueTypeLogicalTypeNames = new[]
-    {
+    private static readonly IEnumerable<string> ValueTypeLogicalTypeNames =
+    [
             "decimal",
             "date",
             "time-millis",
@@ -141,17 +141,17 @@ internal static class AvroSchemaUtilities
             "local-timestamp-micros",
             "duration"
             // uuid is a string
-        };
+        ];
 
-    private static readonly IEnumerable<Schema.Type> ValueTypes = new[]
-    {
+    private static readonly IEnumerable<Schema.Type> ValueTypes =
+    [
             Schema.Type.Boolean,
             Schema.Type.Int,
             Schema.Type.Long,
             Schema.Type.Float,
             Schema.Type.Double,
             Schema.Type.Enumeration
-        };
+        ];
 
     public static FieldDeclarationSyntax CreateProtocolDefinition(string json)
     {

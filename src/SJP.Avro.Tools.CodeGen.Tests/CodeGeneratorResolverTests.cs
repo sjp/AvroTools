@@ -11,7 +11,7 @@ internal static class CodeGeneratorResolverTests
     {
         var resolver = new CodeGeneratorResolver();
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             var enumGenerator = resolver.Resolve<EnumSchema>();
             Assert.That(enumGenerator, Is.Not.Null);
@@ -28,7 +28,7 @@ internal static class CodeGeneratorResolverTests
             var protocolGenerator = resolver.Resolve<Protocol>();
             Assert.That(protocolGenerator, Is.Not.Null);
             Assert.That(protocolGenerator, Is.InstanceOf<ICodeGenerator<Protocol>>());
-        });
+        }
     }
 
     [Test]

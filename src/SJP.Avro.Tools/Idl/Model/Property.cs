@@ -16,12 +16,11 @@ public record Property
     /// </summary>
     /// <param name="name">The property name.</param>
     /// <param name="value">The value of the property.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c>, empty or whitespace. Alternatively if <paramref name="value"/> is <c>null</c>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="name"/> does not start with '@'.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is <c>null</c>, empty or whitespace or does not start with '@'.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <c>null</c>.</exception>
     public Property(string name, IEnumerable<Token<IdlToken>> value)
     {
-        if (name.IsNullOrWhiteSpace())
-            throw new ArgumentNullException(nameof(name));
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!name.StartsWith(PropertyPrefix))
             throw new ArgumentException($"The given property name '{name}' does not start with '{PropertyPrefix}'.", nameof(name));
 

@@ -16,10 +16,8 @@ internal static class AvroEnumGeneratorTests
         Assert.That(() => enumGenerator.Generate(default!, TestNamespace), Throws.ArgumentNullException);
     }
 
-    [TestCase((string)null)]
-    [TestCase("")]
-    [TestCase("    ")]
-    public static void Generate_GivenNullOrWhitespaceBaseNamespace_ThrowsArgumentNullException(string baseNamespace)
+    [Test]
+    public static void Generate_GivenNullBaseNamespace_ThrowsArgumentNullException()
     {
         var enumGenerator = new AvroEnumGenerator();
 
@@ -42,7 +40,35 @@ internal static class AvroEnumGeneratorTests
     ]
 }") as EnumSchema;
 
-        Assert.That(() => enumGenerator.Generate(schema, baseNamespace), Throws.ArgumentNullException);
+        Assert.That(() => enumGenerator.Generate(schema, null), Throws.ArgumentNullException);
+    }
+
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenEmptyOrWhitespaceBaseNamespace_ThrowsArgumentException(string baseNamespace)
+    {
+        var enumGenerator = new AvroEnumGenerator();
+
+        var schema = Schema.Parse(@"{
+    ""type"": ""enum"",
+    ""name"": ""Position"",
+    ""doc"": ""Test documentation"",
+    ""namespace"": ""avro.examples.baseball"",
+    ""symbols"": [
+        ""P"",
+        ""C"",
+        ""B1"",
+        ""B2"",
+        ""B3"",
+        ""SS"",
+        ""LF"",
+        ""CF"",
+        ""RF"",
+        ""DH""
+    ]
+}") as EnumSchema;
+
+        Assert.That(() => enumGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
     }
 
     [Test]

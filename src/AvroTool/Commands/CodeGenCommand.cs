@@ -2,11 +2,12 @@
 using System.CommandLine.NamingConventionBinder;
 using System.IO;
 using System.Threading;
-using SJP.Avro.AvroTool.Handlers;
+using AvroTool.Handlers;
 using SJP.Avro.Tools;
 using SJP.Avro.Tools.CodeGen;
+using SJP.Avro.Tools.Idl;
 
-namespace SJP.Avro.AvroTool.Commands;
+namespace AvroTool.Commands;
 
 internal sealed class CodeGenCommand : Command
 {
@@ -37,7 +38,7 @@ internal sealed class CodeGenCommand : Command
         {
             var handler = new CodeGenCommandHandler(
                 console,
-                new Tools.Idl.IdlTokenizer(),
+                new IdlTokenizer(),
                 new IdlCompiler(new DefaultFileProvider()),
                 new CodeGeneratorResolver()
             );

@@ -26,7 +26,7 @@ internal static class SyntaxUtilities
         var commentLines = GetLines(comment);
         var commentNodes = commentLines.Count > 1
             ? commentLines.SelectMany(static l => new XmlNodeSyntax[] { XmlParaElement(XmlText(l)), XmlText(XmlNewline) }).ToArray()
-            : new XmlNodeSyntax[] { XmlText(XmlTextLiteral(commentLines.Single()), XmlNewline) };
+            : [XmlText(XmlTextLiteral(commentLines.Single()), XmlNewline)];
         // add a newline after the summary element
         var formattedCommentNodes = new XmlNodeSyntax[] { XmlText(XmlNewline) }.Concat(commentNodes).ToArray();
 
@@ -38,11 +38,13 @@ internal static class SyntaxUtilities
         );
     }
 
+    private static readonly char[] LineEndingChars = ['\r', '\n'];
+
     private static IReadOnlyCollection<string> GetLines(string comment)
     {
         ArgumentNullException.ThrowIfNull(comment);
 
-        var result = comment.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+        var result = comment.Split(LineEndingChars, StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim().TrimStart('*').Trim())
             .ToList();
 
@@ -116,12 +118,12 @@ internal static class SyntaxUtilities
     /// </summary>
     /// <value>An auto property expression.</value>
     public static AccessorListSyntax PropertyGetSetDeclaration { get; } = AccessorList(
-        List(new[]
-        {
+        List(
+        [
                 AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
-        })
+        ])
     );
 }

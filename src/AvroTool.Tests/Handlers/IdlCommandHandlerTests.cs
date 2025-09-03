@@ -4,13 +4,13 @@ using System.CommandLine.IO;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AvroTool.Handlers;
 using Moq;
 using NUnit.Framework;
-using SJP.Avro.AvroTool.Handlers;
 using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
 
-namespace SJP.Avro.AvroTool.Tests.Handlers;
+namespace AvroTool.Tests.Handlers;
 
 [TestFixture]
 internal class IdlCommandHandlerTests
@@ -83,11 +83,11 @@ internal class IdlCommandHandlerTests
   ""messages"": {}
 }";
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
-            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).Using(LineEndingInvariantStringComparer.Ordinal));
-        });
+            Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
+        }
     }
 
     [Test]

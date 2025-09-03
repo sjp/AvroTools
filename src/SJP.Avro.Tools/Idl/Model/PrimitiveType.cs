@@ -13,12 +13,12 @@ public record PrimitiveType : AvroType
     /// </summary>
     /// <param name="name">The name of the primitive type.</param>
     /// <param name="properties">A collection of properties to attach to the primitive type. Can be empty.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c>, empty or whitespace. Alternatively when <paramref name="properties"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c>. Alternatively when <paramref name="properties"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is empty or whitespace..</exception>
     public PrimitiveType(string name, IEnumerable<Property> properties)
         : base(properties)
     {
-        if (name.IsNullOrWhiteSpace())
-            throw new ArgumentNullException(nameof(name));
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         Name = name;
     }

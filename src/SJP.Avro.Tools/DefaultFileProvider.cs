@@ -15,13 +15,12 @@ public class DefaultFileProvider : IFileProvider
     /// <param name="relativePath">A path that is relative to the given base path.</param>
     /// <returns>A string representing a file path.</returns>
     /// <example>a base path of '/a/b/c.avdl' and a relative path of 'test.avdl' will return '/a/b/test.avdl'.</example>
-    /// <exception cref="ArgumentNullException"><paramref name="basePath"/> or <paramref name="relativePath"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="basePath"/> or <paramref name="relativePath"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="basePath"/> or <paramref name="relativePath"/> is empty or whitespace.</exception>
     public string CreatePath(string basePath, string relativePath)
     {
-        if (string.IsNullOrWhiteSpace(basePath))
-            throw new ArgumentNullException(nameof(basePath));
-        if (string.IsNullOrWhiteSpace(relativePath))
-            throw new ArgumentNullException(nameof(relativePath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(basePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
 
         var dir = Path.GetDirectoryName(basePath) ?? basePath;
         return Path.Combine(dir, relativePath);
@@ -34,13 +33,12 @@ public class DefaultFileProvider : IFileProvider
     /// <param name="relativePath">A path that is relative to the given base path.</param>
     /// <returns>The contents of a file relative to the given base path.</returns>
     /// <example>a base path of '/a/b/c.avdl' and a relative path of 'test.avdl' will return the contents of '/a/b/test.avdl'.</example>
-    /// <exception cref="ArgumentNullException"><paramref name="basePath"/> or <paramref name="relativePath"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="basePath"/> or <paramref name="relativePath"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="basePath"/> or <paramref name="relativePath"/> is empty or whitespace.</exception>
     public string GetFileContents(string basePath, string relativePath)
     {
-        if (string.IsNullOrWhiteSpace(basePath))
-            throw new ArgumentNullException(nameof(basePath));
-        if (string.IsNullOrWhiteSpace(relativePath))
-            throw new ArgumentNullException(nameof(relativePath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(basePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
 
         var resolvedPath = CreatePath(basePath, relativePath);
         return File.ReadAllText(resolvedPath);

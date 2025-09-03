@@ -55,11 +55,11 @@ public class IdlCompiler
     /// <param name="filePath">A path representing the source location of <paramref name="protocol"/>.</param>
     /// <param name="protocol">A parsed protocol definition from an IDL document.</param>
     /// <returns>A string containing JSON text that represents an Avro protocol.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c>. Alternatively if <paramref name="filePath"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="filePath"/> is empty or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="filePath"/> or <paramref name="protocol"/> is <c>null</c>.</exception>
     public string Compile(string filePath, Idl.Model.Protocol protocol)
     {
-        if (filePath.IsNullOrWhiteSpace())
-            throw new ArgumentNullException(nameof(filePath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         ArgumentNullException.ThrowIfNull(protocol);
 
         var protocolNamespace = GetNamespaceFromProperties(protocol.Properties);
@@ -136,7 +136,7 @@ public class IdlCompiler
             var ns = typeDto["namespace"]?.ToString() ?? string.Empty;
             var name = typeDto["name"]?.ToString() ?? string.Empty;
 
-            var resolvedName = !ns.IsNullOrWhiteSpace()
+            var resolvedName = !string.IsNullOrWhiteSpace(ns)
                 ? ns + "." + name
                 : name;
 
@@ -148,12 +148,12 @@ public class IdlCompiler
 
         // now remove namespace where it matches the protocol namespace
         // as it's redundant
-        if (!protocolNamespace.IsNullOrWhiteSpace())
+        if (!string.IsNullOrWhiteSpace(protocolNamespace))
         {
             foreach (var typeDto in typeDtos)
             {
                 var ns = typeDto["namespace"]?.ToString() ?? string.Empty;
-                if (ns.IsNullOrWhiteSpace())
+                if (string.IsNullOrWhiteSpace(ns))
                     continue;
 
                 if (ns == protocolNamespace)
@@ -194,12 +194,12 @@ public class IdlCompiler
     {
         return typeDeclaration switch
         {
-            Idl.Model.EnumDeclaration e => new[] { MapToEnumDto(e) },
-            Idl.Model.FixedDeclaration f => new[] { MapToFixedDto(f) },
-            Idl.Model.RecordDeclaration r => new[] { MapToRecordDto(protocol, r) },
-            Idl.Model.ErrorDeclaration e => new[] { MapToErrorDto(protocol, e) },
+            Idl.Model.EnumDeclaration e => [MapToEnumDto(e)],
+            Idl.Model.FixedDeclaration f => [MapToFixedDto(f)],
+            Idl.Model.RecordDeclaration r => [MapToRecordDto(protocol, r)],
+            Idl.Model.ErrorDeclaration e => [MapToErrorDto(protocol, e)],
             Idl.Model.ImportDeclaration i => MapImportDeclarationToDto(baseFilePath, i),
-            _ => Array.Empty<JObject>()
+            _ => []
         };
     }
 
@@ -216,7 +216,7 @@ public class IdlCompiler
                 .SelectMany(t => MapTypeDeclarationToDto(resolvedNewPath, importedIdl, t))
                 .Select(t =>
                 {
-                    if (importIdlNs.IsNullOrWhiteSpace() || t["namespace"] != null)
+                    if (string.IsNullOrWhiteSpace(importIdlNs) || t["namespace"] != null)
                         return t;
 
                     // explicitly setting a namespace, will be filtered out if needed
@@ -245,10 +245,10 @@ public class IdlCompiler
                 parsedSchema["name"] = newName;
             }
 
-            return new[] { parsedSchema };
+            return [parsedSchema];
         }
 
-        return Array.Empty<JObject>();
+        return [];
     }
 
     private static JObject MapToEnumDto(Idl.Model.EnumDeclaration enumType)
@@ -436,7 +436,7 @@ public class IdlCompiler
         var defaultValueStr = defaultValueTokens
             .Select(d => d.ToStringValue())
             .Join(string.Empty);
-        if (defaultValueStr.IsNullOrWhiteSpace())
+        if (string.IsNullOrWhiteSpace(defaultValueStr))
             return null;
 
         return JToken.Parse(defaultValueStr);
@@ -516,7 +516,7 @@ public class IdlCompiler
             ?.Value
             ?.Where(t => t.Kind == Idl.IdlToken.StringLiteral)
             ?.Select(GetUnquotedStringValue)
-            ?.ToArray() ?? Array.Empty<string>();
+            ?.ToArray() ?? [];
         return aliases.Length > 0 ? aliases : null;
     }
 

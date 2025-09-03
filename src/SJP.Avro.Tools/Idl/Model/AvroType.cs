@@ -15,7 +15,8 @@ public abstract record AvroType
     /// <exception cref="ArgumentNullException"><paramref name="properties"/> is <c>null</c>.</exception>
     protected AvroType(IEnumerable<Property> properties)
     {
-        Properties = properties ?? throw new ArgumentNullException(nameof(properties));
+        ArgumentNullException.ThrowIfNull(properties);
+        Properties = properties;
     }
 
     /// <summary>

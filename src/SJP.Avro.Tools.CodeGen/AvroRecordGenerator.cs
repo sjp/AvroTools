@@ -22,12 +22,12 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     /// <param name="schema">A definition of a record/error type in Avro schema.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
     /// <returns>A string representing a C# file containing a class definition.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
     public string Generate(RecordSchema schema, string baseNamespace)
     {
         ArgumentNullException.ThrowIfNull(schema);
-        if (string.IsNullOrWhiteSpace(baseNamespace))
-            throw new ArgumentNullException(nameof(baseNamespace));
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);
 
         var isError = schema.Tag == Schema.Type.Error;
         var ns = schema.Namespace ?? baseNamespace;
@@ -64,12 +64,12 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                 schemaField,
                 schemaProperty
         }.Concat(properties)
-        .Concat(new MemberDeclarationSyntax[]
-        {
+        .Concat(
+        [
                 getMethod,
                 putMethod,
                 enumDecl
-        });
+        ]);
 
         var baseType = isError ? nameof(SpecificException) : nameof(ISpecificRecord);
 
@@ -140,8 +140,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
     private static PropertyDeclarationSyntax BuildField(Field field, string className)
     {
-        if (string.IsNullOrWhiteSpace(className))
-            throw new ArgumentNullException(nameof(className));
+        ArgumentException.ThrowIfNullOrWhiteSpace(className);
 
         var fieldIsNullable = AvroSchemaUtilities.IsNullableRefType(field.Schema) || AvroSchemaUtilities.IsNullableValueType(field.Schema);
 
@@ -213,7 +212,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         var fieldCaseStatements = recordSchema
             .Fields
             .Select(f => GenerateGetCaseStatement(f, enumName))
-            .Concat(new[] { GenerateGetDefaultCaseStatement() })
+            .Concat([GenerateGetDefaultCaseStatement()])
             .ToList();
 
         var modifiers = isError
@@ -285,7 +284,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         var fieldCaseStatements = recordSchema
             .Fields
             .Select(f => GeneratePutCaseStatement(f, enumName))
-            .Concat(new[] { GeneratePutDefaultCaseStatement() })
+            .Concat([GeneratePutDefaultCaseStatement()])
             .ToList();
 
         var modifiers = isError

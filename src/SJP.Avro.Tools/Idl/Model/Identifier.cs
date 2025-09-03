@@ -11,11 +11,11 @@ public record Identifier
     /// Constructs an Avro identifier.
     /// </summary>
     /// <param name="identifier">The value of the identifier.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="identifier"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="identifier"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="identifier"/> empty or whitespace.</exception>
     public Identifier(string identifier)
     {
-        if (identifier.IsNullOrWhiteSpace())
-            throw new ArgumentNullException(nameof(identifier));
+        ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
 
         Value = StripQuoting(identifier);
     }
@@ -27,8 +27,7 @@ public record Identifier
 
     private static string StripQuoting(string identifier)
     {
-        if (identifier.IsNullOrWhiteSpace())
-            throw new ArgumentNullException(nameof(identifier));
+        ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
 
         var isQuoted = identifier.StartsWith('`') && identifier.EndsWith('`');
         return isQuoted

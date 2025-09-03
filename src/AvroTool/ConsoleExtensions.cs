@@ -3,15 +3,15 @@ using System.CommandLine;
 using System.CommandLine.IO;
 using System.Linq;
 
-namespace SJP.Avro.AvroTool;
+namespace AvroTool;
 
 internal static class ConsoleExtensions
 {
-    internal static void SetTerminalForegroundRed(this IConsole console) => SetTerminalForeground(console, ConsoleColor.Red);
+    internal static void SetTerminalForegroundRed(this IConsole console) => console.SetTerminalForeground(ConsoleColor.Red);
 
-    internal static void SetTerminalForegroundYellow(this IConsole console) => SetTerminalForeground(console, ConsoleColor.Yellow);
+    internal static void SetTerminalForegroundYellow(this IConsole console) => console.SetTerminalForeground(ConsoleColor.Yellow);
 
-    internal static void SetTerminalForegroundGreen(this IConsole console) => SetTerminalForeground(console, ConsoleColor.Green);
+    internal static void SetTerminalForegroundGreen(this IConsole console) => console.SetTerminalForeground(ConsoleColor.Green);
 
     internal static void SetTerminalForeground(this IConsole console, ConsoleColor color)
     {

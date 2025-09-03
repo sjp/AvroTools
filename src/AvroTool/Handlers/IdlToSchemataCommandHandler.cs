@@ -10,7 +10,7 @@ using SJP.Avro.Tools.Idl.Model;
 using Superpower.Model;
 using AvroProtocol = Avro.Protocol;
 
-namespace SJP.Avro.AvroTool.Handlers;
+namespace AvroTool.Handlers;
 
 internal sealed class IdlToSchemataCommandHandler
 {

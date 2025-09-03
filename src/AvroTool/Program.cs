@@ -7,9 +7,9 @@ using System.CommandLine.Parsing;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using SJP.Avro.AvroTool.Commands;
+using AvroTool.Commands;
 
-namespace SJP.Avro.AvroTool;
+namespace AvroTool;
 
 internal static class Program
 {

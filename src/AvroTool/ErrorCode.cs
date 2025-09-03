@@ -1,4 +1,4 @@
-﻿namespace SJP.Avro.AvroTool;
+﻿namespace AvroTool;
 
 internal static class ErrorCode
 {

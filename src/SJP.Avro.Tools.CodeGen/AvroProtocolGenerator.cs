@@ -22,12 +22,12 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     /// <param name="protocol">A definition of an Avro protocol.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
     /// <returns>A string representing a C# file containing a class definition. Empty when no messages are present in the protocol.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
     public string Generate(Protocol protocol, string baseNamespace)
     {
         ArgumentNullException.ThrowIfNull(protocol);
-        if (string.IsNullOrWhiteSpace(baseNamespace))
-            throw new ArgumentNullException(nameof(baseNamespace));
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);
 
         // no messages to generate
         if (protocol.Messages.Count == 0)

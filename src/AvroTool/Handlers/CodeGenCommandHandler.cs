@@ -13,7 +13,7 @@ using Superpower.Model;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
 
-namespace SJP.Avro.AvroTool.Handlers;
+namespace AvroTool.Handlers;
 
 internal sealed class CodeGenCommandHandler
 {
@@ -125,7 +125,7 @@ internal sealed class CodeGenCommandHandler
                     _ => null
                 };
 
-                if (schemaOutput.IsNullOrWhiteSpace())
+                if (string.IsNullOrWhiteSpace(schemaOutput))
                     continue;
 
                 if (File.Exists(outputFilePath))
@@ -226,7 +226,7 @@ internal sealed class CodeGenCommandHandler
         return tokenizeResult.HasValue;
     }
 
-    private static bool TryGetProtocol(TokenList<IdlToken> tokens, out Tools.Idl.Model.Protocol protocol)
+    private static bool TryGetProtocol(TokenList<IdlToken> tokens, out SJP.Avro.Tools.Idl.Model.Protocol protocol)
     {
         var result = IdlTokenParsers.Protocol(tokens);
 

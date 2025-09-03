@@ -6,8 +6,7 @@ internal struct IdlKeyword
 {
     public IdlKeyword(string keyword, IdlToken token)
     {
-        if (keyword.IsNullOrWhiteSpace())
-            throw new ArgumentNullException(nameof(keyword));
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyword);
 
         Text = keyword;
         Token = token;
