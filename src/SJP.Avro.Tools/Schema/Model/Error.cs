@@ -10,5 +10,5 @@ internal record Error : NamedSchema
     public string Type { get; } = "error";
 
     [JsonProperty("fields")]
-    public IEnumerable<FieldSchema> Fields { get; set; } = Array.Empty<FieldSchema>();
+    public IEnumerable<FieldSchema> Fields { get; set; } = [];
 }

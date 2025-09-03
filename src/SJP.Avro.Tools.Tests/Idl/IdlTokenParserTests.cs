@@ -23,18 +23,18 @@ internal static class IdlTokenParserTests
 
         var result = IdlTokenParsers.Protocol(tokenList);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result.HasValue, Is.True);
             Assert.That(result.Value, Is.Not.Null);
-        });
+        }
     }
 
     private static IEnumerable<string> IdlSampleFilenames()
     {
         return EmbeddedResource.GetEmbeddedResourceNames()
             .Where(n => n.EndsWith(".avdl"))
-            .OrderBy(n => n)
+            .Order()
             .ToList();
     }
 }

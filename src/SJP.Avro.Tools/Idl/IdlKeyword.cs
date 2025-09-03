@@ -2,7 +2,7 @@
 
 namespace SJP.Avro.Tools.Idl;
 
-internal struct IdlKeyword
+internal readonly struct IdlKeyword
 {
     public IdlKeyword(string keyword, IdlToken token)
     {

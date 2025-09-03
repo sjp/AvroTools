@@ -10,5 +10,5 @@ internal record Record : NamedSchema
     public string Type { get; } = "record";
 
     [JsonProperty("fields")]
-    public IEnumerable<FieldSchema> Fields { get; set; } = Array.Empty<FieldSchema>();
+    public IEnumerable<FieldSchema> Fields { get; set; } = [];
 }

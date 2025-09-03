@@ -10,7 +10,7 @@ internal record EnumType : NamedSchema
     public string Type { get; } = "enum";
 
     [JsonProperty("symbols")]
-    public IEnumerable<string> Symbols { get; set; } = Array.Empty<string>();
+    public IEnumerable<string> Symbols { get; set; } = [];
 
     [JsonProperty("default", NullValueHandling = NullValueHandling.Ignore)]
     public string? DefaultValue { get; set; }

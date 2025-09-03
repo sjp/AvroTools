@@ -17,18 +17,18 @@ internal static class IdlTokenizerTests
         var tokenizeResult = tokenizer.TryTokenize(input);
         var tokens = tokenizeResult.Value.ToList();
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(tokenizeResult.HasValue, Is.True);
             Assert.That(tokens, Is.Not.Empty);
-        });
+        }
     }
 
     private static IEnumerable<string> IdlSampleFilenames()
     {
         return EmbeddedResource.GetEmbeddedResourceNames()
             .Where(n => n.EndsWith(".avdl"))
-            .OrderBy(n => n)
+            .Order()
             .ToList();
     }
 }

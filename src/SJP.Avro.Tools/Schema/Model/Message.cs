@@ -11,7 +11,7 @@ internal record Message
     public string? Documentation { get; set; }
 
     [JsonProperty("request")]
-    public IEnumerable<MessageParameter> Request { get; set; } = Array.Empty<MessageParameter>();
+    public IEnumerable<MessageParameter> Request { get; set; } = [];
 
     [JsonProperty("response")]
     public JToken? Response { get; set; } = JToken.FromObject("null");

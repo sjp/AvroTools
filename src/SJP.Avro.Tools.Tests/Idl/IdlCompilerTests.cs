@@ -34,12 +34,12 @@ internal class IdlCompilerTests
         var testProtocol = new Protocol(
             null,
             new Identifier("fake_protocol"),
-            Array.Empty<Property>(),
-            Array.Empty<RecordDeclaration>(),
-            Array.Empty<FixedDeclaration>(),
-            Array.Empty<EnumDeclaration>(),
-            Array.Empty<ErrorDeclaration>(),
-            Array.Empty<ImportDeclaration>(),
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
             new Dictionary<Identifier, MessageDeclaration>()
         );
 
@@ -53,12 +53,12 @@ internal class IdlCompilerTests
         var testProtocol = new Protocol(
             null,
             new Identifier("fake_protocol"),
-            Array.Empty<Property>(),
-            Array.Empty<RecordDeclaration>(),
-            Array.Empty<FixedDeclaration>(),
-            Array.Empty<EnumDeclaration>(),
-            Array.Empty<ErrorDeclaration>(),
-            Array.Empty<ImportDeclaration>(),
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
             new Dictionary<Identifier, MessageDeclaration>()
         );
 
@@ -125,7 +125,7 @@ internal class IdlCompilerTests
     {
         return EmbeddedResource.GetEmbeddedResourceNames()
             .Where(n => n.EndsWith(".avdl"))
-            .OrderBy(n => n)
+            .Order()
             .ToList();
     }
 
@@ -133,12 +133,12 @@ internal class IdlCompilerTests
     {
         var inputNames = EmbeddedResource.GetEmbeddedResourceNames()
             .Where(n => n.EndsWith(".avdl"))
-            .OrderBy(n => n)
+            .Order()
             .ToList();
 
         var outputNames = EmbeddedResource.GetEmbeddedResourceNames()
             .Where(n => n.Contains(".Output.") && n.EndsWith(".avpr"))
-            .OrderBy(n => n)
+            .Order()
             .ToList();
 
         return inputNames

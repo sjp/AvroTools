@@ -122,7 +122,7 @@ public static class IdlTokenParsers
 
     private static TokenListParser<IdlToken, FormalParameter> Parameter =>
         ParameterWithDefault.Try()
-            .Or(ParameterTypeHeader.Select(p => new FormalParameter(p.type, p.name, Array.Empty<Token<IdlToken>>())));
+            .Or(ParameterTypeHeader.Select(p => new FormalParameter(p.type, p.name, [])));
 
     private static TokenListParser<IdlToken, Model.Identifier[]> ErrorList =>
         Token.EqualTo(IdlToken.Throws)
@@ -138,7 +138,7 @@ public static class IdlTokenParsers
     private static TokenListParser<IdlToken, (bool oneway, Model.Identifier[] errors)> MessageSuffix =>
         OneWay
             .Then(ow =>
-                ErrorList.OptionalOrDefault(Array.Empty<Model.Identifier>())
+                ErrorList.OptionalOrDefault([])
                     .Select(err => (ow, err)));
 
     private static TokenListParser<IdlToken, EnumDeclaration> SimpleEnumDeclaration =>
