@@ -26,7 +26,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         public string InputFile { get; set; } = string.Empty;
 
         [CommandArgument(1, "[NAMESPACE]")]
-        [Description("A base namespace to use for generated files.")]
+        [Description("A base namespace to use for generated files. Only used when a defined namespace is not present.")]
         public string Namespace { get; set; } = string.Empty;
 
         [CommandOption("-o|--overwrite")]

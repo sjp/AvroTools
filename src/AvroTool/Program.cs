@@ -1,8 +1,13 @@
 using System.Reflection;
 using System.Threading.Tasks;
 using AvroTool.Commands;
+using Microsoft.Extensions.DependencyInjection;
+using SJP.Avro.Tools;
+using SJP.Avro.Tools.CodeGen;
+using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using Spectre.Console.Cli.Extensions.DependencyInjection;
 
 namespace AvroTool;
 
@@ -10,7 +15,14 @@ internal static class Program
 {
     public static Task<int> Main(string[] args)
     {
-        var app = new CommandApp();
+        var services = new ServiceCollection();
+        services.AddTransient<IIdlCompiler, IdlCompiler>();
+        services.AddTransient<IIdlTokenizer, IdlTokenizer>();
+        services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
+        services.AddTransient<IFileProvider, DefaultFileProvider>();
+        using var registrar = new DependencyInjectionRegistrar(services);
+
+        var app = new CommandApp(registrar);
 
         app.Configure(config =>
         {
@@ -23,7 +35,6 @@ internal static class Program
 
             config.PropagateExceptions();
             config.ValidateExamples();
-            config.SetInterceptor(new HelpInterceptor());
             config.SetExceptionHandler((ex, _) =>
             {
                 AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
@@ -38,19 +49,5 @@ internal static class Program
         var assembly = Assembly.GetEntryAssembly()!;
         var assemblyVersion = assembly.GetName().Version!;
         return $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}";
-    }
-}
-
-internal sealed class HelpInterceptor : ICommandInterceptor
-{
-    public void Intercept(CommandContext context, CommandSettings settings)
-    {
-        AnsiConsole.Write(new FigletText("AvroTool").LeftJustified().Color(Color.Blue));
-        AnsiConsole.WriteLine("The helpful Avro compiler tool.");
-        AnsiConsole.WriteLine();
-    }
-
-    public void InterceptResult(CommandContext context, CommandSettings settings, ref int result)
-    {
     }
 }
