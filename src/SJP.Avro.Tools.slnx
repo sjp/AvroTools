@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="AvroTool.Tests/AvroTool.Tests.csproj" />
+  <Project Path="AvroTool/AvroTool.csproj" />
+  <Project Path="SJP.Avro.Tools.CodeGen.Tests/SJP.Avro.Tools.CodeGen.Tests.csproj" />
+  <Project Path="SJP.Avro.Tools.CodeGen/SJP.Avro.Tools.CodeGen.csproj" />
+  <Project Path="SJP.Avro.Tools.Tests/SJP.Avro.Tools.Tests.csproj" />
+  <Project Path="SJP.Avro.Tools/SJP.Avro.Tools.csproj" />
+</Solution>
