@@ -67,7 +67,7 @@ internal class CodeGenCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenValidParameters_WritesExpectedOutput()
+    public async Task ExecuteAsync_GivenValidParameters_WritesExpectedOutput()
     {
         const string input = SimpleTestIdl;
 
@@ -147,7 +147,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenValidParametersForIdlWithProtocol_WritesExpectedOutput()
+    public async Task ExecuteAsync_GivenValidParametersForIdlWithProtocol_WritesExpectedOutput()
     {
         const string input = SimpleTestIdlWithMessages;
 
@@ -208,7 +208,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenValidParametersForProtocolInput_WritesExpectedOutput()
+    public async Task ExecuteAsync_GivenValidParametersForProtocolInput_WritesExpectedOutput()
     {
         const string input = SimpleTestProtocol;
 
@@ -269,7 +269,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenValidParametersForSchemaInput_WritesExpectedOutput()
+    public async Task ExecuteAsync_GivenValidParametersForSchemaInput_WritesExpectedOutput()
     {
         const string input = SimpleTestSchema;
 
@@ -349,24 +349,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenMissingFile_ReturnsError()
-    {
-        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-
-        Assert.That(result, Is.Not.Zero);
-    }
-
-    [Test]
-    public async Task HandleAsync_GivenInvalidTokens_ReturnsError()
+    public async Task ExecuteAsync_GivenInvalidTokens_ReturnsError()
     {
         const string input = "%";
 
@@ -387,7 +370,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
+    public async Task ExecuteAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
     {
         const string input = @"record Foo {{
     string label;
@@ -410,7 +393,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenOutputAlreadyExistsWithoutOverwrite_ReturnsError()
+    public async Task ExecuteAsync_GivenOutputAlreadyExistsWithoutOverwrite_ReturnsError()
     {
         const string input = SimpleTestIdl;
 
@@ -434,7 +417,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenOutputAlreadyExistsWithoutOverwriteForProtocol_ReturnsError()
+    public async Task ExecuteAsync_GivenOutputAlreadyExistsWithoutOverwriteForProtocol_ReturnsError()
     {
         const string input = SimpleTestProtocol;
 
@@ -458,7 +441,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenOutputAlreadyExistsWithOverwrite_Succeeds()
+    public async Task ExecuteAsync_GivenOutputAlreadyExistsWithOverwrite_Succeeds()
     {
         const string input = SimpleTestIdl;
 
@@ -482,7 +465,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenOutputAlreadyExistsWithOverwriteForProtocol_Succeeds()
+    public async Task ExecuteAsync_GivenOutputAlreadyExistsWithOverwriteForProtocol_Succeeds()
     {
         const string input = SimpleTestProtocol;
 
@@ -506,7 +489,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenMissingDirectory_ResolvesToCurrentDir()
+    public async Task ExecuteAsync_GivenMissingDirectory_ResolvesToCurrentDir()
     {
         const string input = SimpleTestIdl;
 
@@ -536,7 +519,7 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task HandleAsync_GivenErrorInCompilation_ReturnsError()
+    public async Task ExecuteAsync_GivenErrorInCompilation_ReturnsError()
     {
         var brokenCompiler = new Mock<IIdlCompiler>(MockBehavior.Strict);
         brokenCompiler
@@ -566,5 +549,78 @@ namespace SJP.Arvo.CodeGen.Test
         var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
 
         Assert.That(result, Is.Not.Zero);
+    }
+
+    [Test]
+    public void Validate_WithMissingInputFile_ReturnsError()
+    {
+        var settings = new CodeGenCommand.Settings
+        {
+            InputFile = string.Empty,
+            Namespace = TestNamespace
+        };
+
+        var result = _commandHandler.Validate(_commandContext, settings);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Successful, Is.False);
+            Assert.That(result.Message, Is.EqualTo("An input file must be provided."));
+        }
+    }
+
+    [Test]
+    public void Validate_WithNonExistentInputFile_ReturnsError()
+    {
+        var settings = new CodeGenCommand.Settings
+        {
+            InputFile = "a/b/c.avdl",
+            Namespace = TestNamespace
+        };
+
+        var result = _commandHandler.Validate(_commandContext, settings);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Successful, Is.False);
+            Assert.That(result.Message, Is.EqualTo($"An input file could not be found at: {settings.InputFile}"));
+        }
+    }
+
+    [Test]
+    public void Validate_WithInvalidNamespace_ReturnsError()
+    {
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, SimpleTestIdl);
+
+        var settings = new CodeGenCommand.Settings
+        {
+            InputFile = sourceFile.FullName,
+            Namespace = "123"
+        };
+
+        var result = _commandHandler.Validate(_commandContext, settings);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Successful, Is.False);
+            Assert.That(result.Message, Is.EqualTo($"The value '{settings.Namespace}' is not a valid C# namespace."));
+        }
+    }
+
+    [Test]
+    public void Validate_WithValidParameters_ReturnsSuccess()
+    {
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, SimpleTestIdl);
+
+        var settings = new CodeGenCommand.Settings
+        {
+            InputFile = sourceFile.FullName,
+            Namespace = TestNamespace
+        };
+
+        var result = _commandHandler.Validate(_commandContext, settings);
+        Assert.That(result.Successful, Is.True);
     }
 }

@@ -27,4 +27,8 @@
     <ProjectReference Include="..\SJP.Avro.Tools\SJP.Avro.Tools.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+  </ItemGroup>
+
 </Project>

@@ -16,7 +16,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "[IDLFILE]")]
+        [CommandArgument(0, "<IDL_FILE>")]
         [Description("An IDL file to compile.")]
         public string IdlFile { get; set; } = string.Empty;
 
@@ -44,14 +44,19 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         _compiler = compiler ?? throw new ArgumentNullException(nameof(compiler));
     }
 
+    public override ValidationResult Validate(CommandContext context, Settings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.IdlFile))
+            return ValidationResult.Error("An IDL file must be provided.");
+
+        if (!File.Exists(settings.IdlFile))
+            return ValidationResult.Error($"An IDL file could not be found at: {settings.IdlFile}");
+
+        return ValidationResult.Success();
+    }
+
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
     {
-        if (!File.Exists(settings.IdlFile))
-        {
-            _console.MarkupLine($"[red]An IDL file could not be found at: {settings.IdlFile}[/]");
-            return ErrorCode.Error;
-        }
-
         if (!TryGetIdlTokens(settings.IdlFile, out var tokens))
             return ErrorCode.Error;
 

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Avro;
 using SJP.Avro.Tools;
@@ -21,11 +20,11 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "[INPUT]")]
+        [CommandArgument(0, "<INPUT_FILE>")]
         [Description("An IDL, protocol or schema file to generate C# code from.")]
         public string InputFile { get; set; } = string.Empty;
 
-        [CommandArgument(1, "[NAMESPACE]")]
+        [CommandArgument(1, "<NAMESPACE>")]
         [Description("A base namespace to use for generated files. Only used when a defined namespace is not present.")]
         public string Namespace { get; set; } = string.Empty;
 
@@ -57,14 +56,22 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         _codeGeneratorResolver = codeGeneratorResolver ?? throw new ArgumentNullException(nameof(codeGeneratorResolver));
     }
 
+    public override ValidationResult Validate(CommandContext context, Settings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.InputFile))
+            return ValidationResult.Error("An input file must be provided.");
+
+        if (!File.Exists(settings.InputFile))
+            return ValidationResult.Error($"An input file could not be found at: {settings.InputFile}");
+
+        if (!string.IsNullOrWhiteSpace(settings.Namespace) && !CsharpValidation.IsValidCsharpNamespace(settings.Namespace))
+            return ValidationResult.Error($"The value '{settings.Namespace}' is not a valid C# namespace.");
+
+        return ValidationResult.Success();
+    }
+
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
     {
-        if (!File.Exists(settings.InputFile))
-        {
-            _console.MarkupLine($"[red]An input file could not be found at: {settings.InputFile}[/]");
-            return ErrorCode.Error;
-        }
-
         AvroProtocol? protocol = null;
         var schemas = new List<AvroSchema>();
         if (TryParseAvroProtocol(settings.InputFile, out var inputProtocol))

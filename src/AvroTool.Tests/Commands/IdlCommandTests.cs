@@ -53,7 +53,7 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenValidParameters_WritesExpectedOutput()
+    public async Task ExecuteAsync_GivenValidParameters_WritesExpectedOutput()
     {
         const string input = SimpleTestIdl;
 
@@ -101,23 +101,7 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenMissingFile_ReturnsError()
-    {
-        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = true,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-
-        Assert.That(result, Is.Not.Zero);
-    }
-
-    [Test]
-    public async Task HandleAsync_GivenInvalidTokens_ReturnsError()
+    public async Task ExecuteAsync_GivenInvalidTokens_ReturnsError()
     {
         const string input = "%";
 
@@ -137,7 +121,7 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
+    public async Task ExecuteAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
     {
         const string input = @"record Foo {{
     string label;
@@ -159,7 +143,7 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenOutputAlreadyExistsWithoutOverwrite_ReturnsError()
+    public async Task ExecuteAsync_GivenOutputAlreadyExistsWithoutOverwrite_ReturnsError()
     {
         const string input = SimpleTestIdl;
 
@@ -182,7 +166,7 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenOutputAlreadyExistsWithOverwrite_Succeeds()
+    public async Task ExecuteAsync_GivenOutputAlreadyExistsWithOverwrite_Succeeds()
     {
         const string input = SimpleTestIdl;
 
@@ -205,7 +189,7 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenMissingDirectory_ResolvesToCurrentDir()
+    public async Task ExecuteAsync_GivenMissingDirectory_ResolvesToCurrentDir()
     {
         const string input = SimpleTestIdl;
 
@@ -234,7 +218,7 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task HandleAsync_GivenErrorInCompilation_ReturnsError()
+    public async Task ExecuteAsync_GivenErrorInCompilation_ReturnsError()
     {
         var brokenCompiler = new Mock<IIdlCompiler>(MockBehavior.Strict);
         brokenCompiler
@@ -263,5 +247,54 @@ internal class IdlCommandTests
         var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
 
         Assert.That(result, Is.Not.Zero);
+    }
+
+    [Test]
+    public void Validate_WithMissingInputFile_ReturnsError()
+    {
+        var settings = new IdlCommand.Settings
+        {
+            IdlFile = string.Empty
+        };
+
+        var result = _commandHandler.Validate(_commandContext, settings);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Successful, Is.False);
+            Assert.That(result.Message, Is.EqualTo("An IDL file must be provided."));
+        }
+    }
+
+    [Test]
+    public void Validate_WithNonExistentInputFile_ReturnsError()
+    {
+        var settings = new IdlCommand.Settings
+        {
+            IdlFile = "a/b/c.avdl"
+        };
+
+        var result = _commandHandler.Validate(_commandContext, settings);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Successful, Is.False);
+            Assert.That(result.Message, Is.EqualTo($"An IDL file could not be found at: {settings.IdlFile}"));
+        }
+    }
+
+    [Test]
+    public void Validate_WithValidParameters_ReturnsSuccess()
+    {
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        File.WriteAllText(sourceFile.FullName, SimpleTestIdl);
+
+        var settings = new IdlCommand.Settings
+        {
+            IdlFile = sourceFile.FullName
+        };
+
+        var result = _commandHandler.Validate(_commandContext, settings);
+        Assert.That(result.Successful, Is.True);
     }
 }
