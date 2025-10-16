@@ -136,7 +136,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                     if (File.Exists(outputFilePath))
                         File.Delete(outputFilePath);
 
-                    await File.WriteAllTextAsync(outputFilePath, protocolOutput).ConfigureAwait(false);
+                    await File.WriteAllTextAsync(outputFilePath, protocolOutput);
                     _console.MarkupLine($"[green]Generated {outputFilePath}[/]");
                 }
             }
@@ -160,7 +160,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 if (File.Exists(outputFilePath))
                     File.Delete(outputFilePath);
 
-                await File.WriteAllTextAsync(outputFilePath, schemaOutput).ConfigureAwait(false);
+                await File.WriteAllTextAsync(outputFilePath, schemaOutput);
                 _console.MarkupLine($"[green]Generated {outputFilePath}[/]");
             }
 

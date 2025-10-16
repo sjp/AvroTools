@@ -81,7 +81,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             if (File.Exists(outputPath))
                 File.Delete(outputPath);
 
-            await File.WriteAllTextAsync(outputPath, output).ConfigureAwait(false);
+            await File.WriteAllTextAsync(outputPath, output);
 
             _console.MarkupLine($"[green]Generated {outputPath}[/]");
 

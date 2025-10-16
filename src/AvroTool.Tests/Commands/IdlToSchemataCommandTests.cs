@@ -67,8 +67,8 @@ internal class IdlToSchemataCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc")).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         const string expectedResultFileContents = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
 
@@ -94,7 +94,7 @@ internal class IdlToSchemataCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -116,7 +116,7 @@ internal class IdlToSchemataCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -139,7 +139,7 @@ internal class IdlToSchemataCommandTests
             Overwrite = false,
             OutputDirectory = sourceDir
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -162,7 +162,7 @@ internal class IdlToSchemataCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Zero);
     }
@@ -188,7 +188,7 @@ internal class IdlToSchemataCommandTests
             Overwrite = false,
             OutputDirectory = null
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
@@ -222,7 +222,7 @@ internal class IdlToSchemataCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }

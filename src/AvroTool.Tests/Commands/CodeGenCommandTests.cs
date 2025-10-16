@@ -82,8 +82,8 @@ internal class CodeGenCommandTests
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         const string expectedResultFileContents = """
 using System;
@@ -162,8 +162,8 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         const string expectedResultFileContents = """
 using System;
@@ -223,8 +223,8 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         const string expectedResultFileContents = """
 using System;
@@ -284,8 +284,8 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         const string expectedResultFileContents = """
 using System;
@@ -364,7 +364,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -387,7 +387,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -411,7 +411,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -435,7 +435,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -459,7 +459,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Zero);
     }
@@ -483,7 +483,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Zero);
     }
@@ -510,7 +510,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = null,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
@@ -546,7 +546,7 @@ namespace SJP.Arvo.CodeGen.Test
             Namespace = TestNamespace,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }

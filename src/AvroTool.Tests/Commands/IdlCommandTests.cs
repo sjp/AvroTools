@@ -67,8 +67,8 @@ internal class IdlCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
-        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr")).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr"));
 
         const string expectedResultFileContents = """
 {
@@ -115,7 +115,7 @@ internal class IdlCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -137,7 +137,7 @@ internal class IdlCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -160,7 +160,7 @@ internal class IdlCommandTests
             Overwrite = false,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }
@@ -183,7 +183,7 @@ internal class IdlCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Zero);
     }
@@ -209,7 +209,7 @@ internal class IdlCommandTests
             Overwrite = false,
             OutputDirectory = null,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
@@ -244,7 +244,7 @@ internal class IdlCommandTests
             Overwrite = true,
             OutputDirectory = sourceDir,
         };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command).ConfigureAwait(false);
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command);
 
         Assert.That(result, Is.Not.Zero);
     }

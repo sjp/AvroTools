@@ -90,7 +90,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 if (File.Exists(schemaFilename))
                     File.Delete(schemaFilename);
 
-                await File.WriteAllTextAsync(schemaFilename, schema.ToString()).ConfigureAwait(false);
+                await File.WriteAllTextAsync(schemaFilename, schema.ToString());
                 _console.MarkupLine($"[green]Generated {schemaFilename}[/]");
             }
 
