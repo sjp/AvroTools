@@ -2,7 +2,7 @@
   "profiles": {
     "AvroTool": {
       "commandName": "Project",
-      "commandLineArgs": "codegen C:\\Users\\sjp\\source\\repos\\SJP.Avro.Tools\\src\\SJP.Avro.Tools.Tests\\Idl\\Data\\Input\\baz.avsc Yolo"
+      "commandLineArgs": "codegen .\\src\\SJP.Avro.Tools.Tests\\Idl\\Data\\Input\\baz.avsc Yolo"
     }
   }
 }
