@@ -105,7 +105,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 if (File.Exists(outputFilePath) && !settings.Overwrite)
                 {
                     _console.MarkupLine("[red]Unable to generate C# files. A file already exists.[/]");
-                    _console.MarkupLine($"[red]    {outputFilePath}[/]");
+                    _console.MarkupLineInterpolated($"[red]    {outputFilePath}[/]");
                     return ErrorCode.Error;
                 }
             }
@@ -117,7 +117,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             {
                 _console.MarkupLine("[red]Unable to generate C# files. One or more files exist.[/]");
                 foreach (var existingFile in existingFiles)
-                    _console.MarkupLine($"[red]    {existingFile}[/]");
+                    _console.MarkupLineInterpolated($"[red]    {existingFile}[/]");
                 return ErrorCode.Error;
             }
 
@@ -125,7 +125,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             {
                 if (protocol.Messages.Count == 0)
                 {
-                    _console.MarkupLine($"[yellow]Skipping protocol message generation. Protocol '{protocol.Name}' has no messages[/]");
+                    _console.MarkupLineInterpolated($"[yellow]Skipping protocol message generation. Protocol '{protocol.Name}' has no messages[/]");
                 }
                 else
                 {
@@ -137,7 +137,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                         File.Delete(outputFilePath);
 
                     await File.WriteAllTextAsync(outputFilePath, protocolOutput);
-                    _console.MarkupLine($"[green]Generated {outputFilePath}[/]");
+                    _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
                 }
             }
 
@@ -161,7 +161,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                     File.Delete(outputFilePath);
 
                 await File.WriteAllTextAsync(outputFilePath, schemaOutput);
-                _console.MarkupLine($"[green]Generated {outputFilePath}[/]");
+                _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
             }
 
             return ErrorCode.Success;
@@ -169,7 +169,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         catch (Exception ex)
         {
             _console.MarkupLine("[red]Failed to generate C# files.[/]");
-            _console.MarkupLine($"[red]    {ex.Message}[/]");
+            _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
 
             return ErrorCode.Error;
         }

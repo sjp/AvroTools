@@ -80,7 +80,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
             {
                 _console.MarkupLine("[red]Unable to generate schema files. One or more files exist.[/]");
                 foreach (var existingFile in existingFiles)
-                    _console.MarkupLine($"[red]    {existingFile}[/]");
+                    _console.MarkupLineInterpolated($"[red]    {existingFile}[/]");
                 return ErrorCode.Error;
             }
 
@@ -91,7 +91,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                     File.Delete(schemaFilename);
 
                 await File.WriteAllTextAsync(schemaFilename, schema.ToString());
-                _console.MarkupLine($"[green]Generated {schemaFilename}[/]");
+                _console.MarkupLineInterpolated($"[green]Generated {schemaFilename}[/]");
             }
 
             return ErrorCode.Success;
@@ -99,7 +99,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         catch (Exception ex)
         {
             _console.MarkupLine("[red]Failed to generate schema files.[/]");
-            _console.MarkupLine($"[red]    {ex.Message}[/]");
+            _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
 
             return ErrorCode.Error;
         }
@@ -134,7 +134,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         if (!result.HasValue)
         {
             protocol = default!;
-            _console.MarkupLine($"[red]Unable to parse protocol from IDL document: {result.ErrorMessage}[/]");
+            _console.MarkupLineInterpolated($"[red]Unable to parse protocol from IDL document: {result.ErrorMessage}[/]");
         }
         else
         {

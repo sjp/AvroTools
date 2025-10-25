@@ -70,7 +70,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
         if (File.Exists(outputPath) && !settings.Overwrite)
         {
-            _console.MarkupLine($"[red]The output file path '{outputPath}' cannot be used[/]");
+            _console.MarkupLineInterpolated($"[red]The output file path '{outputPath}' cannot be used[/]");
             _console.MarkupLine("[red]A file already exists. Consider using the 'overwrite' option.[/]");
             return ErrorCode.Error;
         }
@@ -83,14 +83,14 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
             await File.WriteAllTextAsync(outputPath, output);
 
-            _console.MarkupLine($"[green]Generated {outputPath}[/]");
+            _console.MarkupLineInterpolated($"[green]Generated {outputPath}[/]");
 
             return ErrorCode.Success;
         }
         catch (Exception ex)
         {
             _console.MarkupLine("[red]Failed to generate Avro protocol file.[/]");
-            _console.MarkupLine($"[red]    {ex.Message}[/]");
+            _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
 
             return ErrorCode.Error;
         }
@@ -104,7 +104,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         if (!tokenizeResult.HasValue)
         {
             tokens = default;
-            _console.MarkupLine($"[red]Unable to parse IDL document: {tokenizeResult}[/]");
+            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document: {tokenizeResult}[/]");
         }
         else
         {
@@ -125,7 +125,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         if (!result.HasValue)
         {
             protocol = default!;
-            _console.MarkupLine($"[red]Unable to parse protocol from IDL document: {result.ErrorMessage}[/]");
+            _console.MarkupLineInterpolated($"[red]Unable to parse protocol from IDL document: {result.ErrorMessage}[/]");
         }
         else
         {
