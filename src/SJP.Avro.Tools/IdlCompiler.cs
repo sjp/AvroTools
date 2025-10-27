@@ -179,15 +179,142 @@ public class IdlCompiler : IIdlCompiler
 
     private static IEnumerable<Idl.Model.NamedSchemaDeclaration> GetOrderedTypeDeclarations(Idl.Model.Protocol protocol)
     {
-        return protocol.Imports
+        var declaredTypes = protocol.Imports
             .Where(i => i.Type == Idl.Model.ImportType.Schema || i.Type == Idl.Model.ImportType.Idl)
             .Select(i => i as Idl.Model.NamedSchemaDeclaration)
             .Concat(protocol.Enums)
             .Concat(protocol.Fixeds)
             .Concat(protocol.Records)
             .Concat(protocol.Errors)
-            .OrderBy(x => x.Position)
+            .OrderBy(nsd => nsd.Position)
             .ToList();
+
+        var typesByName = new Dictionary<string, Idl.Model.NamedSchemaDeclaration>();
+        foreach (var type in declaredTypes)
+        {
+            var typeName = GetTypeName(type);
+            if (!string.IsNullOrEmpty(typeName))
+            {
+                typesByName[typeName] = type;
+            }
+        }
+
+        return TopologicalSort(declaredTypes, typesByName);
+    }
+
+    private static string? GetTypeName(Idl.Model.NamedSchemaDeclaration declaration)
+    {
+        return declaration switch
+        {
+            Idl.Model.EnumDeclaration e => e.Name.Value,
+            Idl.Model.FixedDeclaration f => f.Name.Value,
+            Idl.Model.RecordDeclaration r => r.Name.Value,
+            Idl.Model.ErrorDeclaration e => e.Name.Value,
+            _ => null
+        };
+    }
+
+    private static IReadOnlyCollection<Idl.Model.NamedSchemaDeclaration> TopologicalSort(
+        IReadOnlyCollection<Idl.Model.NamedSchemaDeclaration> declaredTypes,
+        Dictionary<string, Idl.Model.NamedSchemaDeclaration> typesByName)
+    {
+        var sortedTypeDeclarations = new List<Idl.Model.NamedSchemaDeclaration>();
+        var visited = new HashSet<string>();
+        var visiting = new HashSet<string>();
+
+        foreach (var type in declaredTypes)
+        {
+            var typeName = GetTypeName(type);
+            if (!string.IsNullOrEmpty(typeName))
+            {
+                if (!visited.Contains(typeName))
+                {
+                    VisitType(type, typeName, typesByName, visited, visiting, sortedTypeDeclarations);
+                }
+            }
+            else
+            {
+                // ImportDeclarations and other types without names should be added directly
+                sortedTypeDeclarations.Add(type);
+            }
+        }
+
+        return sortedTypeDeclarations;
+    }
+
+    private static void VisitType(
+        Idl.Model.NamedSchemaDeclaration declaration,
+        string typeName,
+        IReadOnlyDictionary<string, Idl.Model.NamedSchemaDeclaration> typesByName,
+        HashSet<string> visited,
+        HashSet<string> visiting,
+        List<Idl.Model.NamedSchemaDeclaration> sortedTypeDeclarations)
+    {
+        if (visited.Contains(typeName))
+            return;
+
+        // circular ref
+        if (!visiting.Add(typeName))
+            return;
+
+        var dependencies = GetTypeDependencies(declaration);
+        foreach (var dependency in dependencies)
+        {
+            if (!typesByName.TryGetValue(dependency, out var dependencyDeclaration))
+                continue;
+
+            if (visited.Contains(dependency))
+                continue;
+
+            // recursive step -- now digging into transitive dependencies
+            VisitType(dependencyDeclaration, dependency, typesByName, visited, visiting, sortedTypeDeclarations);
+        }
+
+        visiting.Remove(typeName);
+        visited.Add(typeName);
+        sortedTypeDeclarations.Add(declaration);
+    }
+
+    private static IEnumerable<string> GetTypeDependencies(Idl.Model.NamedSchemaDeclaration declaration)
+    {
+        return declaration switch
+        {
+            Idl.Model.RecordDeclaration r => GetFieldTypeDependencies(r.Fields),
+            Idl.Model.ErrorDeclaration e => GetFieldTypeDependencies(e.Fields),
+            _ => []
+        };
+    }
+
+    private static IEnumerable<string> GetFieldTypeDependencies(IEnumerable<Idl.Model.FieldDeclaration> fields)
+    {
+        var dependencies = new HashSet<string>();
+        foreach (var field in fields)
+        {
+            CollectTypeDependencies(field.Type, dependencies);
+        }
+        return dependencies;
+    }
+
+    private static void CollectTypeDependencies(Idl.Model.AvroType avroType, HashSet<string> dependencies)
+    {
+        switch (avroType)
+        {
+            case Idl.Model.ReferenceType referenceType:
+                dependencies.Add(referenceType.Name.Value);
+                break;
+            case Idl.Model.ArrayType arrayType:
+                CollectTypeDependencies(arrayType.NestedType, dependencies);
+                break;
+            case Idl.Model.MapType mapType:
+                CollectTypeDependencies(mapType.NestedType, dependencies);
+                break;
+            case Idl.Model.UnionDefinition unionType:
+                foreach (var option in unionType.TypeOptions)
+                {
+                    CollectTypeDependencies(option, dependencies);
+                }
+                break;
+        }
     }
 
     private IEnumerable<JObject> MapTypeDeclarationToDto(string baseFilePath, Idl.Model.Protocol protocol, Idl.Model.NamedSchemaDeclaration typeDeclaration)

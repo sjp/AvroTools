@@ -2,6 +2,15 @@
   "protocol": "Import",
   "types": [
     {
+      "type": "enum",
+      "symbols": [
+        "JSON",
+        "BASE64BIN",
+        "PLAIN"
+      ],
+      "name": "ValueType"
+    },
+    {
       "type": "record",
       "fields": [
         {
@@ -21,15 +30,6 @@
         }
       ],
       "name": "ANameValue"
-    },
-    {
-      "type": "enum",
-      "symbols": [
-        "JSON",
-        "BASE64BIN",
-        "PLAIN"
-      ],
-      "name": "ValueType"
     }
   ],
   "messages": {},

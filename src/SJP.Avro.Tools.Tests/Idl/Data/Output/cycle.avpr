@@ -5,24 +5,6 @@
       "type": "record",
       "fields": [
         {
-          "name": "count",
-          "default": 0,
-          "type": "int"
-        },
-        {
-          "name": "subNodes",
-          "type": {
-            "type": "array",
-            "items": "SamplePair"
-          }
-        }
-      ],
-      "name": "SampleNode"
-    },
-    {
-      "type": "record",
-      "fields": [
-        {
           "name": "declaringClass",
           "type": "string"
         },
@@ -46,6 +28,24 @@
         }
       ],
       "name": "SamplePair"
+    },
+    {
+      "type": "record",
+      "fields": [
+        {
+          "name": "count",
+          "default": 0,
+          "type": "int"
+        },
+        {
+          "name": "subNodes",
+          "type": {
+            "type": "array",
+            "items": "SamplePair"
+          }
+        }
+      ],
+      "name": "SampleNode"
     },
     {
       "type": "record",

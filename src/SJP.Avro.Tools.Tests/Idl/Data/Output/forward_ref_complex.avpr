@@ -1,0 +1,30 @@
+{
+  "protocol": "MyTest",
+  "types": [
+    {
+      "type": "record",
+      "fields": [
+        {
+          "name": "AcceptanceId",
+          "type": "int"
+        }
+      ],
+      "name": "Datum"
+    },
+    {
+      "type": "record",
+      "fields": [
+        {
+          "name": "Data",
+          "type": {
+            "type": "array",
+            "items": "Datum"
+          }
+        }
+      ],
+      "name": "MyRecord"
+    }
+  ],
+  "messages": {},
+  "namespace": "MyNamespace"
+}
