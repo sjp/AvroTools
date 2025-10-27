@@ -1,0 +1,14 @@
+@namespace("MyNamespace")
+
+protocol SampleNullable {
+
+    record MyRecord {
+        array<Datum> Data;
+    }
+
+    record Datum {
+        string? MyString;
+        int MyId;
+    }
+
+}

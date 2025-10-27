@@ -87,6 +87,25 @@ public static class IdlTokenParsers
                     .IgnoreThen(Parse.Ref(() => AvroType).AtLeastOnceDelimitedBy(Token.EqualTo(IdlToken.Comma)))
                     .Then(t => Token.EqualTo(IdlToken.RBrace).Select(_ => new UnionDefinition(t, p) as AvroType)));
 
+    private static TokenListParser<IdlToken, AvroType> NullableType =>
+        Parse.Ref(() => NonNullableType)
+            .Then(t =>
+                Token.EqualTo(IdlToken.Optional)
+                    .Select(_ =>
+                    {
+                        var nullType = new PrimitiveType("null", []);
+                        var typeOptions = new[] { nullType, t };
+                        return new UnionDefinition(typeOptions, []) as AvroType;
+                    }));
+
+    private static TokenListParser<IdlToken, AvroType> NonNullableType =>
+        PrimitiveType
+            .Try().Or(LogicalType)
+            .Try().Or(ReferenceType)
+            .Try().Or(MapType)
+            .Try().Or(UnionType)
+            .Try().Or(ArrayType);
+
     private static TokenListParser<IdlToken, Token<IdlToken>> ExpressionContent =>
         new[] { IdlToken.LParen, IdlToken.RParen }.NotEqualTo();
 
@@ -273,12 +292,8 @@ public static class IdlTokenParsers
                     )));
 
     private static TokenListParser<IdlToken, AvroType> AvroType =>
-        PrimitiveType
-            .Try().Or(LogicalType)
-            .Try().Or(ReferenceType)
-            .Try().Or(MapType)
-            .Try().Or(UnionType)
-            .Try().Or(ArrayType);
+        NullableType
+            .Try().Or(NonNullableType);
 
     private static TokenListParser<IdlToken, MessageDeclaration> Message =>
         DocComment

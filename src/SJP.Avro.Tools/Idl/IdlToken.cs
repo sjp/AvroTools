@@ -120,6 +120,12 @@ public enum IdlToken
     Backtick,
 
     /// <summary>
+    /// The question mark symbol, typically used for declaring optionality for types (i.e. nullability)
+    /// </summary>
+    [Token(Example = "?")]
+    Optional,
+
+    /// <summary>
     /// A doc comment.
     /// </summary>
     [Token(Description = "doc comment literal")]

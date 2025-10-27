@@ -28,6 +28,7 @@ public class IdlTokenizer : Tokenizer<IdlToken>, IIdlTokenizer
         SimpleOps[';'] = IdlToken.Semicolon;
         SimpleOps[':'] = IdlToken.Colon;
         SimpleOps['@'] = IdlToken.At;
+        SimpleOps['?'] = IdlToken.Optional;
     }
 
     /// <summary>
