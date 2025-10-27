@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avro;
 using SJP.Avro.Tools;
@@ -70,7 +71,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         return ValidationResult.Success();
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         AvroProtocol? protocol = null;
         var schemas = new List<AvroSchema>();
@@ -136,7 +137,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                     if (File.Exists(outputFilePath))
                         File.Delete(outputFilePath);
 
-                    await File.WriteAllTextAsync(outputFilePath, protocolOutput);
+                    await File.WriteAllTextAsync(outputFilePath, protocolOutput, cancellationToken);
                     _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
                 }
             }
@@ -160,7 +161,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 if (File.Exists(outputFilePath))
                     File.Delete(outputFilePath);
 
-                await File.WriteAllTextAsync(outputFilePath, schemaOutput);
+                await File.WriteAllTextAsync(outputFilePath, schemaOutput, cancellationToken);
                 _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
             }
 
