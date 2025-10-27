@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
@@ -56,7 +57,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         return ValidationResult.Success();
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (!TryGetIdlTokens(settings.IdlFile, out var tokens))
             return ErrorCode.Error;
@@ -90,7 +91,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 if (File.Exists(schemaFilename))
                     File.Delete(schemaFilename);
 
-                await File.WriteAllTextAsync(schemaFilename, schema.ToString());
+                await File.WriteAllTextAsync(schemaFilename, schema.ToString(), cancellationToken);
                 _console.MarkupLineInterpolated($"[green]Generated {schemaFilename}[/]");
             }
 

@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
@@ -55,7 +56,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         return ValidationResult.Success();
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (!TryGetIdlTokens(settings.IdlFile, out var tokens))
             return ErrorCode.Error;
@@ -81,7 +82,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             if (File.Exists(outputPath))
                 File.Delete(outputPath);
 
-            await File.WriteAllTextAsync(outputPath, output);
+            await File.WriteAllTextAsync(outputPath, output, cancellationToken);
 
             _console.MarkupLineInterpolated($"[green]Generated {outputPath}[/]");
 
