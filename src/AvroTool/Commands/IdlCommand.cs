@@ -126,7 +126,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         if (!result.HasValue)
         {
             protocol = default!;
-            _console.MarkupLineInterpolated($"[red]Unable to parse protocol from IDL document: {result.ErrorMessage}[/]");
+            _console.MarkupLineInterpolated($"[red]Unable to parse protocol from IDL document: {result}[/]");
         }
         else
         {
