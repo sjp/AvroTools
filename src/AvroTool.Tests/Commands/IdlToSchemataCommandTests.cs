@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
@@ -273,5 +274,27 @@ internal class IdlToSchemataCommandTests
 
         var result = _commandHandler.Validate(_commandContext, settings);
         Assert.That(result.Successful, Is.True);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WithJavaGeneratedInputFile_ReturnsError()
+    {
+        const string fileName = "generatedRecord.avdl";
+        const string folderPath = "SJP.Avro.Tools.Tests\\idl\\Data\\Input";
+        var root = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var parent = new DirectoryInfo(root).Parent.Parent.Parent.Parent.Parent;
+        var filePath = Path.Combine(parent.FullName, folderPath, fileName);
+        var settings = new IdlToSchemataCommand.Settings
+        {
+            IdlFile = filePath
+        };
+
+        var result = await _commandHandler.ExecuteAsync(_commandContext, settings, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.Not.Zero);
+            Assert.That(_console.Invocations.Count, Is.EqualTo(1));
+        }
     }
 }

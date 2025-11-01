@@ -1,0 +1,29 @@
+/* failing */
+
+namespace MyNamespace;
+
+record MyRecord {
+    array<Datum> Data;
+}
+
+record Datum {
+    string? AcceptanceDuration;
+    int AcceptanceId;
+    string? Unit;
+    string UnitType;
+    string CreatedDateTime;
+    string? LeadPartyName;
+    string? GridUnit;
+    PairVolume PairVolumes;
+    string SettlementDate;
+    int SettlementPeriod;
+    string StartTime;
+    double? TotalVolumeAccepted;
+}
+
+record PairVolume {
+    double? Negative1;
+    double? Negative2;
+    double? Positive1;
+    double? Positive2;
+}
