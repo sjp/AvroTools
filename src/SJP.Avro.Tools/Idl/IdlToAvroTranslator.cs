@@ -22,7 +22,9 @@ public class IdlToAvroTranslator
     private readonly IFileProvider _fileProvider;
     private readonly Dictionary<string, JObject> _namedSchemas = new();
     private readonly HashSet<string> _processedImports = new();
-    private readonly HashSet<string> _inlinedSchemas = new();
+    private readonly HashSet<string> _processedSchemas = new();
+    private readonly HashSet<string> _inlinedForwardRefs = new();
+    private bool _trackForwardReferences = false;
     private string? _defaultNamespace;
 
     /// <summary>
@@ -141,7 +143,8 @@ public class IdlToAvroTranslator
     {
         _namedSchemas.Clear();
         _processedImports.Clear();
-        _inlinedSchemas.Clear();
+        _processedSchemas.Clear();
+        _inlinedForwardRefs.Clear();
 
         var protocolName = context.name.GetText();
         var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
@@ -162,6 +165,8 @@ public class IdlToAvroTranslator
         }
 
         // FIRST PASS: Cache all named schemas for forward reference resolution
+        // Don't track forward references in this pass
+        _trackForwardReferences = false;
         foreach (var namedSchema in body._namedSchemas)
         {
             var schemaJson = TranslateNamedSchema(namedSchema);
@@ -174,20 +179,46 @@ public class IdlToAvroTranslator
             }
         }
 
-        // SECOND PASS: Process named schemas now that all references are cached
-        // This pass will populate _inlinedSchemas as forward references are resolved
+        // SECOND PASS: Regenerate schemas with proper references now that all are cached
+        // Enable forward reference tracking for this pass
+        _trackForwardReferences = true;
+        
+        // Mark imported types as already processed first
+        foreach (var importedType in importedTypes)
+        {
+            var name = GetSchemaName(importedType);
+            if (!string.IsNullOrEmpty(name))
+            {
+                _processedSchemas.Add(name);
+            }
+        }
+
         var types = new List<JObject>();
         types.AddRange(importedTypes); // Add imported types first
 
         foreach (var namedSchema in body._namedSchemas)
         {
-            var schemaJson = TranslateNamedSchema(namedSchema);
-
-            // Only add to types array if not inlined elsewhere
-            var name = GetSchemaName(schemaJson);
-            if (string.IsNullOrEmpty(name) || !_inlinedSchemas.Contains(name))
+            // Get the schema name from the declaration
+            var simpleName = GetNamedSchemaName(namedSchema);
+            var fullName = string.IsNullOrEmpty(_defaultNamespace) ? simpleName : _defaultNamespace + "." + simpleName;
+            
+            if (!string.IsNullOrEmpty(fullName))
             {
-                types.Add(schemaJson);
+                // Mark this schema as processed BEFORE translating it
+                // so that when fields reference it, they know it's already defined
+                _processedSchemas.Add(fullName);
+            }
+            
+            // Now translate the schema - field references will know what's already processed
+            var schemaJson = TranslateNamedSchema(namedSchema);
+            
+            if (!string.IsNullOrEmpty(fullName))
+            {
+                // Only add to types array if it wasn't inlined as a forward reference
+                if (!_inlinedForwardRefs.Contains(fullName))
+                {
+                    types.Add(schemaJson);
+                }
             }
         }
 
@@ -604,20 +635,26 @@ public class IdlToAvroTranslator
         else if (context.referenceName != null)
         {
             var refName = context.referenceName.GetText();
-
-            // Check if this is a forward reference that needs to be inlined
             var fullName = ResolveFullTypeName(refName);
-            if (_namedSchemas.TryGetValue(fullName, out var schema))
-            {
-                // Mark this schema as inlined so it won't be added to the top-level types array
-                _inlinedSchemas.Add(fullName);
 
-                // Return a deep copy to avoid modifying the cached schema
+            // Check if this type has already been added to the types array
+            if (_processedSchemas.Contains(fullName))
+            {
+                // Type is already in the types array, use a name reference
+                return refName;
+            }
+            else if (_trackForwardReferences && _namedSchemas.TryGetValue(fullName, out var schema))
+            {
+                // Forward reference - type is defined later, inline the full definition
+                // Mark it so we don't add it to the types array later
+                _inlinedForwardRefs.Add(fullName);
                 return schema.DeepClone();
             }
-
-            // Return the reference name if not found in cache
-            return refName;
+            else
+            {
+                // Type not found in cache, return the reference name anyway
+                return refName;
+            }
         }
 
         throw new InvalidOperationException("Unknown nullable type");
@@ -972,6 +1009,24 @@ public class IdlToAvroTranslator
         return !string.IsNullOrEmpty(ns)
             ? $"{ns}.{nameStr}"
             : nameStr;
+    }
+
+    private string GetNamedSchemaName(IdlParser.NamedSchemaDeclarationContext context)
+    {
+        if (context.fixedDeclaration() != null)
+        {
+            return context.fixedDeclaration().name.GetText();
+        }
+        else if (context.enumDeclaration() != null)
+        {
+            return context.enumDeclaration().name.GetText();
+        }
+        else if (context.recordDeclaration() != null)
+        {
+            return context.recordDeclaration().name.GetText();
+        }
+
+        throw new InvalidOperationException("Unknown named schema type");
     }
 
     private string ResolveFullTypeName(string typeName)
