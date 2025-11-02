@@ -21,12 +21,6 @@ protocol Import {
   import idl "reservedwords.avdl";
   import idl "nestedimport.avdl";
 
-  // Note that this import is resolve via the classpath, not relative path.
-  // Commented out because this is not supported in our implementation.
-  //import idl "OnTheClasspath.avdl";
-  //import protocol "OnTheClasspath.avpr";
-  //import schema "OnTheClasspath.avsc";
-
   import schema "baz.avsc";
   import schema "foo.avsc";
   import protocol "bar.avpr";

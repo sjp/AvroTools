@@ -1,6 +1,6 @@
 {
   "protocol" : "Протоколы",
-  "doc" : "* This is a test that UTF8 functions correctly.\r\n* このテストでは、UTF - 8で正しく機能している。\r\n* 这是一个测试，UTF - 8的正常运行。",
+  "doc" : "This is a test that UTF8 functions correctly.\nこのテストでは、UTF - 8で正しく機能している。\n这是一个测试，UTF - 8的正常运行。",
   "types" : [ {
     "type" : "record",
     "name" : "Структура",

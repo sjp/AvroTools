@@ -16,31 +16,11 @@
  * limitations under the License.
  */
 
-
-
 /**
-Testing UUID fields
+Testing leading underscore for identifiers
 */
-
-@namespace("org.apache.avro")
-protocol MyProtocol {
-    record APlaygroundEvent {
-
-    /**
-     * Documentation must be provided for each attribute
-     */
-    uuid identifier;
-
-    /**
-     * A string field with a special name
-     */
-    string `uuid`;
-
-
-    /**
-     * a nullable uuid field
-     */
-
-    union { null, uuid } optionalString;
+protocol _LeadingUnderscore {
+  record _TestRecord {
+    string _testField;
   }
 }

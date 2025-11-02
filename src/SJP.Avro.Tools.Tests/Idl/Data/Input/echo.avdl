@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,31 +16,17 @@
  * limitations under the License.
  */
 
+@namespace("org.apache.avro.echo")
+protocol Echo {
+	record Ping {
+		long timestamp = -1;
+		string text = "";
+	}
 
+	record Pong {
+		long timestamp = -1;
+		Ping ping;
+	}
 
-/**
-Testing UUID fields
-*/
-
-@namespace("org.apache.avro")
-protocol MyProtocol {
-    record APlaygroundEvent {
-
-    /**
-     * Documentation must be provided for each attribute
-     */
-    uuid identifier;
-
-    /**
-     * A string field with a special name
-     */
-    string `uuid`;
-
-
-    /**
-     * a nullable uuid field
-     */
-
-    union { null, uuid } optionalString;
-  }
+	Pong ping(Ping ping);
 }

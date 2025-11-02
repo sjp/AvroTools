@@ -1,9 +1,0 @@
-@namespace("MyNamespace")
-protocol MyTest {
-  record MyRecord {
-      array<Datum> Data;
-  }
-  record Datum {
-      int AcceptanceId;
-  }
-}

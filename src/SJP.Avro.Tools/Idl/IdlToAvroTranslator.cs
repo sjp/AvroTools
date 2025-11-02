@@ -1,0 +1,1119 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using AvroProtocol = Avro.Protocol;
+using AvroSchema = Avro.Schema;
+
+namespace SJP.Avro.Tools.Idl;
+
+/// <summary>
+/// Translates ANTLR parse tree (IdlFileContext) to Avro.Protocol and Avro.Schema objects.
+/// This approach uses the guaranteed-correct ANTLR parser and translates directly to Avro types.
+/// </summary>
+public class IdlToAvroTranslator
+{
+    private readonly string _filePath;
+    private readonly IFileProvider _fileProvider;
+    private readonly Dictionary<string, JObject> _namedSchemas = new();
+    private readonly HashSet<string> _processedImports = new();
+    private readonly HashSet<string> _inlinedSchemas = new();
+    private string? _defaultNamespace;
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    /// <param name="filePath"></param>
+    /// <param name="fileProvider"></param>
+    public IdlToAvroTranslator(string filePath = "memory", IFileProvider? fileProvider = null)
+    {
+        _filePath = filePath;
+        _fileProvider = fileProvider ?? new DefaultFileProvider();
+    }
+
+    /// <summary>
+    /// Translates an IdlFileContext to an Avro.Protocol or throws if it's a standalone schema.
+    /// </summary>
+    public AvroProtocol TranslateToProtocol(IdlParser.IdlFileContext context)
+    {
+        if (context.protocol != null)
+        {
+            return TranslateProtocol(context.protocol);
+        }
+
+        throw new InvalidOperationException(
+            "The IDL file does not contain a protocol. Use TranslateToSchema for standalone schemas.");
+    }
+
+    /// <summary>
+    /// Translates an IdlFileContext to an Avro.Schema for standalone schema definitions.
+    /// </summary>
+    public AvroSchema TranslateToSchema(IdlParser.IdlFileContext context)
+    {
+        _namedSchemas.Clear();
+        _processedImports.Clear();
+
+        _defaultNamespace = context.@namespace?.@namespace?.GetText();
+
+        // Process imports for schemas
+        var importedTypes = new List<JObject>();
+        var importedMessages = new JObject();
+
+        foreach (var import in context._imports)
+        {
+            ProcessImport(import, importedTypes, importedMessages);
+        }
+
+        // Cache imported types for reference resolution
+        foreach (var importedType in importedTypes)
+        {
+            var name = GetSchemaName(importedType);
+            if (!string.IsNullOrEmpty(name))
+            {
+                _namedSchemas[name] = importedType;
+            }
+        }
+
+        JToken mainSchemaJson;
+        if (context.mainSchema != null)
+        {
+            mainSchemaJson = TranslateFullType(context.mainSchema.mainSchema);
+        }
+        else if (context._namedSchemas.Count > 0)
+        {
+            var schema = context._namedSchemas[0];
+            mainSchemaJson = TranslateNamedSchema(schema);
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                "The IDL file does not contain a schema. Use TranslateToProtocol for protocols.");
+        }
+
+        // If there are imported types, parse them together with the main schema
+        // so that type references can be resolved
+        if (importedTypes.Count > 0)
+        {
+            var allSchemas = new JArray();
+            foreach (var importedType in importedTypes)
+            {
+                allSchemas.Add(importedType);
+            }
+            allSchemas.Add(mainSchemaJson);
+
+            // Parse all schemas together - this returns the last schema in the array
+            // but ensures all types are registered for reference resolution
+            return AvroSchema.Parse(allSchemas.ToString());
+        }
+        else
+        {
+            return AvroSchema.Parse(mainSchemaJson.ToString());
+        }
+    }
+
+    /// <summary>
+    /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
+    /// </summary>
+    public object Translate(IdlParser.IdlFileContext context)
+    {
+        if (context.protocol != null)
+        {
+            return TranslateToProtocol(context);
+        }
+        else
+        {
+            return TranslateToSchema(context);
+        }
+    }
+
+    private AvroProtocol TranslateProtocol(IdlParser.ProtocolDeclarationContext context)
+    {
+        var protocolJson = TranslateProtocolToJson(context);
+        return AvroProtocol.Parse(protocolJson.ToString());
+    }
+
+    private JObject TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context)
+    {
+        _namedSchemas.Clear();
+        _processedImports.Clear();
+        _inlinedSchemas.Clear();
+
+        var protocolName = context.name.GetText();
+        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var properties = TranslateProperties(context._schemaProperties);
+
+        // Extract namespace from properties
+        _defaultNamespace = GetNamespaceFromProperties(properties);
+
+        var body = context.body;
+
+        // Process imports
+        var importedTypes = new List<JObject>();
+        var importedMessages = new JObject();
+
+        foreach (var import in body._imports)
+        {
+            ProcessImport(import, importedTypes, importedMessages);
+        }
+
+        // FIRST PASS: Cache all named schemas for forward reference resolution
+        foreach (var namedSchema in body._namedSchemas)
+        {
+            var schemaJson = TranslateNamedSchema(namedSchema);
+
+            // Cache for reference resolution
+            var name = GetSchemaName(schemaJson);
+            if (!string.IsNullOrEmpty(name))
+            {
+                _namedSchemas[name] = schemaJson;
+            }
+        }
+
+        // SECOND PASS: Process named schemas now that all references are cached
+        // This pass will populate _inlinedSchemas as forward references are resolved
+        var types = new List<JObject>();
+        types.AddRange(importedTypes); // Add imported types first
+
+        foreach (var namedSchema in body._namedSchemas)
+        {
+            var schemaJson = TranslateNamedSchema(namedSchema);
+
+            // Only add to types array if not inlined elsewhere
+            var name = GetSchemaName(schemaJson);
+            if (string.IsNullOrEmpty(name) || !_inlinedSchemas.Contains(name))
+            {
+                types.Add(schemaJson);
+            }
+        }
+
+        // Process messages (combine imported and declared)
+        var messages = new JObject();
+
+        // Add imported messages first
+        foreach (var prop in importedMessages.Properties())
+        {
+            messages[prop.Name] = prop.Value;
+        }
+
+        // Add declared messages
+        foreach (var message in body._messages)
+        {
+            var messageName = message.name.GetText();
+            var messageJson = TranslateMessage(message);
+            messages[messageName] = messageJson;
+        }
+
+        // Build protocol JSON
+        var protocolJson = new JObject
+        {
+            ["protocol"] = protocolName
+        };
+
+        if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        {
+            protocolJson["namespace"] = _defaultNamespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            protocolJson["doc"] = doc;
+        }
+
+        if (types.Count > 0)
+        {
+            protocolJson["types"] = new JArray(types);
+        }
+
+        if (messages.Count > 0)
+        {
+            protocolJson["messages"] = messages;
+        }
+
+        // Add any additional properties
+        foreach (var prop in properties)
+        {
+            if (prop.Key != "namespace") // namespace already handled
+            {
+                protocolJson[prop.Key] = prop.Value;
+            }
+        }
+
+        return protocolJson;
+    }
+
+    private JObject TranslateNamedSchema(IdlParser.NamedSchemaDeclarationContext context)
+    {
+        if (context.fixedDeclaration() != null)
+        {
+            return TranslateFixed(context.fixedDeclaration());
+        }
+        else if (context.enumDeclaration() != null)
+        {
+            return TranslateEnum(context.enumDeclaration());
+        }
+        else if (context.recordDeclaration() != null)
+        {
+            return TranslateRecord(context.recordDeclaration());
+        }
+
+        throw new InvalidOperationException("Unknown named schema type");
+    }
+
+    private JObject TranslateFixed(IdlParser.FixedDeclarationContext context)
+    {
+        var name = context.name.GetText();
+        var sizeText = context.size.Text.Trim();
+        var isHexNumber = sizeText.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            || sizeText.StartsWith("x", StringComparison.OrdinalIgnoreCase);
+        var numberBase = isHexNumber ? 16 : 10;
+        var size = Convert.ToInt32(sizeText, numberBase);
+        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var properties = TranslateProperties(context._schemaProperties);
+
+        var fixedJson = new JObject
+        {
+            ["type"] = "fixed",
+            ["name"] = name,
+            ["size"] = size
+        };
+
+        if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        {
+            fixedJson["namespace"] = _defaultNamespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            fixedJson["doc"] = doc;
+        }
+
+        foreach (var prop in properties)
+        {
+            fixedJson[prop.Key] = prop.Value;
+        }
+
+        return fixedJson;
+    }
+
+    private JObject TranslateEnum(IdlParser.EnumDeclarationContext context)
+    {
+        var name = context.name.GetText();
+        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var properties = TranslateProperties(context._schemaProperties);
+
+        var symbols = new JArray();
+        foreach (var symbol in context._enumSymbols)
+        {
+            symbols.Add(symbol.name.GetText());
+        }
+
+        var enumJson = new JObject
+        {
+            ["type"] = "enum",
+            ["name"] = name,
+            ["symbols"] = symbols
+        };
+
+        if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        {
+            enumJson["namespace"] = _defaultNamespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            enumJson["doc"] = doc;
+        }
+
+        if (context.defaultSymbol != null)
+        {
+            // the defaultSymbol will look like '=Example;'
+            // but we actually want 'Example'
+            enumJson["default"] = context.defaultSymbol.GetText()
+                .TrimStart('=')
+                .TrimEnd(';');
+        }
+
+        foreach (var prop in properties)
+        {
+            enumJson[prop.Key] = prop.Value;
+        }
+
+        return enumJson;
+    }
+
+    private JObject TranslateRecord(IdlParser.RecordDeclarationContext context)
+    {
+        var name = context.name.GetText();
+        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var properties = TranslateProperties(context._schemaProperties);
+        var isError = context.Start.Type == IdlParser.Error;
+
+        var fields = new JArray();
+        foreach (var fieldDecl in context.body._fields)
+        {
+            foreach (var varDecl in fieldDecl._variableDeclarations)
+            {
+                var field = TranslateField(fieldDecl, varDecl);
+                fields.Add(field);
+            }
+        }
+
+        var recordJson = new JObject
+        {
+            ["type"] = isError ? "error" : "record",
+            ["name"] = name,
+            ["fields"] = fields
+        };
+
+        if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        {
+            recordJson["namespace"] = _defaultNamespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            recordJson["doc"] = doc;
+        }
+
+        foreach (var prop in properties)
+        {
+            recordJson[prop.Key] = prop.Value;
+        }
+
+        return recordJson;
+    }
+
+    private JObject TranslateField(
+        IdlParser.FieldDeclarationContext fieldDecl,
+        IdlParser.VariableDeclarationContext varDecl)
+    {
+        var fieldName = varDecl.fieldName.GetText();
+        var fieldType = TranslateFullType(fieldDecl.fieldType);
+        var doc = fieldDecl.doc?.Text?.Trim('/', '*', ' ', '\n', '\r')
+                  ?? varDecl.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var properties = TranslateProperties(varDecl._schemaProperties);
+
+        var field = new JObject
+        {
+            ["name"] = fieldName,
+            ["type"] = fieldType
+        };
+
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            field["doc"] = doc;
+        }
+
+        if (varDecl.defaultValue != null)
+        {
+            field["default"] = TranslateJsonValue(varDecl.defaultValue);
+        }
+
+        foreach (var prop in properties)
+        {
+            field[prop.Key] = prop.Value;
+        }
+
+        return field;
+    }
+
+    private JObject TranslateMessage(IdlParser.MessageDeclarationContext context)
+    {
+        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var properties = TranslateProperties(context._schemaProperties);
+        var isOneway = context.oneway != null;
+
+        // Request parameters
+        var request = new JArray();
+        foreach (var param in context._formalParameters)
+        {
+            var paramName = param.parameter.fieldName.GetText();
+            var paramType = TranslateFullType(param.parameterType);
+            var paramDoc = param.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+
+            var requestParam = new JObject
+            {
+                ["name"] = paramName,
+                ["type"] = paramType
+            };
+
+            if (!string.IsNullOrWhiteSpace(paramDoc))
+            {
+                requestParam["doc"] = paramDoc;
+            }
+
+            request.Add(requestParam);
+        }
+
+        // Response type
+        JToken response;
+        if (context.returnType.Void() != null || isOneway)
+        {
+            response = "null";
+        }
+        else
+        {
+            response = TranslatePlainType(context.returnType.plainType());
+        }
+
+        var message = new JObject
+        {
+            ["request"] = request,
+            ["response"] = response
+        };
+
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            message["doc"] = doc;
+        }
+
+        if (isOneway)
+        {
+            message["one-way"] = true;
+        }
+
+        if (context._errors.Count > 0)
+        {
+            var errors = new JArray();
+            foreach (var error in context._errors)
+            {
+                errors.Add(error.GetText());
+            }
+            message["errors"] = errors;
+        }
+
+        foreach (var prop in properties)
+        {
+            message[prop.Key] = prop.Value;
+        }
+
+        return message;
+    }
+
+    private JToken TranslateFullType(IdlParser.FullTypeContext context)
+    {
+        var properties = TranslateProperties(context._schemaProperties);
+        var typeToken = TranslatePlainType(context.plainType());
+
+        if (properties.Count == 0)
+        {
+            return typeToken;
+        }
+
+        // If we have properties, we need to wrap in an object
+        if (typeToken is JObject obj)
+        {
+            foreach (var prop in properties)
+            {
+                obj[prop.Key] = prop.Value;
+            }
+            return obj;
+        }
+        else
+        {
+            var wrapper = new JObject
+            {
+                ["type"] = typeToken
+            };
+            foreach (var prop in properties)
+            {
+                wrapper[prop.Key] = prop.Value;
+            }
+            return wrapper;
+        }
+    }
+
+    private JToken TranslatePlainType(IdlParser.PlainTypeContext context)
+    {
+        if (context.arrayType() != null)
+        {
+            return TranslateArrayType(context.arrayType());
+        }
+        else if (context.mapType() != null)
+        {
+            return TranslateMapType(context.mapType());
+        }
+        else if (context.unionType() != null)
+        {
+            return TranslateUnionType(context.unionType());
+        }
+        else if (context.nullableType() != null)
+        {
+            return TranslateNullableType(context.nullableType());
+        }
+
+        throw new InvalidOperationException("Unknown plain type");
+    }
+
+    private JObject TranslateArrayType(IdlParser.ArrayTypeContext context)
+    {
+        var itemType = TranslateFullType(context.elementType);
+        return new JObject
+        {
+            ["type"] = "array",
+            ["items"] = itemType
+        };
+    }
+
+    private JObject TranslateMapType(IdlParser.MapTypeContext context)
+    {
+        var valueType = TranslateFullType(context.valueType);
+        return new JObject
+        {
+            ["type"] = "map",
+            ["values"] = valueType
+        };
+    }
+
+    private JArray TranslateUnionType(IdlParser.UnionTypeContext context)
+    {
+        var union = new JArray();
+        foreach (var type in context._types)
+        {
+            union.Add(TranslateFullType(type));
+        }
+        return union;
+    }
+
+    private JToken TranslateNullableType(IdlParser.NullableTypeContext context)
+    {
+        if (context.QuestionMark() != null)
+        {
+            // Nullable type: type?
+            var baseType = TranslatePrimitiveOrReference(context);
+            return new JArray { "null", baseType };
+        }
+        else
+        {
+            // Non-nullable
+            return TranslatePrimitiveOrReference(context);
+        }
+    }
+
+    private JToken TranslatePrimitiveOrReference(IdlParser.NullableTypeContext context)
+    {
+        if (context.primitiveType() != null)
+        {
+            return TranslatePrimitiveType(context.primitiveType());
+        }
+        else if (context.referenceName != null)
+        {
+            var refName = context.referenceName.GetText();
+
+            // Check if this is a forward reference that needs to be inlined
+            var fullName = ResolveFullTypeName(refName);
+            if (_namedSchemas.TryGetValue(fullName, out var schema))
+            {
+                // Mark this schema as inlined so it won't be added to the top-level types array
+                _inlinedSchemas.Add(fullName);
+
+                // Return a deep copy to avoid modifying the cached schema
+                return schema.DeepClone();
+            }
+
+            // Return the reference name if not found in cache
+            return refName;
+        }
+
+        throw new InvalidOperationException("Unknown nullable type");
+    }
+
+    private JToken TranslatePrimitiveType(IdlParser.PrimitiveTypeContext context)
+    {
+        var typeNameToken = context.typeName;
+        if (typeNameToken == null)
+        {
+            throw new InvalidOperationException("Primitive type has no type name");
+        }
+
+        var text = typeNameToken.Text;
+
+        // Handle parameterized decimal type
+        if (text == "decimal")
+        {
+            var precisionToken = context.precision;
+            var scaleToken = context.scale;
+
+            if (precisionToken != null)
+            {
+                var precision = int.Parse(precisionToken.Text, CultureInfo.InvariantCulture);
+                var decimalObj = new JObject
+                {
+                    ["type"] = "bytes",
+                    ["logicalType"] = "decimal",
+                    ["precision"] = precision
+                };
+
+                if (scaleToken != null)
+                {
+                    var scale = int.Parse(scaleToken.Text, CultureInfo.InvariantCulture);
+                    decimalObj["scale"] = scale;
+                }
+
+                return decimalObj;
+            }
+        }
+
+        // Map IDL types to Avro types
+        // Primitive types return string
+        // Logical types return JObject with type and logicalType
+        return text switch
+        {
+            "void" => new JValue("null"),
+            "boolean" => new JValue("boolean"),
+            "int" => new JValue("int"),
+            "long" => new JValue("long"),
+            "float" => new JValue("float"),
+            "double" => new JValue("double"),
+            "string" => new JValue("string"),
+            "bytes" => new JValue("bytes"),
+            "null" => new JValue("null"),
+
+            // Logical types - return objects with type and logicalType
+            "uuid" => new JObject
+            {
+                ["type"] = "string",
+                ["logicalType"] = "uuid"
+            },
+            "date" => new JObject
+            {
+                ["type"] = "int",
+                ["logicalType"] = "date"
+            },
+            "time_ms" => new JObject
+            {
+                ["type"] = "int",
+                ["logicalType"] = "time-millis"
+            },
+            "timestamp_ms" => new JObject
+            {
+                ["type"] = "long",
+                ["logicalType"] = "timestamp-millis"
+            },
+            "local_timestamp_ms" => new JObject
+            {
+                ["type"] = "long",
+                ["logicalType"] = "local-timestamp-millis"
+            },
+
+            _ => new JValue(text) // Unknown types pass through
+        };
+    }
+
+    private JToken TranslateJsonValue(IdlParser.JsonValueContext context)
+    {
+        if (context.jsonLiteral() != null)
+        {
+            return TranslateJsonLiteral(context.jsonLiteral());
+        }
+        else if (context.jsonObject() != null)
+        {
+            return TranslateJsonObject(context.jsonObject());
+        }
+        else if (context.jsonArray() != null)
+        {
+            return TranslateJsonArray(context.jsonArray());
+        }
+
+        throw new InvalidOperationException("Unknown JSON value type");
+    }
+
+    private JToken TranslateJsonLiteral(IdlParser.JsonLiteralContext context)
+    {
+        if (context.StringLiteral() != null)
+        {
+            var text = context.StringLiteral().GetText();
+            // Remove quotes
+            return text.Substring(1, text.Length - 2);
+        }
+        else if (context.IntegerLiteral() != null)
+        {
+            return long.Parse(context.IntegerLiteral().GetText());
+        }
+        else if (context.FloatingPointLiteral() != null)
+        {
+            return double.Parse(context.FloatingPointLiteral().GetText(), CultureInfo.InvariantCulture);
+        }
+        else if (context.BTrue() != null)
+        {
+            return true;
+        }
+        else if (context.BFalse() != null)
+        {
+            return false;
+        }
+        else if (context.Null() != null)
+        {
+            return JValue.CreateNull();
+        }
+
+        throw new InvalidOperationException("Unknown JSON literal type");
+    }
+
+    private JObject TranslateJsonObject(IdlParser.JsonObjectContext context)
+    {
+        var obj = new JObject();
+        foreach (var pair in context._jsonPairs)
+        {
+            var key = pair.name.Text;
+            // Remove quotes from key
+            if (key.StartsWith("\"") && key.EndsWith("\""))
+            {
+                key = key.Substring(1, key.Length - 2);
+            }
+            obj[key] = TranslateJsonValue(pair.value);
+        }
+        return obj;
+    }
+
+    private JArray TranslateJsonArray(IdlParser.JsonArrayContext context)
+    {
+        var array = new JArray();
+        foreach (var value in context._jsonValues)
+        {
+            array.Add(TranslateJsonValue(value));
+        }
+        return array;
+    }
+
+    private void ProcessImport(
+        IdlParser.ImportStatementContext import,
+        List<JObject> importedTypes,
+        JObject importedMessages)
+    {
+        var importType = import.importType.Text;
+        var location = import.location.Text;
+
+        // Remove quotes from location
+        if (location.StartsWith("\"") && location.EndsWith("\""))
+        {
+            location = location.Substring(1, location.Length - 2);
+        }
+
+        // Prevent circular imports
+        var importPath = _fileProvider.CreatePath(_filePath, location);
+        if (_processedImports.Contains(importPath))
+        {
+            return;
+        }
+        _processedImports.Add(importPath);
+
+        switch (importType.ToLowerInvariant())
+        {
+            case "idl":
+                ProcessIdlImport(importPath, importedTypes, importedMessages);
+                break;
+            case "protocol":
+                ProcessProtocolImport(importPath, importedTypes, importedMessages);
+                break;
+            case "schema":
+                ProcessSchemaImport(importPath, importedTypes);
+                break;
+        }
+    }
+
+    private void ProcessIdlImport(
+        string importPath,
+        List<JObject> importedTypes,
+        JObject importedMessages)
+    {
+        try
+        {
+            var idlContent = _fileProvider.GetFileContents(_filePath, Path.GetFileName(importPath));
+            var parseTree = ParseIdl(idlContent);
+
+            if (parseTree.protocol != null)
+            {
+                var translator = new IdlToAvroTranslator(importPath, _fileProvider);
+                translator._processedImports.UnionWith(_processedImports); // Carry forward processed imports
+
+                // Get protocol as JSON without parsing to avoid validation issues with incomplete type references
+                var protocolJson = translator.TranslateProtocolToJson(parseTree.protocol);
+
+                // Add imported types
+                if (protocolJson.TryGetValue("types", out var typesToken) && typesToken is JArray typesArray)
+                {
+                    foreach (var type in typesArray.OfType<JObject>())
+                    {
+                        importedTypes.Add(type);
+
+                        // Cache for reference resolution
+                        var name = GetSchemaName(type);
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            _namedSchemas[name] = type;
+                        }
+                    }
+                }
+
+                // Add imported messages
+                if (protocolJson.TryGetValue("messages", out var messagesToken) && messagesToken is JObject messagesObj)
+                {
+                    foreach (var prop in messagesObj.Properties())
+                    {
+                        importedMessages[prop.Name] = prop.Value;
+                    }
+                }
+
+                // Update processed imports from nested translator
+                _processedImports.UnionWith(translator._processedImports);
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to import IDL from '{importPath}': {ex.Message}", ex);
+        }
+    }
+
+    private void ProcessProtocolImport(
+        string importPath,
+        List<JObject> importedTypes,
+        JObject importedMessages)
+    {
+        try
+        {
+            var protocolJson = _fileProvider.GetFileContents(_filePath, Path.GetFileName(importPath));
+            var protocolObj = JObject.Parse(protocolJson);
+
+            // Import types
+            if (protocolObj.TryGetValue("types", out var typesToken) && typesToken is JArray typesArray)
+            {
+                foreach (var type in typesArray.OfType<JObject>())
+                {
+                    importedTypes.Add(type);
+
+                    // Cache for reference resolution
+                    var name = GetSchemaName(type);
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        _namedSchemas[name] = type;
+                    }
+                }
+            }
+
+            // Import messages
+            if (protocolObj.TryGetValue("messages", out var messagesToken) && messagesToken is JObject messagesObj)
+            {
+                foreach (var prop in messagesObj.Properties())
+                {
+                    importedMessages[prop.Name] = prop.Value;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to import protocol from '{importPath}': {ex.Message}", ex);
+        }
+    }
+
+    private void ProcessSchemaImport(
+        string importPath,
+        List<JObject> importedTypes)
+    {
+        try
+        {
+            var schemaJson = _fileProvider.GetFileContents(_filePath, Path.GetFileName(importPath));
+            var schemaObj = JObject.Parse(schemaJson);
+
+            importedTypes.Add(schemaObj);
+
+            // Cache for reference resolution
+            var name = GetSchemaName(schemaObj);
+            if (!string.IsNullOrEmpty(name))
+            {
+                _namedSchemas[name] = schemaObj;
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to import schema from '{importPath}': {ex.Message}", ex);
+        }
+    }
+
+    private Dictionary<string, JToken> TranslateProperties(
+        IList<IdlParser.SchemaPropertyContext> properties)
+    {
+        var result = new Dictionary<string, JToken>();
+
+        foreach (var prop in properties)
+        {
+            var name = prop.name.GetText();
+            var value = TranslateJsonValue(prop.value);
+            result[name] = value;
+        }
+
+        return result;
+    }
+
+    private string? GetNamespaceFromProperties(Dictionary<string, JToken> properties)
+    {
+        if (properties.TryGetValue("namespace", out var ns))
+        {
+            return ns.ToString();
+        }
+        return null;
+    }
+
+    private string? GetSchemaName(JObject schema)
+    {
+        if (!schema.TryGetValue("name", out var name))
+            return null;
+
+        var nameStr = name.ToString();
+        var ns = schema.TryGetValue("namespace", out var nsToken)
+            ? nsToken.ToString()
+            : _defaultNamespace;
+
+        return !string.IsNullOrEmpty(ns)
+            ? $"{ns}.{nameStr}"
+            : nameStr;
+    }
+
+    private string ResolveFullTypeName(string typeName)
+    {
+        // If the type name already contains a dot, it's already fully qualified
+        if (typeName.Contains('.'))
+        {
+            return typeName;
+        }
+
+        // Try with default namespace first
+        if (!string.IsNullOrEmpty(_defaultNamespace))
+        {
+            var fullName = $"{_defaultNamespace}.{typeName}";
+            if (_namedSchemas.ContainsKey(fullName))
+            {
+                return fullName;
+            }
+        }
+
+        // Return the simple name if not found with namespace
+        return typeName;
+    }
+
+    /// <summary>
+    /// Helper method to parse IDL string and translate to Protocol.
+    /// </summary>
+    /// <param name="idlContent">The IDL content to parse.</param>
+    /// <param name="sourceName">Optional source name for error reporting.</param>
+    /// <param name="fileProvider">Optional file provider for resolving imports.</param>
+    public static AvroProtocol ParseIdlToProtocol(string idlContent, string sourceName = "memory", IFileProvider? fileProvider = null)
+    {
+        var parseTree = ParseIdl(idlContent);
+        var translator = new IdlToAvroTranslator(sourceName, fileProvider);
+        return translator.TranslateToProtocol(parseTree);
+    }
+
+    /// <summary>
+    /// Helper method to parse IDL string and translate to Schema.
+    /// </summary>
+    /// <param name="idlContent">The IDL content to parse.</param>
+    /// <param name="sourceName">Optional source name for error reporting.</param>
+    /// <param name="fileProvider">Optional file provider for resolving imports.</param>
+    public static AvroSchema ParseIdlToSchema(string idlContent, string sourceName = "memory", IFileProvider? fileProvider = null)
+    {
+        var parseTree = ParseIdl(idlContent);
+        var translator = new IdlToAvroTranslator(sourceName, fileProvider);
+        return translator.TranslateToSchema(parseTree);
+    }
+
+    /// <summary>
+    /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
+    /// </summary>
+    public static object ParseIdl(string idlContent, string sourceName = "memory", IFileProvider? fileProvider = null)
+    {
+        var parseTree = ParseIdl(idlContent);
+        var translator = new IdlToAvroTranslator(sourceName, fileProvider);
+        if (parseTree.protocol != null)
+        {
+            return translator.TranslateToProtocol(parseTree);
+        }
+        else
+        {
+            return translator.TranslateToSchema(parseTree);
+        }
+    }
+
+    /// <summary>
+    /// Helper method to parse IDL file and translate to Protocol.
+    /// </summary>
+    /// <param name="filePath">Path to the IDL file.</param>
+    /// <param name="fileProvider">Optional file provider for resolving imports. If not provided, uses DefaultFileProvider.</param>
+    public static AvroProtocol ParseIdlFileToProtocol(string filePath, IFileProvider? fileProvider = null)
+    {
+        var idlContent = File.ReadAllText(filePath);
+        return ParseIdlToProtocol(idlContent, filePath, fileProvider ?? new DefaultFileProvider());
+    }
+
+    /// <summary>
+    /// Helper method to parse IDL file and translate to Schema.
+    /// </summary>
+    /// <param name="filePath">Path to the IDL file.</param>
+    /// <param name="fileProvider">Optional file provider for resolving imports. If not provided, uses DefaultFileProvider.</param>
+    public static AvroSchema ParseIdlFileToSchema(string filePath, IFileProvider? fileProvider = null)
+    {
+        var idlContent = File.ReadAllText(filePath);
+        return ParseIdlToSchema(idlContent, filePath, fileProvider ?? new DefaultFileProvider());
+    }
+
+    /// <summary>
+    /// Parses IDL content using ANTLR.
+    /// </summary>
+    private static IdlParser.IdlFileContext ParseIdl(string idlContent)
+    {
+        var inputStream = new AntlrInputStream(idlContent);
+        var lexer = new IdlLexer(inputStream);
+        var tokenStream = new CommonTokenStream(lexer);
+        var parser = new IdlParser(tokenStream);
+
+        // Add error handling
+        parser.RemoveErrorListeners();
+        parser.AddErrorListener(new ThrowingErrorListener());
+
+        return parser.idlFile();
+    }
+
+    /// <summary>
+    /// Creates a new translator instance for parsing imported files.
+    /// </summary>
+    private IdlToAvroTranslator CreateImportTranslator(string importPath)
+    {
+        return new IdlToAvroTranslator(importPath, _fileProvider);
+    }
+}
+
+/// <summary>
+/// Error listener that throws on syntax errors.
+/// </summary>
+public class ThrowingErrorListener : BaseErrorListener
+{
+    /// <summary>
+    /// TODO
+    /// </summary>
+    /// <param name="output"></param>
+    /// <param name="recognizer"></param>
+    /// <param name="offendingSymbol"></param>
+    /// <param name="line"></param>
+    /// <param name="charPositionInLine"></param>
+    /// <param name="msg"></param>
+    /// <param name="e"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public override void SyntaxError(
+        TextWriter output,
+        IRecognizer recognizer,
+        IToken offendingSymbol,
+        int line,
+        int charPositionInLine,
+        string msg,
+        RecognitionException e)
+    {
+        throw new InvalidOperationException(
+            $"Syntax error at line {line}:{charPositionInLine} - {msg}",
+            e);
+    }
+}

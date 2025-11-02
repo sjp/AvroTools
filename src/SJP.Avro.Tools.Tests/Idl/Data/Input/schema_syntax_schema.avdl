@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,31 +16,33 @@
  * limitations under the License.
  */
 
+/*
+ * NOTE: the correct extension for this new syntax is also '.avdl'. The test
+ * files end with '_schema.avdl' only to distinguish them from .avdl files using
+ * the protocol syntax, because the result is a schema file instead of a protocol file.
+ */
+namespace monitoring;
+schema array<StatusUpdate>;
 
-
-/**
-Testing UUID fields
-*/
-
-@namespace("org.apache.avro")
-protocol MyProtocol {
-    record APlaygroundEvent {
-
-    /**
-     * Documentation must be provided for each attribute
-     */
-    uuid identifier;
-
-    /**
-     * A string field with a special name
-     */
-    string `uuid`;
-
-
-    /**
-     * a nullable uuid field
-     */
-
-    union { null, uuid } optionalString;
-  }
+record StatusUpdate {
+  /**
+   * The moment of the status change.
+   */
+  timestamp_ms timestamp;
+  /**
+   * The process whose status changed.
+   */
+  string processName;
+  /**
+   * The new status of the process.
+   */
+  system.Status newStatus;
+  /**
+   * A description why this status change occurred (optional).
+   */
+  string? description;
 }
+
+import idl "status_schema.avdl";
+import schema "foo.avsc";
+import protocol "bar.avpr";

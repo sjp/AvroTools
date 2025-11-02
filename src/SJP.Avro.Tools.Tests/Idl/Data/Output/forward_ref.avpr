@@ -1,37 +1,16 @@
 {
   "protocol": "Import",
+  "namespace": "org.foo",
   "types": [
     {
-      "type": "enum",
-      "symbols": [
-        "JSON",
-        "BASE64BIN",
-        "PLAIN"
-      ],
-      "name": "ValueType"
-    },
-    {
       "type": "record",
+      "name": "ANameValue",
       "fields": [
-        {
-          "name": "name",
-          "doc": "the name",
-          "type": "string"
-        },
-        {
-          "name": "value",
-          "doc": "the value",
-          "type": "string"
-        },
-        {
-          "name": "type",
-          "default": "PLAIN",
-          "type": "ValueType"
-        }
-      ],
-      "name": "ANameValue"
+        { "name":"name", "type": "string", "doc":"the name" },
+        { "name": "value", "type": "string", "doc": "the value" },
+        { "name": "type", "type": { "type": "enum", "name":"ValueType", "symbols": ["JSON","BASE64BIN","PLAIN"] }, "default": "PLAIN" }
+      ]
     }
   ],
-  "messages": {},
-  "namespace": "org.foo"
+  "messages":  { }
 }

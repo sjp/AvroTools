@@ -29,6 +29,7 @@
     <EmbeddedResource Include="Idl\Data\Input\*.avpr" />
     <EmbeddedResource Include="Idl\Data\Input\*.avsc" />
     <EmbeddedResource Include="Idl\Data\Output\*.avpr" />
+    <EmbeddedResource Include="Idl\Data\Output\*.avsc" />
   </ItemGroup>
 
 </Project>
