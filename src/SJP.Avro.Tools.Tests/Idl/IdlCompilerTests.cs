@@ -1,7 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.Extensions.FileProviders;
 using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
 using SJP.Avro.Tools.Idl.Model;
@@ -11,12 +15,18 @@ namespace SJP.Avro.Tools.Tests.Idl;
 [TestFixture]
 internal class IdlCompilerTests
 {
+    private const string BaseInputNamespace = "SJP.Avro.Tools.Tests.Idl.Data.Input";
+    private const string BaseOutputNamespace = "SJP.Avro.Tools.Tests.Idl.Data.Output";
+
+    private static readonly IFileProvider InputFileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), BaseInputNamespace);
+    private static readonly IFileProvider OutputFileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), BaseOutputNamespace);
+
     private IdlCompiler _compiler;
 
     [SetUp]
     public void Setup()
     {
-        var fileProvider = EmbeddedResourceFileProvider.Instance;
+        var fileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly());
         _compiler = new IdlCompiler(fileProvider);
     }
 
@@ -70,17 +80,18 @@ internal class IdlCompilerTests
     }
 
     [TestCaseSource(nameof(IdlInputOutputFilenames))]
-    public static void Tokenize_GivenValidIdlInput_MatchesExpectedOutput(string idlSampleResourceName, string avroSampleResourceOutput)
+    public static async Task Tokenize_GivenValidIdlInput_MatchesExpectedOutput(string idlSampleResourceName, string avroSampleResourceOutput)
     {
-        var input = EmbeddedResource.GetByName(idlSampleResourceName);
-        var output = EmbeddedResource.GetByName(avroSampleResourceOutput);
+        var inputFile = InputFileProvider.GetFileInfo(idlSampleResourceName);
+        var outputFile = OutputFileProvider.GetFileInfo(avroSampleResourceOutput);
 
-        var inputFileName = idlSampleResourceName.Split('.').TakeLast(2).Join(".");
+        using var inputReader = new StreamReader(inputFile.CreateReadStream());
+        using var outputReader = new StreamReader(outputFile.CreateReadStream());
 
-        // TODO this is a broken path
-        var basePath = @"C:\Users\sjp\source\repos\AvroTools\src\SJP.Avro.Tools.Tests\Idl\Data\Input";
-        var resolvedResourceName = Path.Combine(basePath, inputFileName);
-        var avpr = IdlToAvroTranslator.ParseIdl(input, resolvedResourceName, new DefaultFileProvider());
+        var inputContents = await inputReader.ReadToEndAsync();
+        var outputContents = await outputReader.ReadToEndAsync();
+
+        var avpr = IdlToAvroTranslator.ParseIdl(inputContents, idlSampleResourceName, InputFileProvider);
         var avprTxt = avpr.ToString();
         var avpr2 = avpr.ToString();
     }
@@ -106,7 +117,11 @@ internal class IdlCompilerTests
             .ToList();
 
         return inputNames
-            .Zip(outputNames, (a, b) => new object[] { a, b })
+            .Zip(outputNames, (a, b) => new object[]
+            {
+                a.Replace("Idl.Data.Input.", string.Empty),
+                b.Replace("Idl.Data.Output.", string.Empty)
+            })
             .ToList();
     }
 }

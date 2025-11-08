@@ -2,6 +2,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using AvroTool.Commands;
+using Microsoft.Extensions.FileProviders;
 using Moq;
 using NUnit.Framework;
 using SJP.Avro.Tools;
@@ -41,7 +42,7 @@ internal class IdlToSchemataCommandTests
         _commandHandler = new IdlToSchemataCommand(
             _console.Object,
             new IdlTokenizer(),
-            new IdlCompiler(new DefaultFileProvider())
+            new IdlCompiler(new PhysicalFileProvider(Directory.GetCurrentDirectory()))
         );
     }
 

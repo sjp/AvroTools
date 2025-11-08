@@ -2,6 +2,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using AvroTool.Commands;
+using Microsoft.Extensions.FileProviders;
 using Moq;
 using NUnit.Framework;
 using SJP.Avro.Tools;
@@ -53,7 +54,7 @@ internal class CodeGenCommandTests
         _commandHandler = new CodeGenCommand(
             _console.Object,
             new IdlTokenizer(),
-            new IdlCompiler(new DefaultFileProvider()),
+            new IdlCompiler(new PhysicalFileProvider(Directory.GetCurrentDirectory())),
             new CodeGeneratorResolver()
         );
     }

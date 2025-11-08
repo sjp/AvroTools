@@ -4,8 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Antlr4.Runtime;
-using Antlr4.Runtime.Tree;
-using Newtonsoft.Json;
+using Microsoft.Extensions.FileProviders;
 using Newtonsoft.Json.Linq;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
@@ -35,7 +34,7 @@ public class IdlToAvroTranslator
     public IdlToAvroTranslator(string filePath = "memory", IFileProvider? fileProvider = null)
     {
         _filePath = filePath;
-        _fileProvider = fileProvider ?? new DefaultFileProvider();
+        _fileProvider = fileProvider ?? new PhysicalFileProvider(Directory.GetCurrentDirectory());
     }
 
     /// <summary>
@@ -75,7 +74,7 @@ public class IdlToAvroTranslator
 
         // FIRST PASS: Cache imported types and any named schemas in the file for reference resolution
         _trackForwardReferences = false;
-        
+
         foreach (var importedType in importedTypes)
         {
             var name = GetSchemaName(importedType);
@@ -118,7 +117,7 @@ public class IdlToAvroTranslator
         // Build the final schema array with any types that need to be defined
         // Types that were inlined as forward references should NOT be in this array
         var allSchemas = new JArray();
-        
+
         // Add imported types that weren't inlined
         foreach (var importedType in importedTypes)
         {
@@ -229,14 +228,14 @@ public class IdlToAvroTranslator
         {
             // First, get the schema name from the declaration so we can mark it as processed
             var simpleName = GetNamedSchemaName(namedSchema);
-            
+
             // Check if this schema has an explicit namespace
-            var schemaProperties = namedSchema.fixedDeclaration()?._schemaProperties 
-                ?? namedSchema.enumDeclaration()?._schemaProperties 
+            var schemaProperties = namedSchema.fixedDeclaration()?._schemaProperties
+                ?? namedSchema.enumDeclaration()?._schemaProperties
                 ?? namedSchema.recordDeclaration()?._schemaProperties;
             var schemaProps = schemaProperties != null ? TranslateProperties(schemaProperties) : new Dictionary<string, JToken>();
             var explicitNamespace = schemaProps.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
-            
+
             // Construct the full name using explicit namespace if provided, otherwise use default
             var schemaNamespace = explicitNamespace ?? _defaultNamespace;
             var fullName = string.IsNullOrEmpty(schemaNamespace) ? simpleName : $"{schemaNamespace}.{simpleName}";
@@ -938,7 +937,7 @@ public class IdlToAvroTranslator
         }
 
         // Prevent circular imports
-        var importPath = _fileProvider.CreatePath(_filePath, location);
+        var importPath = ResolveRelativePath(_filePath, location);
         if (_processedImports.Contains(importPath))
         {
             return;
@@ -959,6 +958,32 @@ public class IdlToAvroTranslator
         }
     }
 
+    private string ResolveRelativePath(string basePath, string relativePath)
+    {
+        // If basePath is "memory" or similar non-file paths, just return the relative path
+        if (basePath == "memory" || !Path.IsPathRooted(basePath))
+        {
+            return relativePath;
+        }
+
+        var baseDir = Path.GetDirectoryName(basePath) ?? basePath;
+        var combined = Path.Combine(baseDir, relativePath);
+        return Path.GetFullPath(combined);
+    }
+
+    private string ReadFileContent(string filePath)
+    {
+        var fileInfo = _fileProvider.GetFileInfo(filePath);
+        if (!fileInfo.Exists)
+        {
+            throw new FileNotFoundException($"File not found: {filePath}");
+        }
+
+        using var stream = fileInfo.CreateReadStream();
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
     private void ProcessIdlImport(
         string importPath,
         List<JObject> importedTypes,
@@ -966,7 +991,7 @@ public class IdlToAvroTranslator
     {
         try
         {
-            var idlContent = _fileProvider.GetFileContents(_filePath, Path.GetFileName(importPath));
+            var idlContent = ReadFileContent(importPath);
             var parseTree = ParseIdl(idlContent);
 
             var translator = new IdlToAvroTranslator(importPath, _fileProvider);
@@ -1007,19 +1032,19 @@ public class IdlToAvroTranslator
                 // Handle standalone schema import
                 // The imported file might be a standalone schema with named types
                 translator._defaultNamespace = parseTree.@namespace?.@namespace?.GetText();
-                
+
                 // Process any named schemas defined in the imported file
                 foreach (var namedSchema in parseTree._namedSchemas)
                 {
                     var schemaJson = translator.TranslateNamedSchema(namedSchema);
-                    
+
                     // Ensure the schema has a namespace field if one was set at the file level
                     // and the schema doesn't already have an explicit namespace
                     if (!string.IsNullOrEmpty(translator._defaultNamespace) && !schemaJson.ContainsKey("namespace"))
                     {
                         schemaJson["namespace"] = translator._defaultNamespace;
                     }
-                    
+
                     importedTypes.Add(schemaJson);
 
                     // Cache for reference resolution
@@ -1047,7 +1072,7 @@ public class IdlToAvroTranslator
     {
         try
         {
-            var protocolJson = _fileProvider.GetFileContents(_filePath, Path.GetFileName(importPath));
+            var protocolJson = ReadFileContent(importPath);
             var protocolObj = JObject.Parse(protocolJson);
 
             // Import types
@@ -1087,7 +1112,7 @@ public class IdlToAvroTranslator
     {
         try
         {
-            var schemaJson = _fileProvider.GetFileContents(_filePath, Path.GetFileName(importPath));
+            var schemaJson = ReadFileContent(importPath);
             var schemaObj = JObject.Parse(schemaJson);
 
             importedTypes.Add(schemaObj);
@@ -1323,22 +1348,24 @@ public class IdlToAvroTranslator
     /// Helper method to parse IDL file and translate to Protocol.
     /// </summary>
     /// <param name="filePath">Path to the IDL file.</param>
-    /// <param name="fileProvider">Optional file provider for resolving imports. If not provided, uses DefaultFileProvider.</param>
+    /// <param name="fileProvider">Optional file provider for resolving imports. If not provided, uses PhysicalFileProvider.</param>
     public static AvroProtocol ParseIdlFileToProtocol(string filePath, IFileProvider? fileProvider = null)
     {
         var idlContent = File.ReadAllText(filePath);
-        return ParseIdlToProtocol(idlContent, filePath, fileProvider ?? new DefaultFileProvider());
+        var directory = Path.GetDirectoryName(filePath) ?? Directory.GetCurrentDirectory();
+        return ParseIdlToProtocol(idlContent, filePath, fileProvider ?? new PhysicalFileProvider(directory));
     }
 
     /// <summary>
     /// Helper method to parse IDL file and translate to Schema.
     /// </summary>
     /// <param name="filePath">Path to the IDL file.</param>
-    /// <param name="fileProvider">Optional file provider for resolving imports. If not provided, uses DefaultFileProvider.</param>
+    /// <param name="fileProvider">Optional file provider for resolving imports. If not provided, uses PhysicalFileProvider.</param>
     public static AvroSchema ParseIdlFileToSchema(string filePath, IFileProvider? fileProvider = null)
     {
         var idlContent = File.ReadAllText(filePath);
-        return ParseIdlToSchema(idlContent, filePath, fileProvider ?? new DefaultFileProvider());
+        var directory = Path.GetDirectoryName(filePath) ?? Directory.GetCurrentDirectory();
+        return ParseIdlToSchema(idlContent, filePath, fileProvider ?? new PhysicalFileProvider(directory));
     }
 
     /// <summary>

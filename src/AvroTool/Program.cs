@@ -1,7 +1,9 @@
+using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using AvroTool.Commands;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using SJP.Avro.Tools;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
@@ -19,7 +21,7 @@ internal static class Program
         services.AddTransient<IIdlCompiler, IdlCompiler>();
         services.AddTransient<IIdlTokenizer, IdlTokenizer>();
         services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
-        services.AddTransient<IFileProvider, DefaultFileProvider>();
+        services.AddTransient<IFileProvider>(_ => new PhysicalFileProvider(Directory.GetCurrentDirectory()));
         using var registrar = new DependencyInjectionRegistrar(services);
 
         var app = new CommandApp(registrar);

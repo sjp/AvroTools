@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.FileProviders;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SJP.Avro.Tools.Idl;
@@ -27,11 +29,38 @@ public class IdlCompiler : IIdlCompiler
         _fileProvider = fileProvider ?? throw new ArgumentNullException(nameof(fileProvider));
     }
 
+    private string ResolveRelativePath(string basePath, string relativePath)
+    {
+        // If basePath is "memory" or similar non-file paths, just return the relative path
+        if (basePath == "memory" || !Path.IsPathRooted(basePath))
+        {
+            return relativePath;
+        }
+
+        var baseDir = Path.GetDirectoryName(basePath) ?? basePath;
+        var combined = Path.Combine(baseDir, relativePath);
+        return Path.GetFullPath(combined);
+    }
+
+    private string ReadFileContent(string filePath)
+    {
+        var fileInfo = _fileProvider.GetFileInfo(filePath);
+        if (!fileInfo.Exists)
+        {
+            throw new FileNotFoundException($"File not found: {filePath}");
+        }
+
+        using var stream = fileInfo.CreateReadStream();
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
     private Idl.Model.Protocol ParseImportedIdl(string parentFilePath, string idlPath)
     {
         var tokenizer = new IdlTokenizer();
 
-        var input = _fileProvider.GetFileContents(parentFilePath, idlPath);
+        var resolvedPath = ResolveRelativePath(parentFilePath, idlPath);
+        var input = ReadFileContent(resolvedPath);
         var tokenizeResult = tokenizer.TryTokenize(input);
         var tokens = tokenizeResult.Value.ToList();
 
@@ -45,7 +74,8 @@ public class IdlCompiler : IIdlCompiler
 
     private JObject ParseImportedSchema(string parentFilePath, string idlPath)
     {
-        var input = _fileProvider.GetFileContents(parentFilePath, idlPath);
+        var resolvedPath = ResolveRelativePath(parentFilePath, idlPath);
+        var input = ReadFileContent(resolvedPath);
         return JObject.Parse(input);
     }
 
@@ -334,7 +364,7 @@ public class IdlCompiler : IIdlCompiler
     {
         if (import.Type == Idl.Model.ImportType.Idl)
         {
-            var resolvedNewPath = _fileProvider.CreatePath(baseFilePath, import.Path);
+            var resolvedNewPath = ResolveRelativePath(baseFilePath, import.Path);
             var importedIdl = ParseImportedIdl(baseFilePath, import.Path);
             var importIdlNs = GetNamespaceFromProperties(importedIdl.Properties);
 
