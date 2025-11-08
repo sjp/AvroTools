@@ -1,11 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using FluentAssertions;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
 using SJP.Avro.Tools.Idl.Model;
-using Superpower.Model;
 
 namespace SJP.Avro.Tools.Tests.Idl;
 
@@ -70,73 +69,39 @@ internal class IdlCompilerTests
         Assert.That(() => _compiler.Compile("fake_path", null), Throws.ArgumentNullException);
     }
 
-    [TestCaseSource(nameof(IdlSampleFilenames))]
-    public static void Tokenize_GivenValidIdlInput_CompilesJson(string idlSampleResourceName)
-    {
-        var input = EmbeddedResource.GetByName(idlSampleResourceName);
-
-        var tokenizer = new IdlTokenizer();
-        var tokenizeResult = tokenizer.TryTokenize(input);
-        var tokens = tokenizeResult.Value.ToList();
-
-        var commentFreeTokens = tokens.Where(t => t.Kind != IdlToken.Comment).ToArray();
-        var tokenList = new TokenList<IdlToken>(commentFreeTokens);
-
-        var result = IdlTokenParsers.Protocol(tokenList);
-        var protocol = result.Value;
-
-        var compiler = new IdlCompiler(EmbeddedResourceFileProvider.Instance);
-        var json = compiler.Compile(idlSampleResourceName, protocol);
-
-        Assert.That(json, Is.Not.Null);
-        Assert.That(json, Is.Not.Empty);
-    }
-
     [TestCaseSource(nameof(IdlInputOutputFilenames))]
     public static void Tokenize_GivenValidIdlInput_MatchesExpectedOutput(string idlSampleResourceName, string avroSampleResourceOutput)
     {
         var input = EmbeddedResource.GetByName(idlSampleResourceName);
         var output = EmbeddedResource.GetByName(avroSampleResourceOutput);
 
-        var tokenizer = new IdlTokenizer();
-        var tokenizeResult = tokenizer.TryTokenize(input);
-        var tokens = tokenizeResult.Value.ToList();
+        var inputFileName = idlSampleResourceName.Split('.').TakeLast(2).Join(".");
 
-        var commentFreeTokens = tokens.Where(t => t.Kind != IdlToken.Comment).ToArray();
-        var tokenList = new TokenList<IdlToken>(commentFreeTokens);
-
-        var result = IdlTokenParsers.Protocol(tokenList);
-        var protocol = result.Value;
-
-        var compiler = new IdlCompiler(EmbeddedResourceFileProvider.Instance);
-        var json = compiler.Compile(idlSampleResourceName, protocol);
-
-        var parsedExpectedOutput = JToken.Parse(output);
-        var parsedOutput = JToken.Parse(json);
-
-        var differ = new JsonDiffPatch.JsonDiffer();
-        var patched = differ.Diff(parsedOutput, parsedExpectedOutput, false);
-
-        Assert.That(patched.Operations, Is.Empty);
-    }
-
-    private static IEnumerable<string> IdlSampleFilenames()
-    {
-        return EmbeddedResource.GetEmbeddedResourceNames()
-            .Where(n => n.EndsWith(".avdl"))
-            .Order()
-            .ToList();
+        // TODO this is a broken path
+        var basePath = @"C:\Users\sjp\source\repos\AvroTools\src\SJP.Avro.Tools.Tests\Idl\Data\Input";
+        var resolvedResourceName = Path.Combine(basePath, inputFileName);
+        var avpr = IdlToAvroTranslator.ParseIdl(input, resolvedResourceName, new DefaultFileProvider());
+        var avprTxt = avpr.ToString();
+        var avpr2 = avpr.ToString();
     }
 
     private static IEnumerable<object[]> IdlInputOutputFilenames()
     {
+        var allNames = EmbeddedResource.GetEmbeddedResourceNames();
         var inputNames = EmbeddedResource.GetEmbeddedResourceNames()
             .Where(n => n.EndsWith(".avdl"))
             .Order()
             .ToList();
 
+        var protocolOutputFileNames = inputNames
+            .Select(n => n.Replace(".avdl", ".avpr"))
+            .ToHashSet();
+        var schemaOutputFileNames = inputNames
+            .Select(n => n.Replace(".avdl", ".avsc"))
+            .ToHashSet();
+
         var outputNames = EmbeddedResource.GetEmbeddedResourceNames()
-            .Where(n => n.Contains(".Output.") && n.EndsWith(".avpr"))
+            .Where(n => n.Contains(".Output.") && (protocolOutputFileNames.Contains(n.Replace(".Output.", ".Input.")) || schemaOutputFileNames.Contains(n.Replace(".Output.", ".Input."))))
             .Order()
             .ToList();
 

@@ -51,7 +51,7 @@ protocol Simple {
     MD5 hash = "0000000000000000";
 
     // A traditional optional field
-    union {null, MD5} @aliases(["hash", "hsh"]) nullableHash = null;
+    union {null, MD5} @aliases(["oldhash", "hsh"]) nullableHash = null;
 
     // These two fields parse correctly, but will break (be changed to strings) when serializing the protocol/schema as JSON.
     double value = NaN;

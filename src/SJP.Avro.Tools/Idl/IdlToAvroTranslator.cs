@@ -59,6 +59,8 @@ public class IdlToAvroTranslator
     {
         _namedSchemas.Clear();
         _processedImports.Clear();
+        _processedSchemas.Clear();
+        _inlinedForwardRefs.Clear();
 
         _defaultNamespace = context.@namespace?.@namespace?.GetText();
 
@@ -71,7 +73,9 @@ public class IdlToAvroTranslator
             ProcessImport(import, importedTypes, importedMessages);
         }
 
-        // Cache imported types for reference resolution
+        // FIRST PASS: Cache imported types and any named schemas in the file for reference resolution
+        _trackForwardReferences = false;
+        
         foreach (var importedType in importedTypes)
         {
             var name = GetSchemaName(importedType);
@@ -80,6 +84,20 @@ public class IdlToAvroTranslator
                 _namedSchemas[name] = importedType;
             }
         }
+
+        // Cache any named schemas defined in this file
+        foreach (var namedSchema in context._namedSchemas)
+        {
+            var schemaJson = TranslateNamedSchema(namedSchema);
+            var name = GetSchemaName(schemaJson);
+            if (!string.IsNullOrEmpty(name))
+            {
+                _namedSchemas[name] = schemaJson;
+            }
+        }
+
+        // SECOND PASS: Now translate with forward reference tracking enabled
+        _trackForwardReferences = true;
 
         JToken mainSchemaJson;
         if (context.mainSchema != null)
@@ -97,17 +115,27 @@ public class IdlToAvroTranslator
                 "The IDL file does not contain a schema. Use TranslateToProtocol for protocols.");
         }
 
-        // If there are imported types, parse them together with the main schema
-        // so that type references can be resolved
-        if (importedTypes.Count > 0)
+        // Build the final schema array with any types that need to be defined
+        // Types that were inlined as forward references should NOT be in this array
+        var allSchemas = new JArray();
+        
+        // Add imported types that weren't inlined
+        foreach (var importedType in importedTypes)
         {
-            var allSchemas = new JArray();
-            foreach (var importedType in importedTypes)
+            var name = GetSchemaName(importedType);
+            if (!string.IsNullOrEmpty(name) && !_inlinedForwardRefs.Contains(name))
             {
                 allSchemas.Add(importedType);
             }
-            allSchemas.Add(mainSchemaJson);
+        }
 
+        // Add the main schema
+        allSchemas.Add(mainSchemaJson);
+
+        // If we have multiple schemas, parse them together
+        // Otherwise just parse the main schema alone
+        if (allSchemas.Count > 1)
+        {
             // Parse all schemas together - this returns the last schema in the array
             // but ensures all types are registered for reference resolution
             return AvroSchema.Parse(allSchemas.ToString());
@@ -136,7 +164,8 @@ public class IdlToAvroTranslator
     private AvroProtocol TranslateProtocol(IdlParser.ProtocolDeclarationContext context)
     {
         var protocolJson = TranslateProtocolToJson(context);
-        return AvroProtocol.Parse(protocolJson.ToString());
+        var protocolJsonText = protocolJson.ToString();
+        return AvroProtocol.Parse(protocolJsonText);
     }
 
     private JObject TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context)
@@ -182,7 +211,7 @@ public class IdlToAvroTranslator
         // SECOND PASS: Regenerate schemas with proper references now that all are cached
         // Enable forward reference tracking for this pass
         _trackForwardReferences = true;
-        
+
         // Mark imported types as already processed first
         foreach (var importedType in importedTypes)
         {
@@ -198,27 +227,35 @@ public class IdlToAvroTranslator
 
         foreach (var namedSchema in body._namedSchemas)
         {
-            // Get the schema name from the declaration
+            // First, get the schema name from the declaration so we can mark it as processed
             var simpleName = GetNamedSchemaName(namedSchema);
-            var fullName = string.IsNullOrEmpty(_defaultNamespace) ? simpleName : _defaultNamespace + "." + simpleName;
             
+            // Check if this schema has an explicit namespace
+            var schemaProperties = namedSchema.fixedDeclaration()?._schemaProperties 
+                ?? namedSchema.enumDeclaration()?._schemaProperties 
+                ?? namedSchema.recordDeclaration()?._schemaProperties;
+            var schemaProps = schemaProperties != null ? TranslateProperties(schemaProperties) : new Dictionary<string, JToken>();
+            var explicitNamespace = schemaProps.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
+            
+            // Construct the full name using explicit namespace if provided, otherwise use default
+            var schemaNamespace = explicitNamespace ?? _defaultNamespace;
+            var fullName = string.IsNullOrEmpty(schemaNamespace) ? simpleName : $"{schemaNamespace}.{simpleName}";
+
+            // Mark this schema as processed BEFORE translating it
+            // This ensures self-references work correctly (e.g., array<Node> in Node)
             if (!string.IsNullOrEmpty(fullName))
             {
-                // Mark this schema as processed BEFORE translating it
-                // so that when fields reference it, they know it's already defined
                 _processedSchemas.Add(fullName);
             }
-            
-            // Now translate the schema - field references will know what's already processed
+
+            // Now translate the schema - references to this schema (including self-references)
+            // will use name strings since it's already marked as processed
             var schemaJson = TranslateNamedSchema(namedSchema);
-            
-            if (!string.IsNullOrEmpty(fullName))
+
+            // Only add to types array if it wasn't inlined as a forward reference elsewhere
+            if (!string.IsNullOrEmpty(fullName) && !_inlinedForwardRefs.Contains(fullName))
             {
-                // Only add to types array if it wasn't inlined as a forward reference
-                if (!_inlinedForwardRefs.Contains(fullName))
-                {
-                    types.Add(schemaJson);
-                }
+                types.Add(schemaJson);
             }
         }
 
@@ -313,9 +350,10 @@ public class IdlToAvroTranslator
             ["size"] = size
         };
 
-        if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        // Only add namespace if explicitly provided in properties and different from default
+        if (properties.TryGetValue("namespace", out var explicitNamespace))
         {
-            fixedJson["namespace"] = _defaultNamespace;
+            fixedJson["namespace"] = explicitNamespace;
         }
 
         if (!string.IsNullOrWhiteSpace(doc))
@@ -325,7 +363,10 @@ public class IdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            fixedJson[prop.Key] = prop.Value;
+            if (prop.Key != "namespace")
+            {
+                fixedJson[prop.Key] = prop.Value;
+            }
         }
 
         return fixedJson;
@@ -350,9 +391,10 @@ public class IdlToAvroTranslator
             ["symbols"] = symbols
         };
 
-        if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        // Only add namespace if explicitly provided in properties and different from default
+        if (properties.TryGetValue("namespace", out var explicitNamespace))
         {
-            enumJson["namespace"] = _defaultNamespace;
+            enumJson["namespace"] = explicitNamespace;
         }
 
         if (!string.IsNullOrWhiteSpace(doc))
@@ -371,7 +413,10 @@ public class IdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            enumJson[prop.Key] = prop.Value;
+            if (prop.Key != "namespace")
+            {
+                enumJson[prop.Key] = prop.Value;
+            }
         }
 
         return enumJson;
@@ -401,9 +446,10 @@ public class IdlToAvroTranslator
             ["fields"] = fields
         };
 
-        if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        // Only add namespace if explicitly provided in properties and different from default
+        if (properties.TryGetValue("namespace", out var explicitNamespace))
         {
-            recordJson["namespace"] = _defaultNamespace;
+            recordJson["namespace"] = explicitNamespace;
         }
 
         if (!string.IsNullOrWhiteSpace(doc))
@@ -413,7 +459,10 @@ public class IdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            recordJson[prop.Key] = prop.Value;
+            if (prop.Key != "namespace")
+            {
+                recordJson[prop.Key] = prop.Value;
+            }
         }
 
         return recordJson;
@@ -641,14 +690,70 @@ public class IdlToAvroTranslator
             if (_processedSchemas.Contains(fullName))
             {
                 // Type is already in the types array, use a name reference
-                return refName;
+                // If the refName was already qualified (contains '.'), use it as-is
+                // Otherwise, check if it's in the same namespace as the default namespace
+                if (refName.Contains('.'))
+                {
+                    return refName;
+                }
+                else
+                {
+                    // Check if the type's namespace matches the default namespace
+                    // If so, we can use just the simple name; otherwise use the full name
+                    var typeNamespace = fullName.Contains('.')
+                        ? fullName.Substring(0, fullName.LastIndexOf('.'))
+                        : null;
+
+                    if (typeNamespace == _defaultNamespace)
+                    {
+                        return refName; // Same namespace, use simple name
+                    }
+                    else
+                    {
+                        return fullName; // Different namespace, use fully-qualified name
+                    }
+                }
+            }
+            // Check if this type has already been inlined as a forward reference
+            else if (_inlinedForwardRefs.Contains(fullName))
+            {
+                // Already inlined once, use name reference for subsequent uses
+                // Apply the same logic as above
+                if (refName.Contains('.'))
+                {
+                    return refName;
+                }
+                else
+                {
+                    var typeNamespace = fullName.Contains('.')
+                        ? fullName.Substring(0, fullName.LastIndexOf('.'))
+                        : null;
+
+                    if (typeNamespace == _defaultNamespace)
+                    {
+                        return refName;
+                    }
+                    else
+                    {
+                        return fullName;
+                    }
+                }
             }
             else if (_trackForwardReferences && _namedSchemas.TryGetValue(fullName, out var schema))
             {
                 // Forward reference - type is defined later, inline the full definition
-                // Mark it so we don't add it to the types array later
+                // Mark it so we don't add it to the types array later and so subsequent
+                // references within the same protocol use the name instead of inlining again
                 _inlinedForwardRefs.Add(fullName);
-                return schema.DeepClone();
+
+                // Clone the schema for inlining
+                var inlinedSchema = (JObject)schema.DeepClone();
+
+                // Recursively process the inlined schema to replace any string references
+                // with inlined schemas if they are also forward references
+                ProcessForwardReferencesInSchema(inlinedSchema);
+
+                return inlinedSchema;
             }
             else
             {
@@ -864,11 +969,11 @@ public class IdlToAvroTranslator
             var idlContent = _fileProvider.GetFileContents(_filePath, Path.GetFileName(importPath));
             var parseTree = ParseIdl(idlContent);
 
+            var translator = new IdlToAvroTranslator(importPath, _fileProvider);
+            translator._processedImports.UnionWith(_processedImports); // Carry forward processed imports
+
             if (parseTree.protocol != null)
             {
-                var translator = new IdlToAvroTranslator(importPath, _fileProvider);
-                translator._processedImports.UnionWith(_processedImports); // Carry forward processed imports
-
                 // Get protocol as JSON without parsing to avoid validation issues with incomplete type references
                 var protocolJson = translator.TranslateProtocolToJson(parseTree.protocol);
 
@@ -896,10 +1001,38 @@ public class IdlToAvroTranslator
                         importedMessages[prop.Name] = prop.Value;
                     }
                 }
-
-                // Update processed imports from nested translator
-                _processedImports.UnionWith(translator._processedImports);
             }
+            else
+            {
+                // Handle standalone schema import
+                // The imported file might be a standalone schema with named types
+                translator._defaultNamespace = parseTree.@namespace?.@namespace?.GetText();
+                
+                // Process any named schemas defined in the imported file
+                foreach (var namedSchema in parseTree._namedSchemas)
+                {
+                    var schemaJson = translator.TranslateNamedSchema(namedSchema);
+                    
+                    // Ensure the schema has a namespace field if one was set at the file level
+                    // and the schema doesn't already have an explicit namespace
+                    if (!string.IsNullOrEmpty(translator._defaultNamespace) && !schemaJson.ContainsKey("namespace"))
+                    {
+                        schemaJson["namespace"] = translator._defaultNamespace;
+                    }
+                    
+                    importedTypes.Add(schemaJson);
+
+                    // Cache for reference resolution
+                    var name = GetSchemaName(schemaJson);
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        _namedSchemas[name] = schemaJson;
+                    }
+                }
+            }
+
+            // Update processed imports from nested translator
+            _processedImports.UnionWith(translator._processedImports);
         }
         catch (Exception ex)
         {
@@ -1049,6 +1182,98 @@ public class IdlToAvroTranslator
 
         // Return the simple name if not found with namespace
         return typeName;
+    }
+
+    /// <summary>
+    /// Recursively processes a schema to replace string references with inlined schemas
+    /// for forward references that haven't been processed yet.
+    /// </summary>
+    private void ProcessForwardReferencesInSchema(JToken schema)
+    {
+        if (schema is JObject obj)
+        {
+            // Check if this is a record/error with fields
+            if (obj.TryGetValue("fields", out var fieldsToken) && fieldsToken is JArray fields)
+            {
+                for (var i = 0; i < fields.Count; i++)
+                {
+                    if (fields[i] is JObject field && field.TryGetValue("type", out var fieldType))
+                    {
+                        var replacedType = ProcessForwardReferenceInType(fieldType);
+                        if (replacedType != fieldType)
+                        {
+                            field["type"] = replacedType;
+                        }
+                    }
+                }
+            }
+            // Check if this is an array with items
+            else if (obj.TryGetValue("items", out var itemsToken))
+            {
+                var replacedItems = ProcessForwardReferenceInType(itemsToken);
+                if (replacedItems != itemsToken)
+                {
+                    obj["items"] = replacedItems;
+                }
+            }
+            // Check if this is a map with values
+            else if (obj.TryGetValue("values", out var valuesToken))
+            {
+                var replacedValues = ProcessForwardReferenceInType(valuesToken);
+                if (replacedValues != valuesToken)
+                {
+                    obj["values"] = replacedValues;
+                }
+            }
+        }
+        else if (schema is JArray arr)
+        {
+            // Union type - process each element
+            for (var i = 0; i < arr.Count; i++)
+            {
+                var replacedElement = ProcessForwardReferenceInType(arr[i]);
+                if (replacedElement != arr[i])
+                {
+                    arr[i] = replacedElement;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Processes a single type reference, potentially replacing it with an inlined schema
+    /// if it's a forward reference.
+    /// </summary>
+    private JToken ProcessForwardReferenceInType(JToken typeToken)
+    {
+        // If it's a string reference, check if it needs to be inlined
+        if (typeToken is JValue val && val.Type == JTokenType.String)
+        {
+            var typeName = val.ToString();
+            var fullName = ResolveFullTypeName(typeName);
+
+            // Check if this is a forward reference that needs inlining
+            if (!_processedSchemas.Contains(fullName) &&
+                !_inlinedForwardRefs.Contains(fullName) &&
+                _namedSchemas.TryGetValue(fullName, out var schema))
+            {
+                // This is a forward reference, inline it
+                _inlinedForwardRefs.Add(fullName);
+                var inlinedSchema = (JObject)schema.DeepClone();
+
+                // Recursively process this inlined schema
+                ProcessForwardReferencesInSchema(inlinedSchema);
+
+                return inlinedSchema;
+            }
+        }
+        // If it's a complex type (object or array), recursively process it
+        else if (typeToken is JObject || typeToken is JArray)
+        {
+            ProcessForwardReferencesInSchema(typeToken);
+        }
+
+        return typeToken;
     }
 
     /// <summary>
