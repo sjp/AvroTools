@@ -148,15 +148,17 @@ public class IdlToAvroTranslator
     /// <summary>
     /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
     /// </summary>
-    public object Translate(IdlParser.IdlFileContext context)
+    public IdlParseResult Translate(IdlParser.IdlFileContext context)
     {
         if (context.protocol != null)
         {
-            return TranslateToProtocol(context);
+            var protocol = TranslateToProtocol(context);
+            return IdlParseResult.Protocol(protocol);
         }
         else
         {
-            return TranslateToSchema(context);
+            var schema = TranslateToSchema(context);
+            return IdlParseResult.Schema(schema);
         }
     }
 
@@ -1330,17 +1332,19 @@ public class IdlToAvroTranslator
     /// <summary>
     /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
     /// </summary>
-    public static object ParseIdl(string idlContent, string sourceName = "memory", IFileProvider? fileProvider = null)
+    public static IdlParseResult ParseIdl(string idlContent, string sourceName = "memory", IFileProvider? fileProvider = null)
     {
         var parseTree = ParseIdl(idlContent);
         var translator = new IdlToAvroTranslator(sourceName, fileProvider);
         if (parseTree.protocol != null)
         {
-            return translator.TranslateToProtocol(parseTree);
+            var protocol = translator.TranslateToProtocol(parseTree);
+            return IdlParseResult.Protocol(protocol);
         }
         else
         {
-            return translator.TranslateToSchema(parseTree);
+            var schema = translator.TranslateToSchema(parseTree);
+            return IdlParseResult.Schema(schema);
         }
     }
 
@@ -1384,14 +1388,6 @@ public class IdlToAvroTranslator
 
         return parser.idlFile();
     }
-
-    /// <summary>
-    /// Creates a new translator instance for parsing imported files.
-    /// </summary>
-    private IdlToAvroTranslator CreateImportTranslator(string importPath)
-    {
-        return new IdlToAvroTranslator(importPath, _fileProvider);
-    }
 }
 
 /// <summary>
@@ -1402,13 +1398,6 @@ public class ThrowingErrorListener : BaseErrorListener
     /// <summary>
     /// TODO
     /// </summary>
-    /// <param name="output"></param>
-    /// <param name="recognizer"></param>
-    /// <param name="offendingSymbol"></param>
-    /// <param name="line"></param>
-    /// <param name="charPositionInLine"></param>
-    /// <param name="msg"></param>
-    /// <param name="e"></param>
     /// <exception cref="InvalidOperationException"></exception>
     public override void SyntaxError(
         TextWriter output,
