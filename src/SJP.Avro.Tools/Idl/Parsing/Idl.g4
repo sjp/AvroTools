@@ -157,7 +157,7 @@ jsonArray: LBracket (jsonValues+=jsonValue (Comma jsonValues+=jsonValue)*)? RBra
 // Note 1: To do so, split this file into 'idl_lexer.g4' and 'idl_parser.g4', and import the tokens with 'options { tokenVocab=idl_lexer; }'
 
 // Note 2: DOC_COMMENT is now a regular token.
-DocComment: '/**' .*? '*/' -> channel(HIDDEN);
+DocComment: '/**' .*? '*/';
 EmptyComment: '/**/' -> skip;
 MultiLineComment: '/*' ~[*] .*? '*/' -> skip;
 SingleLineComment: '//' .*? ('\n' | '\r' '\n'?) -> skip;
