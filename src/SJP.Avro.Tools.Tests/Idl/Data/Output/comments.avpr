@@ -1,46 +1,64 @@
 {
   "protocol" : "Comments",
   "namespace" : "testing",
-  "types" : [ {
-    "type" : "enum",
-    "name" : "DocumentedEnum",
-    "doc" : "Documented Enum",
-    "symbols" : [ "A", "B", "C" ],
-    "default" : "A"
-  }, {
-    "type" : "enum",
-    "name" : "UndocumentedEnum",
-    "symbols" : [ "D", "E" ]
-  }, {
-    "type" : "fixed",
-    "name" : "DocumentedFixed",
-    "doc" : "Documented Fixed Type",
-    "size" : 16
-  }, {
-    "type" : "fixed",
-    "name" : "UndocumentedFixed",
-    "size" : 16
-  }, {
-    "type" : "error",
-    "name" : "DocumentedError",
-    "doc" : "Documented Error",
-    "fields" : [ {
-      "name" : "reason",
-      "type" : "string",
-      "doc" : "Documented Reason Field"
-    }, {
-      "name" : "explanation",
-      "type" : "string",
-      "doc" : "Default Doc Explanation Field"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "UndocumentedRecord",
-    "fields" : [ {
-      "name" : "description",
-      "type" : "string"
-    } ]
-  } ],
+  "types": [
+    {
+      "type": "enum",
+      "doc": "Documented Enum",
+      "name": "DocumentedEnum",
+      "namespace": "testing",
+      "symbols": [ "A", "B", "C" ],
+      "default": "A"
+    },
+    {
+      "type": "enum",
+      "name": "UndocumentedEnum",
+      "namespace": "testing",
+      "symbols": [ "D", "E" ]
+    },
+    {
+      "type": "fixed",
+      "name": "DocumentedFixed",
+      "namespace": "testing",
+      "doc": "Documented Fixed Type",
+      "size": 16
+    },
+    {
+      "type": "fixed",
+      "name": "UndocumentedFixed",
+      "namespace": "testing",
+      "size": 16
+    },
+    {
+      "type": "error",
+      "name": "DocumentedError",
+      "namespace": "testing",
+      "doc": "Documented Error",
+      "fields": [
+        {
+          "name": "reason",
+          "type": "string",
+          "doc": "Documented Reason Field"
+        },
+        {
+          "name": "explanation",
+          "type": "string",
+          "doc": "Default Doc Explanation Field"
+        }
+      ]
+    },
+    {
+      "type": "record",
+      "name": "UndocumentedRecord",
+      "namespace": "testing",
+      "fields": [
+        {
+          "name": "description",
+          "type": "string"
+        }
+      ]
+    }
+  ],
   "messages" : {
     "documentedMethod" : {
       "doc" : "Documented Method",

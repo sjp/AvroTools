@@ -19,10 +19,10 @@ public class IdlToAvroTranslator
 {
     private readonly string _filePath;
     private readonly IFileProvider _fileProvider;
-    private readonly Dictionary<string, JObject> _namedSchemas = new();
-    private readonly HashSet<string> _processedImports = new();
-    private readonly HashSet<string> _processedSchemas = new();
-    private readonly HashSet<string> _inlinedForwardRefs = new();
+    private readonly Dictionary<string, JObject> _namedSchemas = [];
+    private readonly HashSet<string> _processedImports = [];
+    private readonly HashSet<string> _processedSchemas = [];
+    private readonly HashSet<string> _inlinedForwardRefs = [];
     private bool _trackForwardReferences = false;
     private string? _defaultNamespace;
 
@@ -55,6 +55,15 @@ public class IdlToAvroTranslator
     /// Translates an IdlFileContext to an Avro.Schema for standalone schema definitions.
     /// </summary>
     public AvroSchema TranslateToSchema(IdlParser.IdlFileContext context)
+    {
+        var schemaJson = TranslateToSchemaJson(context);
+        return AvroSchema.Parse(schemaJson.ToString());
+    }
+
+    /// <summary>
+    /// Translates an IdlFileContext to a JToken representing the schema JSON.
+    /// </summary>
+    private JToken TranslateToSchemaJson(IdlParser.IdlFileContext context)
     {
         _namedSchemas.Clear();
         _processedImports.Clear();
@@ -114,35 +123,11 @@ public class IdlToAvroTranslator
                 "The IDL file does not contain a schema. Use TranslateToProtocol for protocols.");
         }
 
-        // Build the final schema array with any types that need to be defined
-        // Types that were inlined as forward references should NOT be in this array
-        var allSchemas = new JArray();
-
-        // Add imported types that weren't inlined
-        foreach (var importedType in importedTypes)
-        {
-            var name = GetSchemaName(importedType);
-            if (!string.IsNullOrEmpty(name) && !_inlinedForwardRefs.Contains(name))
-            {
-                allSchemas.Add(importedType);
-            }
-        }
-
-        // Add the main schema
-        allSchemas.Add(mainSchemaJson);
-
-        // If we have multiple schemas, parse them together
-        // Otherwise just parse the main schema alone
-        if (allSchemas.Count > 1)
-        {
-            // Parse all schemas together - this returns the last schema in the array
-            // but ensures all types are registered for reference resolution
-            return AvroSchema.Parse(allSchemas.ToString());
-        }
-        else
-        {
-            return AvroSchema.Parse(mainSchemaJson.ToString());
-        }
+        // For standalone schemas, imported types should either be:
+        // 1. Inlined into the schema (if referenced)
+        // 2. Omitted (if not referenced)
+        // Therefore, we only need to return the main schema itself
+        return mainSchemaJson;
     }
 
     /// <summary>
@@ -177,7 +162,7 @@ public class IdlToAvroTranslator
         _inlinedForwardRefs.Clear();
 
         var protocolName = context.name.GetText();
-        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var doc = ExtractDocumentation(context.doc);
         var properties = TranslateProperties(context._schemaProperties);
 
         // Extract namespace from properties
@@ -235,7 +220,7 @@ public class IdlToAvroTranslator
             var schemaProperties = namedSchema.fixedDeclaration()?._schemaProperties
                 ?? namedSchema.enumDeclaration()?._schemaProperties
                 ?? namedSchema.recordDeclaration()?._schemaProperties;
-            var schemaProps = schemaProperties != null ? TranslateProperties(schemaProperties) : new Dictionary<string, JToken>();
+            var schemaProps = schemaProperties != null ? TranslateProperties(schemaProperties) : [];
             var explicitNamespace = schemaProps.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
 
             // Construct the full name using explicit namespace if provided, otherwise use default
@@ -272,7 +257,7 @@ public class IdlToAvroTranslator
         // Add declared messages
         foreach (var message in body._messages)
         {
-            var messageName = message.name.GetText();
+            var messageName = EscapeName(message.name.GetText());
             var messageJson = TranslateMessage(message);
             messages[messageName] = messageJson;
         }
@@ -335,13 +320,13 @@ public class IdlToAvroTranslator
 
     private JObject TranslateFixed(IdlParser.FixedDeclarationContext context)
     {
-        var name = context.name.GetText();
+        var name = EscapeName(context.name.GetText());
         var sizeText = context.size.Text.Trim();
         var isHexNumber = sizeText.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             || sizeText.StartsWith("x", StringComparison.OrdinalIgnoreCase);
         var numberBase = isHexNumber ? 16 : 10;
         var size = Convert.ToInt32(sizeText, numberBase);
-        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var doc = ExtractDocumentation(context.doc);
         var properties = TranslateProperties(context._schemaProperties);
 
         var fixedJson = new JObject
@@ -351,10 +336,14 @@ public class IdlToAvroTranslator
             ["size"] = size
         };
 
-        // Only add namespace if explicitly provided in properties and different from default
+        // Add namespace: use explicit if provided, otherwise use default namespace
         if (properties.TryGetValue("namespace", out var explicitNamespace))
         {
             fixedJson["namespace"] = explicitNamespace;
+        }
+        else if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        {
+            fixedJson["namespace"] = _defaultNamespace;
         }
 
         if (!string.IsNullOrWhiteSpace(doc))
@@ -375,8 +364,8 @@ public class IdlToAvroTranslator
 
     private JObject TranslateEnum(IdlParser.EnumDeclarationContext context)
     {
-        var name = context.name.GetText();
-        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var name = EscapeName(context.name.GetText());
+        var doc = ExtractDocumentation(context.doc);
         var properties = TranslateProperties(context._schemaProperties);
 
         var symbols = new JArray();
@@ -392,10 +381,14 @@ public class IdlToAvroTranslator
             ["symbols"] = symbols
         };
 
-        // Only add namespace if explicitly provided in properties and different from default
+        // Add namespace: use explicit if provided, otherwise use default namespace
         if (properties.TryGetValue("namespace", out var explicitNamespace))
         {
             enumJson["namespace"] = explicitNamespace;
+        }
+        else if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        {
+            enumJson["namespace"] = _defaultNamespace;
         }
 
         if (!string.IsNullOrWhiteSpace(doc))
@@ -425,10 +418,9 @@ public class IdlToAvroTranslator
 
     private JObject TranslateRecord(IdlParser.RecordDeclarationContext context)
     {
-        var name = context.name.GetText();
-        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var name = EscapeName(context.name.GetText());
+        var doc = ExtractDocumentation(context.doc);
         var properties = TranslateProperties(context._schemaProperties);
-        var isError = context.Start.Type == IdlParser.Error;
 
         var fields = new JArray();
         foreach (var fieldDecl in context.body._fields)
@@ -442,15 +434,19 @@ public class IdlToAvroTranslator
 
         var recordJson = new JObject
         {
-            ["type"] = isError ? "error" : "record",
+            ["type"] = context.recordType.Text,
             ["name"] = name,
             ["fields"] = fields
         };
 
-        // Only add namespace if explicitly provided in properties and different from default
+        // Add namespace: use explicit if provided, otherwise use default namespace
         if (properties.TryGetValue("namespace", out var explicitNamespace))
         {
             recordJson["namespace"] = explicitNamespace;
+        }
+        else if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+        {
+            recordJson["namespace"] = _defaultNamespace;
         }
 
         if (!string.IsNullOrWhiteSpace(doc))
@@ -462,7 +458,8 @@ public class IdlToAvroTranslator
         {
             if (prop.Key != "namespace")
             {
-                recordJson[prop.Key] = prop.Value;
+                var propName = EscapeName(prop.Key);
+                recordJson[propName] = prop.Value;
             }
         }
 
@@ -473,10 +470,10 @@ public class IdlToAvroTranslator
         IdlParser.FieldDeclarationContext fieldDecl,
         IdlParser.VariableDeclarationContext varDecl)
     {
-        var fieldName = varDecl.fieldName.GetText();
+        var fieldName = EscapeName(varDecl.fieldName.GetText());
         var fieldType = TranslateFullType(fieldDecl.fieldType);
-        var doc = fieldDecl.doc?.Text?.Trim('/', '*', ' ', '\n', '\r')
-                  ?? varDecl.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var doc = ExtractDocumentation(fieldDecl.doc)
+            ?? ExtractDocumentation(varDecl.doc);
         var properties = TranslateProperties(varDecl._schemaProperties);
 
         var field = new JObject
@@ -497,7 +494,8 @@ public class IdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            field[prop.Key] = prop.Value;
+            var propName = EscapeName(prop.Key);
+            field[propName] = prop.Value;
         }
 
         return field;
@@ -505,7 +503,7 @@ public class IdlToAvroTranslator
 
     private JObject TranslateMessage(IdlParser.MessageDeclarationContext context)
     {
-        var doc = context.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+        var doc = ExtractDocumentation(context.doc);
         var properties = TranslateProperties(context._schemaProperties);
         var isOneway = context.oneway != null;
 
@@ -513,9 +511,9 @@ public class IdlToAvroTranslator
         var request = new JArray();
         foreach (var param in context._formalParameters)
         {
-            var paramName = param.parameter.fieldName.GetText();
+            var paramName = EscapeName(param.parameter.fieldName.GetText());
             var paramType = TranslateFullType(param.parameterType);
-            var paramDoc = param.doc?.Text?.Trim('/', '*', ' ', '\n', '\r');
+            var paramDoc = ExtractDocumentation(param.doc);
 
             var requestParam = new JObject
             {
@@ -526,6 +524,11 @@ public class IdlToAvroTranslator
             if (!string.IsNullOrWhiteSpace(paramDoc))
             {
                 requestParam["doc"] = paramDoc;
+            }
+
+            if (param.parameter.defaultValue != null)
+            {
+                requestParam["default"] = TranslateJsonValue(param.parameter.defaultValue);
             }
 
             request.Add(requestParam);
@@ -603,7 +606,8 @@ public class IdlToAvroTranslator
             };
             foreach (var prop in properties)
             {
-                wrapper[prop.Key] = prop.Value;
+                var propName = EscapeName(prop.Key);
+                wrapper[propName] = prop.Value;
             }
             return wrapper;
         }
@@ -702,7 +706,7 @@ public class IdlToAvroTranslator
                     // Check if the type's namespace matches the default namespace
                     // If so, we can use just the simple name; otherwise use the full name
                     var typeNamespace = fullName.Contains('.')
-                        ? fullName.Substring(0, fullName.LastIndexOf('.'))
+                        ? fullName[..fullName.LastIndexOf('.')]
                         : null;
 
                     if (typeNamespace == _defaultNamespace)
@@ -727,7 +731,7 @@ public class IdlToAvroTranslator
                 else
                 {
                     var typeNamespace = fullName.Contains('.')
-                        ? fullName.Substring(0, fullName.LastIndexOf('.'))
+                        ? fullName[..fullName.LastIndexOf('.')]
                         : null;
 
                     if (typeNamespace == _defaultNamespace)
@@ -872,7 +876,7 @@ public class IdlToAvroTranslator
         {
             var text = context.StringLiteral().GetText();
             // Remove quotes
-            return text.Substring(1, text.Length - 2);
+            return text[1..^1];
         }
         else if (context.IntegerLiteral() != null)
         {
@@ -905,9 +909,9 @@ public class IdlToAvroTranslator
         {
             var key = pair.name.Text;
             // Remove quotes from key
-            if (key.StartsWith("\"") && key.EndsWith("\""))
+            if (key.StartsWith('"') && key.EndsWith('"'))
             {
-                key = key.Substring(1, key.Length - 2);
+                key = key[1..^1];
             }
             obj[key] = TranslateJsonValue(pair.value);
         }
@@ -933,9 +937,9 @@ public class IdlToAvroTranslator
         var location = import.location.Text;
 
         // Remove quotes from location
-        if (location.StartsWith("\"") && location.EndsWith("\""))
+        if (location.StartsWith('"') && location.EndsWith('"'))
         {
-            location = location.Substring(1, location.Length - 2);
+            location = location[1..^1];
         }
 
         // Prevent circular imports
@@ -1139,7 +1143,7 @@ public class IdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            var name = prop.name.GetText();
+            var name = EscapeName(prop.name.GetText());
             var value = TranslateJsonValue(prop.value);
             result[name] = value;
         }
@@ -1154,6 +1158,41 @@ public class IdlToAvroTranslator
             return ns.ToString();
         }
         return null;
+    }
+
+    /// <summary>
+    /// Extracts documentation text from a doc comment token.
+    /// Properly handles multi-line doc comments by removing comment delimiters and leading asterisks.
+    /// </summary>
+    private string? ExtractDocumentation(IToken? docToken)
+    {
+        var text = docToken?.Text;
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        // Remove leading /** and trailing */
+        if (text.StartsWith("/**"))
+            text = text[3..];
+        if (text.EndsWith("*/"))
+            text = text[..^2];
+
+        // Split into lines and clean each line
+        var lines = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        var cleanedLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            // Remove leading asterisk if present
+            if (trimmed.StartsWith('*'))
+                trimmed = trimmed[1..].TrimStart();
+
+            cleanedLines.Add(trimmed);
+        }
+
+        // Join lines and trim the result
+        var result = string.Join("\n", cleanedLines).Trim();
+        return string.IsNullOrWhiteSpace(result) ? null : result;
     }
 
     private string? GetSchemaName(JObject schema)
@@ -1388,6 +1427,77 @@ public class IdlToAvroTranslator
 
         return parser.idlFile();
     }
+
+    private static string EscapeName(string name)
+    {
+        return TryGetNamespaceNamePairing(name, out var namespacePair)
+            ? $"{namespacePair.Namespace}.{EscapeLocalName(namespacePair.Name)}"
+            : EscapeLocalName(name);
+    }
+
+    private static string EscapeLocalName(string name)
+    {
+        var builtInName = name.TrimStart('`').TrimEnd('`');
+        if (BuiltInTypeNames.Contains(builtInName) || LanguageKeywords.Contains(builtInName))
+            return builtInName;
+
+        return name;
+    }
+
+    private static bool TryGetNamespaceNamePairing(string name, out (string Namespace, string Name) namespacePair)
+    {
+        if (!name.Contains('.'))
+        {
+            namespacePair = (string.Empty, string.Empty);
+            return false;
+        }
+
+        var pieces = name.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var ns = string.Join('.', pieces[0..^1]);
+        var localName = pieces[^1];
+
+        namespacePair = (ns, localName);
+        return true;
+    }
+
+    private static readonly string[] BuiltInTypeNames =
+    [
+        "array",
+        "boolean",
+        "bytes",
+        "date",
+        "decimal",
+        "double",
+        "enum",
+        "fixed",
+        "float",
+        "int",
+        "long",
+        "map",
+        "null",
+        "record",
+        "string",
+        "time_ms",
+        "timestamp_ms",
+        "union",
+        "uuid",
+        "local_timestamp_ms",
+// TODO add more logical types
+
+
+    ];
+
+    private static readonly string[] LanguageKeywords =
+    [
+        "protocol",
+        "import",
+        "idl",
+        "schema",
+        "throws",
+        "void",
+        "oneway",
+        "error",
+    ];
 }
 
 /// <summary>

@@ -22,7 +22,7 @@ internal static class IdlToAvroTranslatorTests
     private static readonly IFileProvider OutputFileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), BaseOutputNamespace);
 
     [TestCaseSource(nameof(IdlInputOutputFilenames))]
-    public static async Task Tokenize_GivenValidIdlInput_MatchesExpectedOutput(string idlSampleResourceName, string avroSampleResourceOutput)
+    public static async Task ParseIdl_GivenValidIdlInput_MatchesExpectedOutput(string idlSampleResourceName, string avroSampleResourceOutput)
     {
         var inputFile = InputFileProvider.GetFileInfo(idlSampleResourceName);
         var outputFile = OutputFileProvider.GetFileInfo(avroSampleResourceOutput);
@@ -39,15 +39,13 @@ internal static class IdlToAvroTranslatorTests
         var parseResult = IdlToAvroTranslator.ParseIdl(inputContents, idlSampleResourceName, InputFileProvider);
         var jsonText = parseResult.Match(p => p.ToString(), s => s.ToString());
 
-        //var differ = new JsonDiffer();
-        //var diffResult = differ.Diff(JObject.Parse(jsonText), JObject.Parse(outputContents), true);
-        //Assert.That(diffResult.Operations, Is.Empty);
-
+        var differ = new JsonDiffer();
+        var diffResult = differ.Diff(JObject.Parse(jsonText), JObject.Parse(outputContents), true);
+        Assert.That(diffResult.Operations, Is.Empty);
     }
 
     private static IEnumerable<object[]> IdlInputOutputFilenames()
     {
-        var allNames = EmbeddedResource.GetEmbeddedResourceNames();
         var inputNames = EmbeddedResource.GetEmbeddedResourceNames()
             .Where(n => n.EndsWith(".avdl"))
             .Order()

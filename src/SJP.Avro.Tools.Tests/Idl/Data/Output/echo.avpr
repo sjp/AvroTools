@@ -4,6 +4,7 @@
   "types" : [ {
     "type" : "record",
     "name" : "Ping",
+    "namespace": "org.apache.avro.echo",
     "fields" : [ {
       "name" : "timestamp",
       "type" : "long",
@@ -16,6 +17,7 @@
   }, {
     "type" : "record",
     "name" : "Pong",
+    "namespace": "org.apache.avro.echo",
     "fields" : [ {
       "name" : "timestamp",
       "type" : "long",

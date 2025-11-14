@@ -5,6 +5,7 @@
   "types" : [ {
     "type" : "record",
     "name" : "APlaygroundEvent",
+    "namespace": "org.apache.avro",
     "fields" : [ {
       "name" : "identifier",
       "type" : {

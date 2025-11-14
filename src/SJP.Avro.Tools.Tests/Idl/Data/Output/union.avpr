@@ -5,6 +5,7 @@
     {
       "type": "record",
       "name": "TestRecord",
+      "namespace": "org.apache.avro.gen",
       "fields": [
         {
           "name": "unionField",
@@ -12,6 +13,7 @@
             {
               "type": "record",
               "name": "SR1",
+              "namespace": "org.apache.avro.gen",
               "fields": [
                 {
                   "name": "field",
@@ -22,6 +24,7 @@
             {
               "type": "record",
               "name": "SR2",
+              "namespace": "org.apache.avro.gen",
               "fields": [
                 {
                   "name": "field",
