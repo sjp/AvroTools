@@ -13,7 +13,7 @@ using SJP.Avro.Tools.Idl;
 namespace SJP.Avro.Tools.Tests.Idl;
 
 [TestFixture]
-internal static class IdlToAvroTranslatorTests
+internal class IdlToAvroTranslatorTests
 {
     private const string BaseInputNamespace = "SJP.Avro.Tools.Tests.Idl.Data.Input";
     private const string BaseOutputNamespace = "SJP.Avro.Tools.Tests.Idl.Data.Output";
@@ -21,22 +21,26 @@ internal static class IdlToAvroTranslatorTests
     private static readonly IFileProvider InputFileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), BaseInputNamespace);
     private static readonly IFileProvider OutputFileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), BaseOutputNamespace);
 
+    private IdlToAvroTranslator _translator;
+
+    [SetUp]
+    public void Setup()
+    {
+        _translator = new IdlToAvroTranslator(InputFileProvider);
+    }
+
     [TestCaseSource(nameof(IdlInputOutputFilenames))]
-    public static async Task ParseIdl_GivenValidIdlInput_MatchesExpectedOutput(string idlSampleResourceName, string avroSampleResourceOutput)
+    public async Task ParseIdl_GivenValidIdlInput_MatchesExpectedOutput(string idlSampleResourceName, string avroSampleResourceOutput)
     {
         var inputFile = InputFileProvider.GetFileInfo(idlSampleResourceName);
         var outputFile = OutputFileProvider.GetFileInfo(avroSampleResourceOutput);
 
-        await using var inputFileReadStream = inputFile.CreateReadStream();
         await using var outputFileReadStream = outputFile.CreateReadStream();
-
-        using var inputReader = new StreamReader(inputFileReadStream);
         using var outputReader = new StreamReader(outputFileReadStream);
-
-        var inputContents = await inputReader.ReadToEndAsync();
         var outputContents = await outputReader.ReadToEndAsync();
 
-        var parseResult = await IdlToAvroTranslator.ParseIdl(inputContents, idlSampleResourceName, InputFileProvider);
+        await using var inputFileReadStream = inputFile.CreateReadStream();
+        var parseResult = await _translator.Translate(inputFileReadStream);
         var jsonText = parseResult.Match(p => p.ToString(), s => s.ToString());
 
         var differ = new JsonDiffer();

@@ -10,11 +10,6 @@ namespace SJP.Avro.Tools.Idl;
 public sealed record IdlParsingContext
 {
     /// <summary>
-    /// The file path being parsed.
-    /// </summary>
-    public required string FilePath { get; init; }
-
-    /// <summary>
     /// Cache of named schemas for reference resolution.
     /// Maps fully qualified names to their JSON schema definitions.
     /// </summary>
