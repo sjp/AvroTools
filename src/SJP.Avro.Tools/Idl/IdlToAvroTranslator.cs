@@ -24,10 +24,10 @@ public class IdlToAvroTranslator
     /// <summary>
     /// Initializes a new instance of the <see cref="IdlToAvroTranslator"/> class.
     /// </summary>
-    /// <param name="fileProvider">The file provider to use for reading imported files. If null, uses the current directory.</param>
-    public IdlToAvroTranslator(IFileProvider? fileProvider = null)
+    /// <param name="fileProvider">The file provider to use for reading imported files.</param>
+    public IdlToAvroTranslator(IFileProvider fileProvider)
     {
-        _fileProvider = fileProvider ?? new PhysicalFileProvider(Directory.GetCurrentDirectory());
+        _fileProvider = fileProvider;
     }
 
     /// <summary>
