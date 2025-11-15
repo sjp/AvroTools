@@ -637,11 +637,10 @@ public class IdlToAvroTranslator
         };
     }
 
-    private static JToken? TranslateLogicalType(IdlParser.PrimitiveTypeContext context)
+    private static JObject? TranslateLogicalType(IdlParser.PrimitiveTypeContext context)
     {
-        var typeNameToken = context.typeName;
-        if (typeNameToken == null)
-            throw new InvalidOperationException("Logical type has no type name");
+        var typeNameToken = context.typeName
+            ?? throw new InvalidOperationException("Logical type has no type name");
 
         var text = typeNameToken.Text;
 
@@ -671,19 +670,11 @@ public class IdlToAvroTranslator
             }
         }
 
-        // consider enabling alternate encodings for uuid
-        // alternate option
-        // var uuidFixed = new JObject
-        // {
-        //     ["type"] = "fixed",
-        //     ["size"] = 16,
-        //     ["logicalType"] = "uuid"
-        // };
-
         return text switch
         {
             "uuid" => new JObject
             {
+                // consider configuring this so that uuid can be 'fixed' with size = 16
                 ["type"] = "string",
                 ["logicalType"] = "uuid"
             },
@@ -1064,7 +1055,7 @@ public class IdlToAvroTranslator
     {
         if (schema is JObject obj)
         {
-            // Check if this is a record/error with fields
+            // process record/error with fields
             if (obj.TryGetValue("fields", out var fieldsToken) && fieldsToken is JArray fields)
             {
                 for (var i = 0; i < fields.Count; i++)
@@ -1079,7 +1070,7 @@ public class IdlToAvroTranslator
                     }
                 }
             }
-            // Check if this is an array with items
+            // process array with items
             else if (obj.TryGetValue("items", out var itemsToken))
             {
                 var replacedItems = ProcessForwardReferenceInType(itemsToken, parsingContext);
@@ -1088,7 +1079,8 @@ public class IdlToAvroTranslator
                     obj["items"] = replacedItems;
                 }
             }
-            // Check if this is a map with values
+
+            // process a map with values
             else if (obj.TryGetValue("values", out var valuesToken))
             {
                 var replacedValues = ProcessForwardReferenceInType(valuesToken, parsingContext);
@@ -1120,29 +1112,27 @@ public class IdlToAvroTranslator
     /// </summary>
     private JToken ProcessForwardReferenceInType(JToken typeToken, IdlParsingContext parsingContext)
     {
-        // If it's a string reference, check if it needs to be inlined
         if (typeToken is JValue val && val.Type == JTokenType.String)
         {
             var typeName = val.ToString();
             var fullName = ResolveFullTypeName(typeName, parsingContext);
 
-            // Check if this is a forward reference that needs inlining
+            // is this is a forward reference that needs inlining?
             if (!parsingContext.ProcessedSchemas.Contains(fullName) &&
                 !parsingContext.InlinedForwardRefs.Contains(fullName) &&
                 parsingContext.NamedSchemas.TryGetValue(fullName, out var schema))
             {
-                // This is a forward reference, inline it
                 parsingContext.InlinedForwardRefs.Add(fullName);
                 var inlinedSchema = (JObject)schema.DeepClone();
 
-                // Recursively process this inlined schema
+                // recursively process the inlined schema
                 ProcessForwardReferencesInSchema(inlinedSchema, parsingContext);
 
                 return inlinedSchema;
             }
         }
-        // If it's a complex type (object or array), recursively process it
-        else if (typeToken is JObject || typeToken is JArray)
+
+        if (typeToken is JObject || typeToken is JArray)
         {
             ProcessForwardReferencesInSchema(typeToken, parsingContext);
         }
