@@ -26,7 +26,7 @@ public sealed record IdlParsingContext
     public HashSet<string> ProcessedImports { get; } = [];
 
     /// <summary>
-    /// Set of schema names that have been processed and added to the types array.
+    /// Set of schema names that have been processed and added to a known set of types.
     /// </summary>
     public HashSet<string> ProcessedSchemas { get; } = [];
 

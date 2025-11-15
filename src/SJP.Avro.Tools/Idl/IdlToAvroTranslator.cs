@@ -74,9 +74,7 @@ public class IdlToAvroTranslator
             ProcessImport(import, importedTypes, importedMessages, parsingContext);
         }
 
-        // FIRST PASS: Cache imported types and any named schemas in the file for reference resolution
-        parsingContext.TrackForwardReferences = false;
-
+        // cache imported types and any named schemas in the file for reference resolution
         foreach (var importedType in importedTypes)
         {
             var name = GetSchemaName(importedType, parsingContext);
@@ -86,7 +84,7 @@ public class IdlToAvroTranslator
             }
         }
 
-        // Cache any named schemas defined in this file
+        // cache any named schemas defined in this file
         foreach (var namedSchema in context._namedSchemas)
         {
             var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
@@ -97,7 +95,7 @@ public class IdlToAvroTranslator
             }
         }
 
-        // SECOND PASS: Now translate with forward reference tracking enabled
+        // now translate with forward reference tracking enabled
         parsingContext.TrackForwardReferences = true;
 
         JToken mainSchemaJson;
@@ -112,8 +110,7 @@ public class IdlToAvroTranslator
         }
         else
         {
-            throw new InvalidOperationException(
-                "The IDL file does not contain a schema. Use TranslateToProtocol for protocols.");
+            throw new InvalidOperationException("The IDL file does not contain a schema.");
         }
 
         return mainSchemaJson;
@@ -148,82 +145,62 @@ public class IdlToAvroTranslator
         var protocolName = context.name.GetText();
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
+        var body = context.body;
 
         parsingContext.DefaultNamespace = GetNamespaceFromProperties(properties);
 
-        var body = context.body;
-
-        // Process imports
         var importedTypes = new List<JObject>();
         var importedMessages = new JObject();
 
         foreach (var import in body._imports)
-        {
             ProcessImport(import, importedTypes, importedMessages, parsingContext);
-        }
 
-        // FIRST PASS: Cache all named schemas for forward reference resolution
+        // cache all named schemas for forward reference resolution
         foreach (var namedSchema in body._namedSchemas)
         {
             var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
-
-            // Cache for reference resolution
             var name = GetSchemaName(schemaJson, parsingContext);
             if (!string.IsNullOrEmpty(name))
-            {
                 parsingContext.NamedSchemas[name] = schemaJson;
-            }
         }
 
-        // SECOND PASS: Regenerate schemas with proper references now that all are cached
-        // Enable forward reference tracking for this pass
+        // now lets check for forward references
         parsingContext.TrackForwardReferences = true;
 
-        // Mark imported types as already processed first
         foreach (var importedType in importedTypes)
         {
             var name = GetSchemaName(importedType, parsingContext);
             if (!string.IsNullOrEmpty(name))
-            {
                 parsingContext.ProcessedSchemas.Add(name);
-            }
         }
 
         var types = new List<JObject>();
-        types.AddRange(importedTypes); // Add imported types first
+        types.AddRange(importedTypes); // add imported types first
 
         foreach (var namedSchema in body._namedSchemas)
         {
-            // First, get the schema name from the declaration so we can mark it as processed
-            var simpleName = GetNamedSchemaName(namedSchema);
+            var localNameName = GetNamedSchemaName(namedSchema);
 
-            // Check if this schema has an explicit namespace
             var schemaProperties = namedSchema.fixedDeclaration()?._schemaProperties
                 ?? namedSchema.enumDeclaration()?._schemaProperties
                 ?? namedSchema.recordDeclaration()?._schemaProperties;
             var schemaProps = schemaProperties != null ? TranslateProperties(schemaProperties) : [];
-            var explicitNamespace = schemaProps.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
+            var explicitNamespace = schemaProps.TryGetValue("namespace", out var ns)
+                ? ns.ToString()
+                : null;
 
-            // Construct the full name using explicit namespace if provided, otherwise use default
             var schemaNamespace = explicitNamespace ?? parsingContext.DefaultNamespace;
-            var fullName = string.IsNullOrEmpty(schemaNamespace) ? simpleName : $"{schemaNamespace}.{simpleName}";
+            var fullName = !string.IsNullOrEmpty(schemaNamespace)
+                ? $"{schemaNamespace}.{localNameName}"
+                : localNameName;
 
-            // Mark this schema as processed BEFORE translating it
-            // This ensures self-references work correctly (e.g., array<Node> in Node)
             if (!string.IsNullOrEmpty(fullName))
-            {
                 parsingContext.ProcessedSchemas.Add(fullName);
-            }
 
-            // Now translate the schema - references to this schema (including self-references)
-            // will use name strings since it's already marked as processed
             var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
-
-            // Only add to types array if it wasn't inlined as a forward reference elsewhere
+            // only add if it wasn't inlined as a forward reference elsewhere
             if (!string.IsNullOrEmpty(fullName) && !parsingContext.InlinedForwardRefs.Contains(fullName))
-            {
                 types.Add(schemaJson);
-            }
         }
 
         var messages = new JObject();
@@ -533,21 +510,16 @@ public class IdlToAvroTranslator
     private JToken TranslatePlainType(IdlParser.PlainTypeContext context, IdlParsingContext parsingContext)
     {
         if (context.arrayType() != null)
-        {
             return TranslateArrayType(context.arrayType(), parsingContext);
-        }
-        else if (context.mapType() != null)
-        {
+
+        if (context.mapType() != null)
             return TranslateMapType(context.mapType(), parsingContext);
-        }
-        else if (context.unionType() != null)
-        {
+
+        if (context.unionType() != null)
             return TranslateUnionType(context.unionType(), parsingContext);
-        }
-        else if (context.nullableType() != null)
-        {
+
+        if (context.nullableType() != null)
             return TranslateNullableType(context.nullableType(), parsingContext);
-        }
 
         throw new InvalidOperationException("Unknown plain type");
     }
@@ -591,13 +563,10 @@ public class IdlToAvroTranslator
     private JToken TranslatePrimitiveOrReference(IdlParser.NullableTypeContext context, IdlParsingContext parsingContext)
     {
         if (context.primitiveType() != null)
-        {
             return TranslatePrimitiveType(context.primitiveType());
-        }
-        else if (context.referenceName != null)
-        {
+
+        if (context.referenceName != null)
             return TranslateReferenceType(context, parsingContext);
-        }
 
         throw new InvalidOperationException("Unknown nullable type");
     }
@@ -610,14 +579,9 @@ public class IdlToAvroTranslator
         if (parsingContext.ProcessedSchemas.Contains(fullName) // already been added to the types array
             || parsingContext.InlinedForwardRefs.Contains(fullName)) // has been inlined already
         {
-            // Type is already in the types array, use a name reference
-            // If the refName was already qualified (contains '.'), use it as-is
-            // Otherwise, check if it's in the same namespace as the default namespace
             if (refName.Contains('.'))
                 return refName;
 
-            // Check if the type's namespace matches the default namespace
-            // If so, we can use just the simple name; otherwise use the full name
             var typeNamespace = fullName.Contains('.')
                 ? fullName[..fullName.LastIndexOf('.')]
                 : null;
@@ -628,25 +592,19 @@ public class IdlToAvroTranslator
         }
         else if (parsingContext.TrackForwardReferences && parsingContext.NamedSchemas.TryGetValue(fullName, out var schema))
         {
-            // Forward reference - type is defined later, inline the full definition
-            // Mark it so we don't add it to the types array later and so subsequent
-            // references within the same protocol use the name instead of inlining again
+            // type is defined later so should be inlined
             parsingContext.InlinedForwardRefs.Add(fullName);
 
-            // Clone the schema for inlining
             var inlinedSchema = (JObject)schema.DeepClone();
 
-            // Recursively process the inlined schema to replace any string references
+            // recursively process the inlined schema to replace any string references
             // with inlined schemas if they are also forward references
             ProcessForwardReferencesInSchema(inlinedSchema, parsingContext);
 
             return inlinedSchema;
         }
-        else
-        {
-            // Type not found in cache, return the reference name anyway
-            return refName;
-        }
+
+        return refName;
     }
 
     private static JToken TranslatePrimitiveType(IdlParser.PrimitiveTypeContext context)
@@ -683,9 +641,7 @@ public class IdlToAvroTranslator
     {
         var typeNameToken = context.typeName;
         if (typeNameToken == null)
-        {
             throw new InvalidOperationException("Logical type has no type name");
-        }
 
         var text = typeNameToken.Text;
 
@@ -759,17 +715,13 @@ public class IdlToAvroTranslator
     private JToken TranslateJsonValue(IdlParser.JsonValueContext context)
     {
         if (context.jsonLiteral() != null)
-        {
             return TranslateJsonLiteral(context.jsonLiteral());
-        }
-        else if (context.jsonObject() != null)
-        {
+
+        if (context.jsonObject() != null)
             return TranslateJsonObject(context.jsonObject());
-        }
-        else if (context.jsonArray() != null)
-        {
+
+        if (context.jsonArray() != null)
             return TranslateJsonArray(context.jsonArray());
-        }
 
         throw new InvalidOperationException("Unknown JSON value type");
     }
@@ -782,26 +734,21 @@ public class IdlToAvroTranslator
             // Remove quotes
             return text[1..^1];
         }
-        else if (context.IntegerLiteral() != null)
-        {
+
+        if (context.IntegerLiteral() != null)
             return long.Parse(context.IntegerLiteral().GetText());
-        }
-        else if (context.FloatingPointLiteral() != null)
-        {
+
+        if (context.FloatingPointLiteral() != null)
             return double.Parse(context.FloatingPointLiteral().GetText(), CultureInfo.InvariantCulture);
-        }
-        else if (context.BTrue() != null)
-        {
+
+        if (context.BTrue() != null)
             return true;
-        }
-        else if (context.BFalse() != null)
-        {
+
+        if (context.BFalse() != null)
             return false;
-        }
-        else if (context.Null() != null)
-        {
+
+        if (context.Null() != null)
             return JValue.CreateNull();
-        }
 
         throw new InvalidOperationException("Unknown JSON literal type");
     }
@@ -812,10 +759,14 @@ public class IdlToAvroTranslator
         foreach (var pair in context._jsonPairs)
         {
             var key = pair.name.Text;
-            // Remove quotes from key
-            if (key.StartsWith('"') && key.EndsWith('"'))
+
+            // trim quotes
+            const char QuoteChar = '"';
+            if (key.StartsWith(QuoteChar) && key.EndsWith(QuoteChar))
             {
-                key = key[1..^1];
+                key = key
+                    .TrimStart(QuoteChar)
+                    .TrimEnd(QuoteChar);
             }
             obj[key] = TranslateJsonValue(pair.value);
         }
@@ -824,12 +775,11 @@ public class IdlToAvroTranslator
 
     private JArray TranslateJsonArray(IdlParser.JsonArrayContext context)
     {
-        var array = new JArray();
-        foreach (var value in context._jsonValues)
-        {
-            array.Add(TranslateJsonValue(value));
-        }
-        return array;
+        var jsonValues = context._jsonValues
+            .Select(TranslateJsonValue)
+            .ToList();
+
+        return new JArray(jsonValues);
     }
 
     private void ProcessImport(IdlParser.ImportStatementContext import, List<JObject> importedTypes, JObject importedMessages, IdlParsingContext parsingContext)
@@ -871,9 +821,7 @@ public class IdlToAvroTranslator
     {
         // If basePath is "memory" or similar non-file paths, just return the relative path
         if (basePath == "memory" || !Path.IsPathRooted(basePath))
-        {
             return relativePath;
-        }
 
         var baseDir = Path.GetDirectoryName(basePath) ?? basePath;
         var combined = Path.Combine(baseDir, relativePath);
@@ -884,9 +832,7 @@ public class IdlToAvroTranslator
     {
         var fileInfo = _fileProvider.GetFileInfo(filePath);
         if (!fileInfo.Exists)
-        {
             throw new FileNotFoundException($"File not found: {filePath}");
-        }
 
         using var stream = fileInfo.CreateReadStream();
         using var reader = new StreamReader(stream);
@@ -1061,7 +1007,7 @@ public class IdlToAvroTranslator
             : null;
     }
 
-    private string? GetSchemaName(JObject schema, IdlParsingContext parsingContext)
+    private static string? GetSchemaName(JObject schema, IdlParsingContext parsingContext)
     {
         if (!schema.TryGetValue("name", out var name))
             return null;
@@ -1090,7 +1036,7 @@ public class IdlToAvroTranslator
         throw new InvalidOperationException("Unknown named schema type");
     }
 
-    private string ResolveFullTypeName(string typeName, IdlParsingContext parsingContext)
+    private static string ResolveFullTypeName(string typeName, IdlParsingContext parsingContext)
     {
         if (typeName.Contains('.'))
         {
