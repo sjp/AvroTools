@@ -14,10 +14,9 @@ using AvroSchema = Avro.Schema;
 namespace SJP.Avro.Tools.Idl;
 
 /// <summary>
-/// Translates ANTLR parse tree (IdlFileContext) to Avro.Protocol and Avro.Schema objects.
-/// This approach uses the guaranteed-correct ANTLR parser and translates directly to Avro types.
+/// Translates IDL documents to their equivalent JSON-compatible protocol and schema forms.
 /// </summary>
-public class IdlToAvroTranslator
+public class IdlToAvroTranslator : IIdlToAvroTranslator
 {
     private readonly IFileProvider _fileProvider;
 
@@ -31,10 +30,15 @@ public class IdlToAvroTranslator
     }
 
     /// <summary>
-    /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
+    /// Translates IDL to either Protocol or Schema.
     /// </summary>
+    /// <param name="idlContent">A string containing an IDL representing a protocol or a schema.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
     public async Task<IdlParseResult> Translate(string idlContent, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(idlContent);
+
         var antlrStream = new AntlrInputStream(idlContent);
         var parseTree = ParseIdlContent(antlrStream);
         var context = new IdlParsingContext();
@@ -42,8 +46,11 @@ public class IdlToAvroTranslator
     }
 
     /// <summary>
-    /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
+    /// Translates IDL to either Protocol or Schema.
     /// </summary>
+    /// <param name="idlContent">A stream whose contents contain an IDL representing a protocol or a schema.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
     public async Task<IdlParseResult> Translate(Stream idlContent, CancellationToken cancellationToken = default)
     {
         var antlrStream = new AntlrInputStream(idlContent);
