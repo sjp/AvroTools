@@ -293,7 +293,8 @@ public class IdlToAvroTranslator
         {
             if (prop.Key != "namespace") // namespace already handled
             {
-                protocolJson[prop.Key] = prop.Value;
+                var propName = EscapeName(prop.Key);
+                protocolJson[propName] = prop.Value;
             }
         }
 
@@ -355,7 +356,8 @@ public class IdlToAvroTranslator
         {
             if (prop.Key != "namespace")
             {
-                fixedJson[prop.Key] = prop.Value;
+                var propName = EscapeName(prop.Key);
+                fixedJson[propName] = prop.Value;
             }
         }
 
@@ -409,7 +411,8 @@ public class IdlToAvroTranslator
         {
             if (prop.Key != "namespace")
             {
-                enumJson[prop.Key] = prop.Value;
+                var propName = EscapeName(prop.Key);
+                enumJson[propName] = prop.Value;
             }
         }
 
@@ -573,7 +576,8 @@ public class IdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            message[prop.Key] = prop.Value;
+            var propName = EscapeName(prop.Key);
+            message[propName] = prop.Value;
         }
 
         return message;
@@ -594,7 +598,8 @@ public class IdlToAvroTranslator
         {
             foreach (var prop in properties)
             {
-                obj[prop.Key] = prop.Value;
+                var propName = EscapeName(prop.Key);
+                obj[propName] = prop.Value;
             }
             return obj;
         }
@@ -778,9 +783,39 @@ public class IdlToAvroTranslator
             throw new InvalidOperationException("Primitive type has no type name");
         }
 
+        var logicalType = TranslateLogicalType(context);
+        if (logicalType != null)
+            return logicalType;
+
         var text = typeNameToken.Text;
 
-        // Handle parameterized decimal type
+        return text switch
+        {
+            "void" => new JValue("null"),
+            "boolean" => new JValue("boolean"),
+            "int" => new JValue("int"),
+            "long" => new JValue("long"),
+            "float" => new JValue("float"),
+            "double" => new JValue("double"),
+            "string" => new JValue("string"),
+            "bytes" => new JValue("bytes"),
+            "null" => new JValue("null"),
+
+            _ => new JValue(text) // just return the value if unknown
+        };
+    }
+
+    private static JToken? TranslateLogicalType(IdlParser.PrimitiveTypeContext context)
+    {
+        var typeNameToken = context.typeName;
+        if (typeNameToken == null)
+        {
+            throw new InvalidOperationException("Logical type has no type name");
+        }
+
+        var text = typeNameToken.Text;
+
+        // decimal is a special case
         if (text == "decimal")
         {
             var precisionToken = context.precision;
@@ -806,22 +841,17 @@ public class IdlToAvroTranslator
             }
         }
 
-        // Map IDL types to Avro types
-        // Primitive types return string
-        // Logical types return JObject with type and logicalType
+        // TODO -- enable alternate encodings for uuid
+        // alternate option
+        //var uuidFixed = new JObject
+        //{
+        //    ["type"] = "fixed",
+        //    ["size"] = 16,
+        //    ["logicalType"] = "uuid"
+        //};
+
         return text switch
         {
-            "void" => new JValue("null"),
-            "boolean" => new JValue("boolean"),
-            "int" => new JValue("int"),
-            "long" => new JValue("long"),
-            "float" => new JValue("float"),
-            "double" => new JValue("double"),
-            "string" => new JValue("string"),
-            "bytes" => new JValue("bytes"),
-            "null" => new JValue("null"),
-
-            // Logical types - return objects with type and logicalType
             "uuid" => new JObject
             {
                 ["type"] = "string",
@@ -848,7 +878,7 @@ public class IdlToAvroTranslator
                 ["logicalType"] = "local-timestamp-millis"
             },
 
-            _ => new JValue(text) // Unknown types pass through
+            _ => null
         };
     }
 
@@ -1438,10 +1468,9 @@ public class IdlToAvroTranslator
     private static string EscapeLocalName(string name)
     {
         var builtInName = name.TrimStart('`').TrimEnd('`');
-        if (BuiltInTypeNames.Contains(builtInName) || LanguageKeywords.Contains(builtInName))
-            return builtInName;
-
-        return name;
+        return LanguageKeywords.Contains(builtInName)
+            ? builtInName
+            : name;
     }
 
     private static bool TryGetNamespaceNamePairing(string name, out (string Namespace, string Name) namespacePair)
@@ -1460,43 +1489,43 @@ public class IdlToAvroTranslator
         return true;
     }
 
-    private static readonly string[] BuiltInTypeNames =
-    [
-        "array",
-        "boolean",
-        "bytes",
-        "date",
-        "decimal",
-        "double",
-        "enum",
-        "fixed",
-        "float",
-        "int",
-        "long",
-        "map",
-        "null",
-        "record",
-        "string",
-        "time_ms",
-        "timestamp_ms",
-        "union",
-        "uuid",
-        "local_timestamp_ms",
-// TODO add more logical types
-
-
-    ];
-
     private static readonly string[] LanguageKeywords =
     [
         "protocol",
+        "namespace",
         "import",
         "idl",
         "schema",
         "throws",
-        "void",
         "oneway",
         "error",
+
+        // type declarations
+        "record",
+        "enum",
+        "fixed",
+        "array",
+        "map",
+        "union",
+
+        // primitive types
+        "boolean",
+        "int",
+        "long",
+        "float",
+        "double",
+        "bytes",
+        "string",
+        "null",
+        "void",
+
+        // logical types
+        "decimal",
+        "date",
+        "time_ms",
+        "timestamp_ms",
+        "local_timestamp_ms",
+        "uuid",
     ];
 }
 

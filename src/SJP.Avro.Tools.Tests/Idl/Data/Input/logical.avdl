@@ -1,0 +1,5 @@
+record Job {
+  uuid jobid;
+  @logicalType("timestamp-micros")
+  long finishTime;
+}
