@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Antlr4.Runtime;
 using Microsoft.Extensions.FileProviders;
 using Newtonsoft.Json.Linq;
@@ -31,7 +33,7 @@ public class IdlToAvroTranslator
     /// <summary>
     /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
     /// </summary>
-    public static IdlParseResult ParseIdl(string idlContent, string sourceName = "memory", IFileProvider? fileProvider = null)
+    public static async Task<IdlParseResult> ParseIdl(string idlContent, string sourceName = "memory", IFileProvider? fileProvider = null, CancellationToken cancellationToken = default)
     {
         var parseTree = ParseIdl(idlContent);
         var translator = new IdlToAvroTranslator(fileProvider);
@@ -39,7 +41,24 @@ public class IdlToAvroTranslator
         {
             FilePath = sourceName
         };
-        return translator.Translate(parseTree, context);
+        return await translator.Translate(parseTree, context, cancellationToken);
+    }
+
+    /// <summary>
+    /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
+    /// </summary>
+    public async Task<IdlParseResult> Translate(IdlParser.IdlFileContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
+    {
+        if (context.protocol != null)
+        {
+            var protocol = await TranslateProtocol(context.protocol, parsingContext, cancellationToken);
+            return IdlParseResult.Protocol(protocol);
+        }
+        else
+        {
+            var schema = await TranslateSchema(context, parsingContext, cancellationToken);
+            return IdlParseResult.Schema(schema);
+        }
     }
 
     private static IdlParser.IdlFileContext ParseIdl(string idlContent)
@@ -55,23 +74,23 @@ public class IdlToAvroTranslator
         return parser.idlFile();
     }
 
-    private AvroSchema TranslateSchema(IdlParser.IdlFileContext context, IdlParsingContext parsingContext)
+    private async Task<AvroSchema> TranslateSchema(IdlParser.IdlFileContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
-        var schemaJson = TranslateSchemaToJson(context, parsingContext);
+        var schemaJson = await TranslateSchemaToJson(context, parsingContext, cancellationToken);
         return AvroSchema.Parse(schemaJson.ToString());
     }
 
-    private JToken TranslateSchemaToJson(IdlParser.IdlFileContext context, IdlParsingContext parsingContext)
+    private async Task<JToken> TranslateSchemaToJson(IdlParser.IdlFileContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
         parsingContext.DefaultNamespace = context.@namespace?.@namespace?.GetText();
 
-        // Process imports for schemas
+        // process imports for schemas
         var importedTypes = new List<JObject>();
         var importedMessages = new JObject();
 
         foreach (var import in context._imports)
         {
-            ProcessImport(import, importedTypes, importedMessages, parsingContext);
+            await ProcessImport(import, importedTypes, importedMessages, parsingContext, cancellationToken);
         }
 
         // cache imported types and any named schemas in the file for reference resolution
@@ -116,31 +135,14 @@ public class IdlToAvroTranslator
         return mainSchemaJson;
     }
 
-    /// <summary>
-    /// Attempts to translate to either Protocol or Schema, returning the appropriate type.
-    /// </summary>
-    public IdlParseResult Translate(IdlParser.IdlFileContext context, IdlParsingContext parsingContext)
+    private async Task<AvroProtocol> TranslateProtocol(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
-        if (context.protocol != null)
-        {
-            var protocol = TranslateProtocol(context.protocol, parsingContext);
-            return IdlParseResult.Protocol(protocol);
-        }
-        else
-        {
-            var schema = TranslateSchema(context, parsingContext);
-            return IdlParseResult.Schema(schema);
-        }
-    }
-
-    private AvroProtocol TranslateProtocol(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext)
-    {
-        var protocolJson = TranslateProtocolToJson(context, parsingContext);
+        var protocolJson = await TranslateProtocolToJson(context, parsingContext, cancellationToken);
         var protocolJsonText = protocolJson.ToString();
         return AvroProtocol.Parse(protocolJsonText);
     }
 
-    private JObject TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext)
+    private async Task<JObject> TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
         var protocolName = context.name.GetText();
         var doc = context.doc.ExtractDocumentation();
@@ -153,7 +155,7 @@ public class IdlToAvroTranslator
         var importedMessages = new JObject();
 
         foreach (var import in body._imports)
-            ProcessImport(import, importedTypes, importedMessages, parsingContext);
+            await ProcessImport(import, importedTypes, importedMessages, parsingContext, cancellationToken);
 
         // cache all named schemas for forward reference resolution
         foreach (var namedSchema in body._namedSchemas)
@@ -722,7 +724,7 @@ public class IdlToAvroTranslator
         if (context.StringLiteral() != null)
         {
             var text = context.StringLiteral().GetText();
-            // Remove quotes
+            // trims quotes
             return text[1..^1];
         }
 
@@ -773,7 +775,12 @@ public class IdlToAvroTranslator
         return new JArray(jsonValues);
     }
 
-    private void ProcessImport(IdlParser.ImportStatementContext import, List<JObject> importedTypes, JObject importedMessages, IdlParsingContext parsingContext)
+    private async Task ProcessImport(
+        IdlParser.ImportStatementContext import,
+        List<JObject> importedTypes,
+        JObject importedMessages,
+        IdlParsingContext parsingContext,
+        CancellationToken cancellationToken)
     {
         var importType = import.importType.Text;
         var location = import.location.Text;
@@ -797,13 +804,13 @@ public class IdlToAvroTranslator
         switch (importType.ToLowerInvariant())
         {
             case "idl":
-                ProcessIdlImport(importPath, importedTypes, importedMessages, parsingContext);
+                await ProcessIdlImport(importPath, importedTypes, importedMessages, parsingContext, cancellationToken);
                 break;
             case "protocol":
-                ProcessProtocolImport(importPath, importedTypes, importedMessages, parsingContext);
+                await ProcessProtocolImport(importPath, importedTypes, importedMessages, parsingContext, cancellationToken);
                 break;
             case "schema":
-                ProcessSchemaImport(importPath, importedTypes, parsingContext);
+                await ProcessSchemaImport(importPath, importedTypes, parsingContext, cancellationToken);
                 break;
         }
     }
@@ -819,22 +826,27 @@ public class IdlToAvroTranslator
         return Path.GetFullPath(combined);
     }
 
-    private string ReadFileContent(string filePath)
+    private async Task<string> ReadFileContent(string filePath, CancellationToken cancellationToken)
     {
         var fileInfo = _fileProvider.GetFileInfo(filePath);
         if (!fileInfo.Exists)
             throw new FileNotFoundException($"File not found: {filePath}");
 
-        using var stream = fileInfo.CreateReadStream();
+        await using var stream = fileInfo.CreateReadStream();
         using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
+        return await reader.ReadToEndAsync(cancellationToken);
     }
 
-    private void ProcessIdlImport(string importPath, List<JObject> importedTypes, JObject importedMessages, IdlParsingContext parsingContext)
+    private async Task ProcessIdlImport(
+        string importPath,
+        List<JObject> importedTypes,
+        JObject importedMessages,
+        IdlParsingContext parsingContext,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var idlContent = ReadFileContent(importPath);
+            var idlContent = await ReadFileContent(importPath, cancellationToken);
             var parseTree = ParseIdl(idlContent);
 
             var translator = new IdlToAvroTranslator(_fileProvider);
@@ -846,10 +858,8 @@ public class IdlToAvroTranslator
 
             if (parseTree.protocol != null)
             {
-                // Get protocol as JSON without parsing to avoid validation issues with incomplete type references
-                var protocolJson = translator.TranslateProtocolToJson(parseTree.protocol, nestedContext);
+                var protocolJson = await translator.TranslateProtocolToJson(parseTree.protocol, nestedContext, cancellationToken);
 
-                // Add imported types
                 if (protocolJson.TryGetValue("types", out var typesToken) && typesToken is JArray typesArray)
                 {
                     foreach (var type in typesArray.OfType<JObject>())
@@ -865,7 +875,6 @@ public class IdlToAvroTranslator
                     }
                 }
 
-                // Add imported messages
                 if (protocolJson.TryGetValue("messages", out var messagesToken) && messagesToken is JObject messagesObj)
                 {
                     foreach (var prop in messagesObj.Properties())
@@ -876,17 +885,12 @@ public class IdlToAvroTranslator
             }
             else
             {
-                // Handle standalone schema import
-                // The imported file might be a standalone schema with named types
                 nestedContext.DefaultNamespace = parseTree.@namespace?.@namespace?.GetText();
 
-                // Process any named schemas defined in the imported file
                 foreach (var namedSchema in parseTree._namedSchemas)
                 {
                     var schemaJson = translator.TranslateNamedSchema(namedSchema, nestedContext);
 
-                    // Ensure the schema has a namespace field if one was set at the file level
-                    // and the schema doesn't already have an explicit namespace
                     if (!string.IsNullOrEmpty(nestedContext.DefaultNamespace) && !schemaJson.ContainsKey("namespace"))
                     {
                         schemaJson["namespace"] = nestedContext.DefaultNamespace;
@@ -894,7 +898,6 @@ public class IdlToAvroTranslator
 
                     importedTypes.Add(schemaJson);
 
-                    // Cache for reference resolution
                     var name = GetSchemaName(schemaJson, parsingContext);
                     if (!string.IsNullOrEmpty(name))
                     {
@@ -903,7 +906,6 @@ public class IdlToAvroTranslator
                 }
             }
 
-            // Update processed imports from nested translator
             parsingContext.ProcessedImports.UnionWith(nestedContext.ProcessedImports);
         }
         catch (Exception ex)
@@ -912,15 +914,16 @@ public class IdlToAvroTranslator
         }
     }
 
-    private void ProcessProtocolImport(
+    private async Task ProcessProtocolImport(
         string importPath,
         List<JObject> importedTypes,
         JObject importedMessages,
-        IdlParsingContext parsingContext)
+        IdlParsingContext parsingContext,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var protocolJson = ReadFileContent(importPath);
+            var protocolJson = await ReadFileContent(importPath, cancellationToken);
             var protocolObj = JObject.Parse(protocolJson);
 
             // Import types
@@ -952,14 +955,15 @@ public class IdlToAvroTranslator
         }
     }
 
-    private void ProcessSchemaImport(
+    private async Task ProcessSchemaImport(
         string importPath,
         List<JObject> importedTypes,
-        IdlParsingContext parsingContext)
+        IdlParsingContext parsingContext,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var schemaJson = ReadFileContent(importPath);
+            var schemaJson = await ReadFileContent(importPath, cancellationToken);
             var schemaObj = JObject.Parse(schemaJson);
 
             importedTypes.Add(schemaObj);

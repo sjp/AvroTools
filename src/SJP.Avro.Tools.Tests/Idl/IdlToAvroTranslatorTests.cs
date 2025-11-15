@@ -36,7 +36,7 @@ internal static class IdlToAvroTranslatorTests
         var inputContents = await inputReader.ReadToEndAsync();
         var outputContents = await outputReader.ReadToEndAsync();
 
-        var parseResult = IdlToAvroTranslator.ParseIdl(inputContents, idlSampleResourceName, InputFileProvider);
+        var parseResult = await IdlToAvroTranslator.ParseIdl(inputContents, idlSampleResourceName, InputFileProvider);
         var jsonText = parseResult.Match(p => p.ToString(), s => s.ToString());
 
         var differ = new JsonDiffer();
