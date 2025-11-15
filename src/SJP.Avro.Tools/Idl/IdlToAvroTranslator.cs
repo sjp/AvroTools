@@ -849,7 +849,6 @@ public class IdlToAvroTranslator
             var idlContent = await ReadFileContent(importPath, cancellationToken);
             var parseTree = ParseIdl(idlContent);
 
-            var translator = new IdlToAvroTranslator(_fileProvider);
             var nestedContext = new IdlParsingContext
             {
                 FilePath = importPath
@@ -858,7 +857,7 @@ public class IdlToAvroTranslator
 
             if (parseTree.protocol != null)
             {
-                var protocolJson = await translator.TranslateProtocolToJson(parseTree.protocol, nestedContext, cancellationToken);
+                var protocolJson = await TranslateProtocolToJson(parseTree.protocol, nestedContext, cancellationToken);
 
                 if (protocolJson.TryGetValue("types", out var typesToken) && typesToken is JArray typesArray)
                 {
@@ -889,7 +888,7 @@ public class IdlToAvroTranslator
 
                 foreach (var namedSchema in parseTree._namedSchemas)
                 {
-                    var schemaJson = translator.TranslateNamedSchema(namedSchema, nestedContext);
+                    var schemaJson = TranslateNamedSchema(namedSchema, nestedContext);
 
                     if (!string.IsNullOrEmpty(nestedContext.DefaultNamespace) && !schemaJson.ContainsKey("namespace"))
                     {
