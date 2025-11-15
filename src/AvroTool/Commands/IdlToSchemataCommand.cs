@@ -4,13 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
-using SJP.Avro.Tools.Idl.Model;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using Superpower.Model;
-using AvroProtocol = Avro.Protocol;
 
 namespace AvroTool.Commands;
 
@@ -33,17 +29,17 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
     }
 
     private readonly IAnsiConsole _console;
-    private readonly IIdlTokenizer _tokenizer;
-    private readonly IIdlCompiler _compiler;
+    private readonly IIdlToAvroTranslator _idlTranslator;
 
     public IdlToSchemataCommand(
         IAnsiConsole console,
-        IIdlTokenizer tokenizer,
-        IIdlCompiler compiler)
+        IIdlToAvroTranslator idlTranslator)
     {
-        _console = console ?? throw new ArgumentNullException(nameof(console));
-        _tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
-        _compiler = compiler ?? throw new ArgumentNullException(nameof(compiler));
+        ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(idlTranslator);
+
+        _console = console;
+        _idlTranslator = idlTranslator;
     }
 
     public override ValidationResult Validate(CommandContext context, Settings settings)
@@ -59,20 +55,22 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!TryGetIdlTokens(settings.IdlFile, out var tokens))
+        var parseResult = await ParseIdl(settings.IdlFile, cancellationToken);
+        if (!parseResult.Success)
+        {
+            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document: {parseResult.Exception.Message}[/]");
             return ErrorCode.Error;
-
-        if (!TryGetProtocol(tokens, out var protocol))
-            return ErrorCode.Error;
+        }
 
         var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
 
         try
         {
-            var output = _compiler.Compile(settings.IdlFile, protocol);
-            var avroProtocol = AvroProtocol.Parse(output);
+            var avroSchemas = parseResult.Result.Match(
+                p => p.Types,
+                s => [s]);
 
-            var filenames = avroProtocol.Types
+            var filenames = avroSchemas
                 .Select(s => Path.Combine(outputDir.FullName, s.Name + ".avsc"))
                 .ToList();
 
@@ -85,7 +83,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 return ErrorCode.Error;
             }
 
-            foreach (var schema in avroProtocol.Types)
+            foreach (var schema in avroSchemas)
             {
                 var schemaFilename = Path.Combine(outputDir.FullName, schema.Name + ".avsc");
                 if (File.Exists(schemaFilename))
@@ -106,42 +104,17 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         }
     }
 
-    private bool TryGetIdlTokens(string idlFile, out TokenList<IdlToken> tokens)
+    private async Task<IdlFileParseResult> ParseIdl(string idlFile, CancellationToken cancellationToken)
     {
-        var idlText = File.ReadAllText(idlFile);
-        var tokenizeResult = _tokenizer.TryTokenize(idlText);
-
-        if (!tokenizeResult.HasValue)
+        try
         {
-            tokens = default;
-            _console.MarkupLine($"[red]Unable to parse IDL document: {tokenizeResult}[/]");
+            await using var idlFileStream = File.OpenRead(idlFile);
+            var result = await _idlTranslator.Translate(idlFileStream, cancellationToken);
+            return IdlFileParseResult.Ok(result);
         }
-        else
+        catch (Exception ex)
         {
-            var commentFreeTokens = tokenizeResult.Value
-                .Where(t => t.Kind != IdlToken.Comment)
-                .ToArray();
-
-            tokens = new TokenList<IdlToken>(commentFreeTokens);
+            return IdlFileParseResult.Error(ex);
         }
-
-        return tokenizeResult.HasValue;
-    }
-
-    private bool TryGetProtocol(TokenList<IdlToken> tokens, out Protocol protocol)
-    {
-        var result = IdlTokenParsers.Protocol(tokens);
-
-        if (!result.HasValue)
-        {
-            protocol = default!;
-            _console.MarkupLineInterpolated($"[red]Unable to parse protocol from IDL document: {result}[/]");
-        }
-        else
-        {
-            protocol = result.Value;
-        }
-
-        return result.HasValue;
     }
 }

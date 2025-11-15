@@ -1,16 +1,17 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
-using Microsoft.Extensions.FileProviders;
 using Moq;
 using NUnit.Framework;
-using SJP.Avro.Tools;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
+using AvroProtocol = Avro.Protocol;
+using AvroSchema = Avro.Schema;
 
 namespace AvroTool.Tests.Commands;
 
@@ -38,8 +39,11 @@ internal class CodeGenCommandTests
 
     private TemporaryDirectory _tempDir;
     private Mock<IAnsiConsole> _console;
+    private Mock<IIdlToAvroTranslator> _idlTranslator;
     private CommandContext _commandContext;
     private CodeGenCommand _commandHandler;
+
+    private IdlParseResult _parseResult;
 
     [SetUp]
     public void Setup()
@@ -49,13 +53,18 @@ internal class CodeGenCommandTests
         _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
+        _parseResult = IdlParseResult.Schema(AvroSchema.Parse(SimpleTestSchema));
+        _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => _parseResult);
+
         _commandContext = new CommandContext([], Mock.Of<IRemainingArguments>(), "codegen", null);
 
         _commandHandler = new CodeGenCommand(
             _console.Object,
-            new IdlTokenizer(),
-            new IdlCompiler(new PhysicalFileProvider(Directory.GetCurrentDirectory())),
-            new CodeGeneratorResolver()
+            new CodeGeneratorResolver(),
+            _idlTranslator.Object
         );
     }
 
@@ -71,7 +80,7 @@ internal class CodeGenCommandTests
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var command = new CodeGenCommand.Settings
@@ -149,9 +158,10 @@ namespace SJP.Arvo.CodeGen.Test
     public async Task ExecuteAsync_GivenValidParametersForIdlWithProtocol_WritesExpectedOutput()
     {
         const string input = SimpleTestIdlWithMessages;
+        _parseResult = IdlParseResult.Protocol(AvroProtocol.Parse(SimpleTestProtocol));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var command = new CodeGenCommand.Settings
@@ -212,7 +222,7 @@ namespace SJP.Arvo.CodeGen.Test
         const string input = SimpleTestProtocol;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var command = new CodeGenCommand.Settings
@@ -273,7 +283,7 @@ namespace SJP.Arvo.CodeGen.Test
         const string input = SimpleTestSchema;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var command = new CodeGenCommand.Settings
@@ -348,35 +358,16 @@ namespace SJP.Arvo.CodeGen.Test
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenInvalidTokens_ReturnsError()
+    public async Task ExecuteAsync_GivenInvalidInput_ReturnsError()
     {
         const string input = "%";
 
-        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
-
-        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
-
-        Assert.That(result, Is.Not.Zero);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
-    {
-        const string input = @"record Foo {{
-    string label;
-}}";
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var command = new CodeGenCommand.Settings
@@ -397,7 +388,7 @@ namespace SJP.Arvo.CodeGen.Test
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
@@ -421,7 +412,7 @@ namespace SJP.Arvo.CodeGen.Test
         const string input = SimpleTestProtocol;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
@@ -445,7 +436,7 @@ namespace SJP.Arvo.CodeGen.Test
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
@@ -469,7 +460,7 @@ namespace SJP.Arvo.CodeGen.Test
         const string input = SimpleTestProtocol;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
@@ -496,7 +487,7 @@ namespace SJP.Arvo.CodeGen.Test
         Directory.SetCurrentDirectory(_tempDir.DirectoryPath);
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
@@ -513,39 +504,6 @@ namespace SJP.Arvo.CodeGen.Test
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
-
-        Assert.That(result, Is.Not.Zero);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_GivenErrorInCompilation_ReturnsError()
-    {
-        var brokenCompiler = new Mock<IIdlCompiler>(MockBehavior.Strict);
-        brokenCompiler
-            .Setup(c => c.Compile(It.IsAny<string>(), It.IsAny<SJP.Avro.Tools.Idl.Model.Protocol>()))
-            .Throws(new Exception("compiler failure"));
-
-        _commandHandler = new CodeGenCommand(
-            _console.Object,
-            new IdlTokenizer(),
-            brokenCompiler.Object,
-            new CodeGeneratorResolver()
-        );
-
-        const string input = SimpleTestIdl;
-
-        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
-
-        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
 
         Assert.That(result, Is.Not.Zero);
     }

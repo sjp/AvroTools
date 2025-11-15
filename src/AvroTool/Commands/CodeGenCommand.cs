@@ -11,7 +11,7 @@ using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using Superpower.Model;
+using Superpower;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
 
@@ -40,21 +40,22 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
     }
 
     private readonly IAnsiConsole _console;
-    private readonly IIdlTokenizer _tokenizer;
-    private readonly IIdlCompiler _compiler;
     private readonly ICodeGeneratorResolver _codeGeneratorResolver;
+    private readonly IIdlToAvroTranslator _idlTranslator;
 
     public CodeGenCommand(
         IAnsiConsole console,
-        IIdlTokenizer idlTokenizer,
-        IIdlCompiler idlCompiler,
-        ICodeGeneratorResolver codeGeneratorResolver
+        ICodeGeneratorResolver codeGeneratorResolver,
+        IIdlToAvroTranslator idlTranslator
     )
     {
-        _console = console ?? throw new ArgumentNullException(nameof(console));
-        _tokenizer = idlTokenizer ?? throw new ArgumentNullException(nameof(idlTokenizer));
-        _compiler = idlCompiler ?? throw new ArgumentNullException(nameof(idlCompiler));
-        _codeGeneratorResolver = codeGeneratorResolver ?? throw new ArgumentNullException(nameof(codeGeneratorResolver));
+        ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(codeGeneratorResolver);
+        ArgumentNullException.ThrowIfNull(idlTranslator);
+
+        _console = console;
+        _codeGeneratorResolver = codeGeneratorResolver;
+        _idlTranslator = idlTranslator;
     }
 
     public override ValidationResult Validate(CommandContext context, Settings settings)
@@ -74,7 +75,9 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         AvroProtocol? protocol = null;
-        var schemas = new List<AvroSchema>();
+        IEnumerable<AvroSchema> schemas;
+        var parseResult = await ParseIdl(settings.InputFile, cancellationToken);
+
         if (TryParseAvroProtocol(settings.InputFile, out var inputProtocol))
         {
             protocol = inputProtocol;
@@ -84,10 +87,10 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         {
             schemas = [inputSchema];
         }
-        else if (TryParseAvroProtocolFromIdl(settings.InputFile, out var idlParsedProtocol))
+        else if (parseResult.Success)
         {
-            protocol = idlParsedProtocol;
-            schemas = [.. idlParsedProtocol.Types];
+            protocol = parseResult.Result.Match(p => p, _ => (AvroProtocol?)null);
+            schemas = parseResult.Result.Match(p => p.Types, s => [s]);
         }
         else
         {
@@ -111,7 +114,9 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 }
             }
 
-            var filenames = schemas.ConvertAll(s => Path.Combine(outputDir.FullName, s.Name + ".cs"));
+            var filenames = schemas
+                .Select(s => Path.Combine(outputDir.FullName, s.Name + ".cs"))
+                .ToList();
 
             var existingFiles = filenames.Where(File.Exists).ToList();
             if (existingFiles.Count > 0 && !settings.Overwrite)
@@ -206,67 +211,17 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         }
     }
 
-    private bool TryParseAvroProtocolFromIdl(string filePath, out AvroProtocol protocol)
+    private async Task<IdlFileParseResult> ParseIdl(string idlFile, CancellationToken cancellationToken)
     {
-        if (!TryGetIdlTokens(filePath, out var tokens))
-        {
-            protocol = default!;
-            return false;
-        }
-
-        if (!TryGetProtocol(tokens, out var parsedProtocol))
-        {
-            protocol = default!;
-            return false;
-        }
-
         try
         {
-            var output = _compiler.Compile(filePath, parsedProtocol);
-            protocol = AvroProtocol.Parse(output);
-            return true;
+            await using var idlFileStream = File.OpenRead(idlFile);
+            var result = await _idlTranslator.Translate(idlFileStream, cancellationToken);
+            return IdlFileParseResult.Ok(result);
         }
-        catch
+        catch (Exception ex)
         {
-            protocol = default!;
-            return false;
+            return IdlFileParseResult.Error(ex);
         }
-    }
-
-    private bool TryGetIdlTokens(string idlFile, out TokenList<IdlToken> tokens)
-    {
-        var idlText = File.ReadAllText(idlFile);
-        var tokenizeResult = _tokenizer.TryTokenize(idlText);
-
-        if (!tokenizeResult.HasValue)
-        {
-            tokens = default;
-        }
-        else
-        {
-            var commentFreeTokens = tokenizeResult.Value
-                .Where(t => t.Kind != IdlToken.Comment)
-                .ToArray();
-
-            tokens = new TokenList<IdlToken>(commentFreeTokens);
-        }
-
-        return tokenizeResult.HasValue;
-    }
-
-    private static bool TryGetProtocol(TokenList<IdlToken> tokens, out SJP.Avro.Tools.Idl.Model.Protocol protocol)
-    {
-        var result = IdlTokenParsers.Protocol(tokens);
-
-        if (!result.HasValue)
-        {
-            protocol = default!;
-        }
-        else
-        {
-            protocol = result.Value;
-        }
-
-        return result.HasValue;
     }
 }

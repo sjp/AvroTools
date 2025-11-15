@@ -5,7 +5,7 @@ using AvroSchema = Avro.Schema;
 namespace SJP.Avro.Tools.Idl;
 
 /// <summary>
-/// TODO
+/// A convenience class used for enabling access to either a protocol or a schema
 /// </summary>
 public sealed record IdlParseResult
 {
@@ -17,27 +17,27 @@ public sealed record IdlParseResult
     private IdlParseResult(AvroSchema schema) => _schema = schema;
 
     /// <summary>
-    /// TODO
+    /// Constructs a parse result that contains a <see cref="AvroProtocol"/>.
     /// </summary>
-    public static IdlParseResult Protocol(AvroProtocol protocol) => new IdlParseResult(protocol);
+    public static IdlParseResult Protocol(AvroProtocol protocol) => new(protocol);
 
     /// <summary>
-    /// TODO
+    /// Constructs a parse result that contains a <see cref="AvroSchema"/>.
     /// </summary>
-    public static IdlParseResult Schema(AvroSchema schema) => new IdlParseResult(schema);
+    public static IdlParseResult Schema(AvroSchema schema) => new(schema);
 
     /// <summary>
-    /// TODO
+    /// Returns <c>true</c> when the value contains a <see cref="AvroProtocol"/>.
     /// </summary>
     public bool IsProtocol => _protocol != null;
 
     /// <summary>
-    /// TODO
+    /// Returns <c>true</c> when the value contains a <see cref="AvroSchema"/>.
     /// </summary>
     public bool IsSchema => _schema != null;
 
     /// <summary>
-    /// TODO
+    /// Enables actions to be performed depending on the contained value.
     /// </summary>
     public void Match(
         Action<AvroProtocol> protocol,
@@ -54,7 +54,7 @@ public sealed record IdlParseResult
     }
 
     /// <summary>
-    /// TODO
+    /// Returns different values depending on the contained value.
     /// </summary>
     public T Match<T>(
         Func<AvroProtocol, T> protocol,

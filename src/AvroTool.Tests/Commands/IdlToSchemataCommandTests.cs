@@ -1,15 +1,15 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
-using Microsoft.Extensions.FileProviders;
 using Moq;
 using NUnit.Framework;
-using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
+using AvroSchema = Avro.Schema;
 
 namespace AvroTool.Tests.Commands;
 
@@ -24,10 +24,30 @@ internal class IdlToSchemataCommandTests
 }
 ";
 
+    private const string SimpleTestAvroSchema = """
+        {
+            "type": "record",
+            "name": "TestRecord",
+            "fields": [
+                {
+                    "name": "FirstName",
+                    "type": "string"
+                },
+                {
+                    "name": "LastName",
+                    "type": "string"
+                }
+            ]
+        }
+        """;
+
     private TemporaryDirectory _tempDir;
     private Mock<IAnsiConsole> _console;
+    private Mock<IIdlToAvroTranslator> _idlTranslator;
     private CommandContext _commandContext;
     private IdlToSchemataCommand _commandHandler;
+
+    private IdlParseResult _parseResult;
 
     [SetUp]
     public void Setup()
@@ -37,13 +57,17 @@ internal class IdlToSchemataCommandTests
         _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
+        _parseResult = IdlParseResult.Schema(AvroSchema.Parse(SimpleTestAvroSchema));
+        _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => _parseResult);
+
         _commandContext = new CommandContext([], Mock.Of<IRemainingArguments>(), "idltoschemata", null);
 
         _commandHandler = new IdlToSchemataCommand(
             _console.Object,
-            new IdlTokenizer(),
-            new IdlCompiler(new PhysicalFileProvider(Directory.GetCurrentDirectory()))
-        );
+            _idlTranslator.Object);
     }
 
     [TearDown]
@@ -58,7 +82,7 @@ internal class IdlToSchemataCommandTests
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var command = new IdlToSchemataCommand.Settings
@@ -70,7 +94,7 @@ internal class IdlToSchemataCommandTests
         var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
-        const string expectedResultFileContents = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
+        var expectedResultFileContents = _parseResult.Match(p => p.ToString(), s => s.ToString());
 
         using (Assert.EnterMultipleScope())
         {
@@ -80,34 +104,16 @@ internal class IdlToSchemataCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenInvalidTokens_ReturnsError()
+    public async Task ExecuteAsync_GivenInvalidInput_ReturnsError()
     {
         const string input = "%";
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
-        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = true,
-            OutputDirectory = sourceDir
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
-
-        Assert.That(result, Is.Not.Zero);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_GivenValidIdlTokensButInvalidProtocol_ReturnsError()
-    {
-        const string input = @"record Foo {{
-    string label;
-}}";
-
-        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var command = new IdlToSchemataCommand.Settings
@@ -127,7 +133,7 @@ internal class IdlToSchemataCommandTests
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
@@ -150,7 +156,7 @@ internal class IdlToSchemataCommandTests
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
@@ -176,7 +182,7 @@ internal class IdlToSchemataCommandTests
         Directory.SetCurrentDirectory(_tempDir.DirectoryPath);
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
@@ -192,37 +198,6 @@ internal class IdlToSchemataCommandTests
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
-
-        Assert.That(result, Is.Not.Zero);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_GivenErrorInCompilation_ReturnsError()
-    {
-        var brokenCompiler = new Mock<IIdlCompiler>(MockBehavior.Strict);
-        brokenCompiler
-            .Setup(c => c.Compile(It.IsAny<string>(), It.IsAny<SJP.Avro.Tools.Idl.Model.Protocol>()))
-            .Throws(new Exception("compiler failure"));
-
-        _commandHandler = new IdlToSchemataCommand(
-            _console.Object,
-            new IdlTokenizer(),
-            brokenCompiler.Object
-        );
-
-        const string input = SimpleTestIdl;
-
-        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, input);
-
-        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = true,
-            OutputDirectory = sourceDir
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
 
         Assert.That(result, Is.Not.Zero);
     }
