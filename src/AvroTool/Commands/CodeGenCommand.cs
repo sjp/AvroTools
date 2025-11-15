@@ -11,7 +11,6 @@ using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using Superpower;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
 
