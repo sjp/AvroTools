@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools.Idl;
@@ -89,7 +91,14 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 if (File.Exists(schemaFilename))
                     File.Delete(schemaFilename);
 
-                await File.WriteAllTextAsync(schemaFilename, schema.ToString(), cancellationToken);
+                // format output so it's human-readable
+                var jsonNode = JsonNode.Parse(schema.ToString());
+                var formattedOutput = jsonNode!.ToJsonString(new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+
+                await File.WriteAllTextAsync(schemaFilename, formattedOutput, cancellationToken);
                 _console.MarkupLineInterpolated($"[green]Generated {schemaFilename}[/]");
             }
 
