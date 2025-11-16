@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
@@ -94,7 +96,9 @@ internal class IdlToSchemataCommandTests
         var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
-        var expectedResultFileContents = _parseResult.Match(p => p.ToString(), s => s.ToString());
+        var expectedResultFileContents = _parseResult.Match(
+            p => JsonNode.Parse(p.ToString()).ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+            s => JsonNode.Parse(s.ToString()).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
         using (Assert.EnterMultipleScope())
         {
