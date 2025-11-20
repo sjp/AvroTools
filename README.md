@@ -6,14 +6,14 @@ A collection of tools to work with Apache Avro in C#.
 
 ## Description
 
-The intention of this project is to provide a pure C# implementation of an [Avro IDL](https://avro.apache.org/docs/current/idl.html) compiler. Additionally, although the [Avro GitHub](https://github.com/apache/avro) project does contain a code generator for C#, it contains rather verbose code. This project generates human-readable output via a Roslyn-based code generator.
+The intention of this project is to provide a pure C# implementation of an [Avro IDL](https://avro.apache.org/docs/1.12.0/idl-language/) compiler. Additionally, although the [Avro GitHub](https://github.com/apache/avro) project does contain a code generator for C#, it contains rather verbose code. This project generates human-readable output via a Roslyn-based code generator.
 
 One other benefit of this project is avoiding the pre-requisite for a Java runtime.
 
 ## Features
 
-* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/current/spec.html#Protocol+Declaration).
-* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to [Avro Schema](https://avro.apache.org/docs/current/spec.html#schemas).
+* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/1.12.0/specification/#protocol-declaration).
+* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to [Avro Schema](https://avro.apache.org/docs/1.12.0/specification/#schema-declaration).
 * Generate C# classes for protocols and schemas.
 * Supports additional logical types compared to reference compiler. Note that these may not be usable in practice but can be compiled to compatible Avro Protocol/Schema. The following additional logical types are supported in IDL:
   * `uuid`
