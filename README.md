@@ -23,14 +23,20 @@ One other benefit of this project is avoiding the pre-requisite for a Java runti
   * `local-timestamp-micros`
   * `duration`
 
-## Usage
+## Installation
 
-The intention is for this to be installable as a [`dotnet tool`](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install), but for the moment usage is possible via `dotnet run`.
+Install as a [.NET tool](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install):
+
+```bash
+dotnet tool install --global SJP.AvroTool
+```
+
+## Usage
 
 Most of the documentation is provided by the tool itself (outside of the language specifications).
 
 ```plain
-$ dotnet run --project src/AvroTool
+$ avrotool --help
 
 USAGE:
     avrotool [OPTIONS] <COMMAND>
@@ -59,7 +65,7 @@ protocol TestProtocol {
 
   void Ping();
 }
-$ dotnet run --project src/AvroTool idl sample.avdl
+$ avrotool idl sample.avdl
 Generated /home/sjp/repos/AvroTools/TestProtocol.avpr
 $ cat TestProtocol.avpr
 {
@@ -107,7 +113,7 @@ protocol TestProtocol {
 
   void Ping();
 }
-$ dotnet run --project src/AvroTool idl2schemata sample.avdl
+$ avrotool idl2schemata sample.avdl
 Generated /home/sjp/repos/AvroTools/TestRecord.avsc
 Generated /home/sjp/repos/AvroTools/TestEnum.avsc
 
@@ -153,7 +159,7 @@ protocol TestProtocol {
   void Ping();
 }
 
-$ dotnet run --project src/AvroTool codegen sample.avdl Test.Code.Namespace
+$ avrotool codegen sample.avdl Test.Code.Namespace
 Generated /home/sjp/repos/AvroTools/TestProtocol.cs
 Generated /home/sjp/repos/AvroTools/TestRecord.cs
 
