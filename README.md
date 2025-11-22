@@ -31,27 +31,18 @@ Most of the documentation is provided by the tool itself (outside of the languag
 
 ```plain
 $ dotnet run --project src/AvroTool
-    ___                 ______            __
-   /   |_   ___________/_  __/___  ____  / /
-  / /| | | / / ___/ __ \/ / / __ \/ __ \/ /
- / ___ | |/ / /  / /_/ / / / /_/ / /_/ / /
-/_/  |_|___/_/   \____/_/  \____/\____/_/
 
-The helpful Avro compiler tool.
+USAGE:
+    avrotool [OPTIONS] <COMMAND>
 
-avrotool
+OPTIONS:
+    -h, --help       Prints help information
+    -v, --version    Prints version information
 
-Usage:
-  avrotool [options] [command]
-
-Options:
-  -?, -h, --help  Show help and usage information
-  --version       Show version information
-
-Commands:
-  idl <idlfile>                Generates a JSON protocol file from an Avro IDL file.
-  idl2schemata <idlfile>       Extract JSON schemata of the types from an Avro IDL file.
-  codegen <input> <namespace>  Generates C# code for a given Avro IDL, protocol or schema.
+COMMANDS:
+    idl <IDL_FILE>                      Generates a JSON protocol file from an Avro IDL file
+    idl2schemata <IDL_FILE>             Extract JSON schemata of the types from an Avro IDL file
+    codegen <INPUT_FILE> <NAMESPACE>    Generates C# code for a given Avro IDL, protocol or schem
 ```
 
 ### Examples
