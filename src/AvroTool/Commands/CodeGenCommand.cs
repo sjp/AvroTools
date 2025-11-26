@@ -118,7 +118,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 .ToList();
 
             var filenames = namedTypes
-                .Select(s => Path.Combine(outputDir.FullName, s.Name + ".cs"))
+                .Select(s => Path.Combine(outputDir.FullName, s.Fullname + ".cs"))
                 .ToList();
 
             var existingFiles = filenames.Where(File.Exists).ToList();
@@ -152,7 +152,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
             foreach (var namedType in namedTypes)
             {
-                var outputFilePath = Path.Combine(outputDir.FullName, namedType.Name + ".cs");
+                var outputFilePath = Path.Combine(outputDir.FullName, namedType.Fullname + ".cs");
 
                 var schemaOutput = namedType.Tag switch
                 {

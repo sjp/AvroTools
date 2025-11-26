@@ -78,7 +78,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 .ToList();
 
             var filenames = namedTypes
-                .Select(s => Path.Combine(outputDir.FullName, s.Name + ".avsc"))
+                .Select(s => Path.Combine(outputDir.FullName, s.Fullname + ".avsc"))
                 .ToList();
 
             var existingFiles = filenames.Where(File.Exists).ToList();
@@ -92,7 +92,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 
             foreach (var namedType in namedTypes)
             {
-                var namedTypeFilename = Path.Combine(outputDir.FullName, namedType.Name + ".avsc");
+                var namedTypeFilename = Path.Combine(outputDir.FullName, namedType.Fullname + ".avsc");
                 if (File.Exists(namedTypeFilename))
                     File.Delete(namedTypeFilename);
 

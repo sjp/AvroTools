@@ -432,9 +432,9 @@ namespace SJP.Avro.CodeGen.Test
             OutputDirectory = sourceDir,
         };
         var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
-        var pairVolumeFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "PairVolume.cs"));
-        var datumFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "Datum.cs"));
-        var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
+        var pairVolumeFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.PairVolume.cs"));
+        var datumFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Datum.cs"));
+        var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestRecord.cs"));
 
         const string ExpectedPairVolumeFileContents = """
 using System;
