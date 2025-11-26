@@ -198,14 +198,15 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace avro.examples.baseball
 {
     public record Player : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
 
-        public Schema Schema { get; } = _schema;
+        public AvroSchema Schema { get; } = _schema;
 
         public int number { get; set; }
 
@@ -220,7 +221,7 @@ namespace avro.examples.baseball
 
         public decimal test_num { get; set; }
 
-        public Position[] position { get; set; } = default!;
+        public List<Position> position { get; set; } = default!;
 
         public IDictionary<string, Position> positionLookup { get; set; } = default!;
 
@@ -261,7 +262,7 @@ namespace avro.examples.baseball
                     test_num = AvroDecimal.ToDecimal((AvroDecimal)fieldValue);
                     break;
                 case PlayerField.position:
-                    position = (Position[])fieldValue;
+                    position = (List<Position>)fieldValue;
                     break;
                 case PlayerField.positionLookup:
                     positionLookup = (IDictionary<string, Position>)fieldValue;
@@ -350,14 +351,15 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace avro.examples.baseball
 {
     public record Player : SpecificException
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"error\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"error\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
 
-        public override Schema Schema { get; } = _schema;
+        public override AvroSchema Schema { get; } = _schema;
 
         public int number { get; set; }
 
@@ -372,7 +374,7 @@ namespace avro.examples.baseball
 
         public decimal test_num { get; set; }
 
-        public Position[] position { get; set; } = default!;
+        public List<Position> position { get; set; } = default!;
 
         public IDictionary<string, Position> positionLookup { get; set; } = default!;
 
@@ -413,7 +415,7 @@ namespace avro.examples.baseball
                     test_num = AvroDecimal.ToDecimal((AvroDecimal)fieldValue);
                     break;
                 case PlayerField.position:
-                    position = (Position[])fieldValue;
+                    position = (List<Position>)fieldValue;
                     break;
                 case PlayerField.positionLookup:
                     positionLookup = (IDictionary<string, Position>)fieldValue;
@@ -511,14 +513,15 @@ using avro.test.enum;
 using avro.test.error;
 using avro.test.fixed;
 using avro.test.record;
+using AvroSchema = Avro.Schema;
 
 namespace avro.test.protocol
 {
     public record RefersToOthers : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"RefersToOthers\",\"namespace\":\"avro.test.protocol\",\"fields\":[{\"name\":\"someFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInOtherNamespace\",\"namespace\":\"avro.test.fixed\",\"size\":16}},{\"name\":\"someRecord\",\"type\":{\"type\":\"record\",\"name\":\"RecordInOtherNamespace\",\"namespace\":\"avro.test.record\",\"fields\":[]}},{\"name\":\"someError\",\"type\":{\"type\":\"error\",\"name\":\"ErrorInOtherNamespace\",\"namespace\":\"avro.test.error\",\"fields\":[]}},{\"name\":\"someEnum\",\"type\":{\"type\":\"enum\",\"name\":\"EnumInOtherNamespace\",\"namespace\":\"avro.test.enum\",\"symbols\":[\"FOO\"]}},{\"name\":\"thisFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInThisNamespace\",\"namespace\":\"avro.test.protocol\",\"size\":16}}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"RefersToOthers\",\"namespace\":\"avro.test.protocol\",\"fields\":[{\"name\":\"someFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInOtherNamespace\",\"namespace\":\"avro.test.fixed\",\"size\":16}},{\"name\":\"someRecord\",\"type\":{\"type\":\"record\",\"name\":\"RecordInOtherNamespace\",\"namespace\":\"avro.test.record\",\"fields\":[]}},{\"name\":\"someError\",\"type\":{\"type\":\"error\",\"name\":\"ErrorInOtherNamespace\",\"namespace\":\"avro.test.error\",\"fields\":[]}},{\"name\":\"someEnum\",\"type\":{\"type\":\"enum\",\"name\":\"EnumInOtherNamespace\",\"namespace\":\"avro.test.enum\",\"symbols\":[\"FOO\"]}},{\"name\":\"thisFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInThisNamespace\",\"namespace\":\"avro.test.protocol\",\"size\":16}}]}");
 
-        public Schema Schema { get; } = _schema;
+        public AvroSchema Schema { get; } = _schema;
 
         public FixedInOtherNamespace someFixed { get; set; } = default!;
 

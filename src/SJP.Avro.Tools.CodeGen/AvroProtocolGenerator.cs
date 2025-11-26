@@ -45,6 +45,12 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             .Select(UsingDirective)
             .ToList();
 
+        // prefer alias to avoid conflicts with user types
+        var protocolAlias = UsingDirective(
+            NameEquals(IdentifierName("AvroProtocol")),
+            ParseName("Avro.Protocol"));
+        usingStatements.Add(protocolAlias);
+
         var messageMethods = protocol.Messages.Values
             .Select(BuildMethod)
             .ToList();
@@ -88,16 +94,16 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     {
         var systemNamespaces = new[]
         {
-                "System",
-                "System.Collections.Generic"
-            };
+            "System",
+            "System.Collections.Generic"
+        };
 
         var avroNamespaces = new[]
         {
-                "Avro",
-                "Avro.IO",
-                "Avro.Specific"
-            };
+            "Avro",
+            "Avro.IO",
+            "Avro.Specific"
+        };
 
         var namespaces = new HashSet<string>(systemNamespaces.Concat(avroNamespaces));
 

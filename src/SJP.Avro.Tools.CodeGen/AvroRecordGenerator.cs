@@ -40,6 +40,12 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             .Select(UsingDirective)
             .ToList();
 
+        // prefer alias to avoid conflicts with user types
+        var schemaAlias = UsingDirective(
+            NameEquals(IdentifierName("AvroSchema")),
+            ParseName("Avro.Schema"));
+        usingStatements.Add(schemaAlias);
+
         var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString());
         var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty();
 
@@ -102,15 +108,15 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     {
         var systemNamespaces = new[]
         {
-                "System",
-                "System.Collections.Generic"
-            };
+            "System",
+            "System.Collections.Generic"
+        };
 
         var avroNamespaces = new[]
         {
-                "Avro",
-                "Avro.Specific"
-            };
+            "Avro",
+            "Avro.Specific"
+        };
 
         var namespaces = new HashSet<string>(systemNamespaces.Concat(avroNamespaces));
 

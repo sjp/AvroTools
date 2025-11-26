@@ -59,16 +59,18 @@ internal static class AvroSchemaUtilities
     private static TypeSyntax ResolveArrayType(ArraySchema arraySchema)
     {
         var value = GetFieldType(arraySchema.ItemSchema);
-        return ArrayType(
-            value,
-            SingletonList(ArrayRankSpecifier()));
+        return GenericName(
+            Identifier(nameof(System.Collections.Generic.List<>)))
+            .WithTypeArgumentList(
+                TypeArgumentList(
+                    SingletonSeparatedList(value)));
     }
 
     private static TypeSyntax ResolveMapType(MapSchema mapSchema)
     {
         var value = GetFieldType(mapSchema.ValueSchema);
         return GenericName(
-            Identifier(nameof(IDictionary<string, object>)))
+            Identifier(nameof(IDictionary<,>)))
             .WithTypeArgumentList(
                 TypeArgumentList(
                     SeparatedList<TypeSyntax>(
@@ -157,7 +159,7 @@ internal static class AvroSchemaUtilities
     {
         return FieldDeclaration(
             VariableDeclaration(
-                IdentifierName(nameof(Protocol)))
+                IdentifierName("AvroProtocol"))
             .WithVariables(
                 SingletonSeparatedList(
                     VariableDeclarator(
@@ -167,7 +169,7 @@ internal static class AvroSchemaUtilities
                             InvocationExpression(
                                 MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName(nameof(Protocol)),
+                                    IdentifierName("AvroProtocol"),
                                     IdentifierName(nameof(Protocol.Parse))))
                             .WithArgumentList(
                                 ArgumentList(
@@ -186,7 +188,7 @@ internal static class AvroSchemaUtilities
     public static PropertyDeclarationSyntax CreateProtocolProperty()
     {
         return PropertyDeclaration(
-                IdentifierName(nameof(Protocol)),
+                IdentifierName("AvroProtocol"),
                 Identifier("Protocol"))
             .WithModifiers(
                 TokenList(
@@ -210,7 +212,7 @@ internal static class AvroSchemaUtilities
     {
         return FieldDeclaration(
             VariableDeclaration(
-                IdentifierName(nameof(Schema)))
+                IdentifierName("AvroSchema"))
             .WithVariables(
                 SingletonSeparatedList(
                     VariableDeclarator(
@@ -220,7 +222,7 @@ internal static class AvroSchemaUtilities
                             InvocationExpression(
                                 MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName(nameof(Schema)),
+                                    IdentifierName("AvroSchema"),
                                     IdentifierName(nameof(Schema.Parse))))
                             .WithArgumentList(
                                 ArgumentList(
@@ -239,7 +241,7 @@ internal static class AvroSchemaUtilities
     public static PropertyDeclarationSyntax CreateSchemaProperty()
     {
         return PropertyDeclaration(
-                IdentifierName(nameof(Schema)),
+                IdentifierName("AvroSchema"),
                 Identifier("Schema"))
             .WithModifiers(
                 TokenList(

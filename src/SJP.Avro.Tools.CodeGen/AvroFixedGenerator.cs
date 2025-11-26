@@ -39,6 +39,12 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
             .Select(UsingDirective)
             .ToList();
 
+        // Add using alias for Schema to avoid conflicts with user types
+        var schemaAlias = UsingDirective(
+            NameEquals(IdentifierName("AvroSchema")),
+            ParseName("Avro.Schema"));
+        usingStatements.Add(schemaAlias);
+
         var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString());
         var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty()
             .WithModifiers(
@@ -85,11 +91,11 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
     {
         var namespaces = new[]
         {
-                "System",
-                "System.Collections.Generic",
-                "Avro",
-                "Avro.Specific"
-            };
+            "System",
+            "System.Collections.Generic",
+            "Avro",
+            "Avro.Specific"
+        };
 
         return namespaces.OrderNamespaces();
     }

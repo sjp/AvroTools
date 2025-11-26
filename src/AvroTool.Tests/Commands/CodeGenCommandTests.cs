@@ -156,14 +156,15 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace SJP.Avro.CodeGen.Test
 {
     public record TestRecord : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
 
-        public Schema Schema { get; } = _schema;
+        public AvroSchema Schema { get; } = _schema;
 
         public string FirstName { get; set; } = default!;
 
@@ -238,14 +239,15 @@ using System.Collections.Generic;
 using Avro;
 using Avro.IO;
 using Avro.Specific;
+using AvroProtocol = Avro.Protocol;
 
 namespace SJP.Avro.CodeGen.Test
 {
     public abstract record TestProtocol : ISpecificProtocol
     {
-        private static readonly Protocol _protocol = Protocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
+        private static readonly AvroProtocol _protocol = AvroProtocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
 
-        public Protocol Protocol { get; } = _protocol;
+        public AvroProtocol Protocol { get; } = _protocol;
 
         public void Request(ICallbackRequestor requestor, string messageName, object[] args, object callback)
         {
@@ -299,14 +301,15 @@ using System.Collections.Generic;
 using Avro;
 using Avro.IO;
 using Avro.Specific;
+using AvroProtocol = Avro.Protocol;
 
 namespace SJP.Avro.CodeGen.Test
 {
     public abstract record TestProtocol : ISpecificProtocol
     {
-        private static readonly Protocol _protocol = Protocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
+        private static readonly AvroProtocol _protocol = AvroProtocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
 
-        public Protocol Protocol { get; } = _protocol;
+        public AvroProtocol Protocol { get; } = _protocol;
 
         public void Request(ICallbackRequestor requestor, string messageName, object[] args, object callback)
         {
@@ -359,14 +362,15 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace SJP.Avro.CodeGen.Test
 {
     public record TestRecord : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
 
-        public Schema Schema { get; } = _schema;
+        public AvroSchema Schema { get; } = _schema;
 
         public string FirstName { get; set; } = default!;
 
@@ -441,14 +445,15 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace TestNamespace
 {
     public record PairVolume : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}");
 
-        public Schema Schema { get; } = _schema;
+        public AvroSchema Schema { get; } = _schema;
 
         public double? negative1 { get; set; }
 
@@ -495,14 +500,15 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace TestNamespace
 {
     public record Datum : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}");
 
-        public Schema Schema { get; } = _schema;
+        public AvroSchema Schema { get; } = _schema;
 
         public string? name { get; set; }
 
@@ -556,16 +562,17 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace TestNamespace
 {
     public record TestRecord : ISpecificRecord
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"data\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}}}]}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"data\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}}}]}");
 
-        public Schema Schema { get; } = _schema;
+        public AvroSchema Schema { get; } = _schema;
 
-        public Datum[] data { get; set; } = default!;
+        public List<Datum> data { get; set; } = default!;
 
         public object Get(int fieldPos)
         {
@@ -583,7 +590,7 @@ namespace TestNamespace
             switch (testRecordField)
             {
                 case TestRecordField.data:
-                    data = (Datum[])fieldValue;
+                    data = (List<Datum>)fieldValue;
                     break;
                 default:
                     throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");

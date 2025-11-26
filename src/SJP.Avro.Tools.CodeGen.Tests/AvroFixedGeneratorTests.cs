@@ -78,6 +78,7 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace org.apache.avro.test
 {
@@ -86,9 +87,9 @@ namespace org.apache.avro.test
     /// </summary>
     public record MD5 : SpecificFixed
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.test\",\"size\":16,\"foo\":\"bar\"}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.test\",\"size\":16,\"foo\":\"bar\"}");
 
-        public override Schema Schema { get; } = _schema;
+        public override AvroSchema Schema { get; } = _schema;
 
         public static uint FixedSize { get; } = 16;
 
@@ -123,14 +124,15 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
+using AvroSchema = Avro.Schema;
 
 namespace {{TestNamespace}}
 {
     public record MD5 : SpecificFixed
     {
-        private static readonly Schema _schema = Schema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"size\":16,\"foo\":\"bar\"}");
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"size\":16,\"foo\":\"bar\"}");
 
-        public override Schema Schema { get; } = _schema;
+        public override AvroSchema Schema { get; } = _schema;
 
         public static uint FixedSize { get; } = 16;
 
