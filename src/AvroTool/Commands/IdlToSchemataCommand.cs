@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -68,11 +69,15 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 
         try
         {
-            var avroSchemas = parseResult.Result.Match(
+            var schemas = parseResult.Result.Match(
                 p => p.Types,
                 s => [s]);
 
-            var filenames = avroSchemas
+            var namedTypes = schemas
+                .SelectMany(s => s.GetNamedTypes())
+                .ToList();
+
+            var filenames = namedTypes
                 .Select(s => Path.Combine(outputDir.FullName, s.Name + ".avsc"))
                 .ToList();
 
@@ -85,21 +90,21 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 return ErrorCode.Error;
             }
 
-            foreach (var schema in avroSchemas)
+            foreach (var namedType in namedTypes)
             {
-                var schemaFilename = Path.Combine(outputDir.FullName, schema.Name + ".avsc");
-                if (File.Exists(schemaFilename))
-                    File.Delete(schemaFilename);
+                var namedTypeFilename = Path.Combine(outputDir.FullName, namedType.Name + ".avsc");
+                if (File.Exists(namedTypeFilename))
+                    File.Delete(namedTypeFilename);
 
                 // format output so it's human-readable
-                var jsonNode = JsonNode.Parse(schema.ToString());
+                var jsonNode = JsonNode.Parse(namedType.ToString());
                 var formattedOutput = jsonNode!.ToJsonString(new JsonSerializerOptions
                 {
                     WriteIndented = true
                 });
 
-                await File.WriteAllTextAsync(schemaFilename, formattedOutput, cancellationToken);
-                _console.MarkupLineInterpolated($"[green]Generated {schemaFilename}[/]");
+                await File.WriteAllTextAsync(namedTypeFilename, formattedOutput, cancellationToken);
+                _console.MarkupLineInterpolated($"[green]Generated {namedTypeFilename}[/]");
             }
 
             return ErrorCode.Success;

@@ -43,6 +43,83 @@ internal class IdlToSchemataCommandTests
         }
         """;
 
+    private const string MultiRecordIdl = """
+namespace TestNamespace;
+
+record TestRecord {
+    array<Datum> data;
+}
+
+record Datum {
+    string? name;
+    int datumId;
+    PairVolume pairVolumes;
+}
+
+record PairVolume {
+    double? negative1;
+    double? negative2;
+}
+""";
+
+    private const string MultiRecordSchema = """
+{
+  "type": "record",
+  "name": "TestRecord",
+  "namespace": "TestNamespace",
+  "fields": [
+    {
+      "name": "data",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Datum",
+          "namespace": "TestNamespace",
+          "fields": [
+            {
+              "name": "name",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            {
+              "name": "datumId",
+              "type": "int"
+            },
+            {
+              "name": "pairVolumes",
+              "type": {
+                "type": "record",
+                "name": "PairVolume",
+                "namespace": "TestNamespace",
+                "fields": [
+                  {
+                    "name": "negative1",
+                    "type": [
+                      "null",
+                      "double"
+                    ]
+                  },
+                  {
+                    "name": "negative2",
+                    "type": [
+                      "null",
+                      "double"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+""";
+
     private TemporaryDirectory _tempDir;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
@@ -104,6 +181,34 @@ internal class IdlToSchemataCommandTests
         {
             Assert.That(result, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenMultiRecordInput_WritesExpectedOutput()
+    {
+        const string input = MultiRecordIdl;
+
+        _parseResult = IdlParseResult.Schema(AvroSchema.Parse(MultiRecordSchema));
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_multi_record_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var command = new IdlToSchemataCommand.Settings
+        {
+            IdlFile = sourceFile.FullName,
+            Overwrite = true,
+            OutputDirectory = sourceDir
+        };
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+
+        var schemaCount = sourceDir.GetFiles("*.avsc");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(schemaCount, Has.Exactly(3).Items);
         }
     }
 

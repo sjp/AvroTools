@@ -18,7 +18,7 @@ namespace AvroTool.Tests.Commands;
 [TestFixture]
 internal class CodeGenCommandTests
 {
-    private const string TestNamespace = "SJP.Arvo.CodeGen.Test";
+    private const string TestNamespace = "SJP.Avro.CodeGen.Test";
 
     private const string SimpleTestIdl = @"protocol TestProtocol {
   record TestRecord {
@@ -36,6 +36,64 @@ internal class CodeGenCommandTests
     private const string SimpleTestProtocol = @"{""protocol"":""TestProtocol"",""types"":[],""messages"":{""error"":{""request"":[],""response"":""null""},""void"":{""request"":[],""response"":""null""}}}";
 
     private const string SimpleTestSchema = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
+
+    private const string MultiRecordSchema = """
+{
+  "type": "record",
+  "name": "TestRecord",
+  "namespace": "TestNamespace",
+  "fields": [
+    {
+      "name": "data",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Datum",
+          "namespace": "TestNamespace",
+          "fields": [
+            {
+              "name": "name",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            {
+              "name": "datumId",
+              "type": "int"
+            },
+            {
+              "name": "pairVolumes",
+              "type": {
+                "type": "record",
+                "name": "PairVolume",
+                "namespace": "TestNamespace",
+                "fields": [
+                  {
+                    "name": "negative1",
+                    "type": [
+                      "null",
+                      "double"
+                    ]
+                  },
+                  {
+                    "name": "negative2",
+                    "type": [
+                      "null",
+                      "double"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+""";
 
     private TemporaryDirectory _tempDir;
     private Mock<IAnsiConsole> _console;
@@ -99,7 +157,7 @@ using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
 
-namespace SJP.Arvo.CodeGen.Test
+namespace SJP.Avro.CodeGen.Test
 {
     public record TestRecord : ISpecificRecord
     {
@@ -181,7 +239,7 @@ using Avro;
 using Avro.IO;
 using Avro.Specific;
 
-namespace SJP.Arvo.CodeGen.Test
+namespace SJP.Avro.CodeGen.Test
 {
     public abstract record TestProtocol : ISpecificProtocol
     {
@@ -242,7 +300,7 @@ using Avro;
 using Avro.IO;
 using Avro.Specific;
 
-namespace SJP.Arvo.CodeGen.Test
+namespace SJP.Avro.CodeGen.Test
 {
     public abstract record TestProtocol : ISpecificProtocol
     {
@@ -302,7 +360,7 @@ using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
 
-namespace SJP.Arvo.CodeGen.Test
+namespace SJP.Avro.CodeGen.Test
 {
     public record TestRecord : ISpecificRecord
     {
@@ -354,6 +412,198 @@ namespace SJP.Arvo.CodeGen.Test
         {
             Assert.That(result, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenValidSchemaInputWithMultipleNamedTypes_WritesExpectedOutput()
+    {
+        const string input = MultiRecordSchema;
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var command = new CodeGenCommand.Settings
+        {
+            InputFile = sourceFile.FullName,
+            Overwrite = true,
+            Namespace = TestNamespace,
+            OutputDirectory = sourceDir,
+        };
+        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var pairVolumeFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "PairVolume.cs"));
+        var datumFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "Datum.cs"));
+        var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
+
+        const string ExpectedPairVolumeFileContents = """
+using System;
+using System.Collections.Generic;
+using Avro;
+using Avro.Specific;
+
+namespace TestNamespace
+{
+    public record PairVolume : ISpecificRecord
+    {
+        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}");
+
+        public Schema Schema { get; } = _schema;
+
+        public double? negative1 { get; set; }
+
+        public double? negative2 { get; set; }
+
+        public object Get(int fieldPos)
+        {
+            var pairVolumeField = (PairVolumeField)fieldPos;
+            return pairVolumeField switch
+            {
+                PairVolumeField.negative1 => negative1,
+                PairVolumeField.negative2 => negative2,
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+            };
+        }
+
+        public void Put(int fieldPos, object fieldValue)
+        {
+            var pairVolumeField = (PairVolumeField)fieldPos;
+            switch (pairVolumeField)
+            {
+                case PairVolumeField.negative1:
+                    negative1 = (double?)fieldValue;
+                    break;
+                case PairVolumeField.negative2:
+                    negative2 = (double?)fieldValue;
+                    break;
+                default:
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+            }
+        }
+
+        private enum PairVolumeField
+        {
+            negative1,
+            negative2
+        }
+    }
+}
+""";
+
+        const string ExpectedDatumFileContents = """
+using System;
+using System.Collections.Generic;
+using Avro;
+using Avro.Specific;
+
+namespace TestNamespace
+{
+    public record Datum : ISpecificRecord
+    {
+        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}");
+
+        public Schema Schema { get; } = _schema;
+
+        public string? name { get; set; }
+
+        public int datumId { get; set; }
+
+        public PairVolume pairVolumes { get; set; } = default!;
+
+        public object Get(int fieldPos)
+        {
+            var datumField = (DatumField)fieldPos;
+            return datumField switch
+            {
+                DatumField.name => name,
+                DatumField.datumId => datumId,
+                DatumField.pairVolumes => pairVolumes,
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+            };
+        }
+
+        public void Put(int fieldPos, object fieldValue)
+        {
+            var datumField = (DatumField)fieldPos;
+            switch (datumField)
+            {
+                case DatumField.name:
+                    name = (string?)fieldValue;
+                    break;
+                case DatumField.datumId:
+                    datumId = (int)fieldValue;
+                    break;
+                case DatumField.pairVolumes:
+                    pairVolumes = (PairVolume)fieldValue;
+                    break;
+                default:
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+            }
+        }
+
+        private enum DatumField
+        {
+            name,
+            datumId,
+            pairVolumes
+        }
+    }
+}
+""";
+
+        const string ExpectedTestRecordFileContents = """
+using System;
+using System.Collections.Generic;
+using Avro;
+using Avro.Specific;
+
+namespace TestNamespace
+{
+    public record TestRecord : ISpecificRecord
+    {
+        private static readonly Schema _schema = Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"data\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}}}]}");
+
+        public Schema Schema { get; } = _schema;
+
+        public Datum[] data { get; set; } = default!;
+
+        public object Get(int fieldPos)
+        {
+            var testRecordField = (TestRecordField)fieldPos;
+            return testRecordField switch
+            {
+                TestRecordField.data => data,
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+            };
+        }
+
+        public void Put(int fieldPos, object fieldValue)
+        {
+            var testRecordField = (TestRecordField)fieldPos;
+            switch (testRecordField)
+            {
+                case TestRecordField.data:
+                    data = (Datum[])fieldValue;
+                    break;
+                default:
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+            }
+        }
+
+        private enum TestRecordField
+        {
+            data
+        }
+    }
+}
+""";
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(pairVolumeFileContents, Is.EqualTo(ExpectedPairVolumeFileContents).IgnoreLineEndingFormat);
+            Assert.That(datumFileContents, Is.EqualTo(ExpectedDatumFileContents).IgnoreLineEndingFormat);
+            Assert.That(testRecordFileContents, Is.EqualTo(ExpectedTestRecordFileContents).IgnoreLineEndingFormat);
         }
     }
 

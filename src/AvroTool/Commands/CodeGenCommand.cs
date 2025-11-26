@@ -113,7 +113,11 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 }
             }
 
-            var filenames = schemas
+            var namedTypes = schemas
+                .SelectMany(s => s.GetNamedTypes())
+                .ToList();
+
+            var filenames = namedTypes
                 .Select(s => Path.Combine(outputDir.FullName, s.Name + ".cs"))
                 .ToList();
 
@@ -146,16 +150,16 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 }
             }
 
-            foreach (var schema in schemas)
+            foreach (var namedType in namedTypes)
             {
-                var outputFilePath = Path.Combine(outputDir.FullName, schema.Name + ".cs");
+                var outputFilePath = Path.Combine(outputDir.FullName, namedType.Name + ".cs");
 
-                var schemaOutput = schema.Tag switch
+                var schemaOutput = namedType.Tag switch
                 {
-                    AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)schema, settings.Namespace),
-                    AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)schema, settings.Namespace),
-                    AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)schema, settings.Namespace),
-                    AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)schema, settings.Namespace),
+                    AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.Namespace),
+                    AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)namedType, settings.Namespace),
+                    AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.Namespace),
+                    AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.Namespace),
                     _ => null
                 };
 
