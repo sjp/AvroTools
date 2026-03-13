@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Apache.Avro" Version="1.12.1" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.3.0" />
   </ItemGroup>
 
 </Project>
