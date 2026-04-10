@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -7,9 +8,11 @@ using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
 using NUnit.Framework;
+using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
 using AvroSchema = Avro.Schema;
 
@@ -120,11 +123,10 @@ record PairVolume {
 }
 """;
 
+    private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
-    private CommandContext _commandContext;
-    private IdlToSchemataCommand _commandHandler;
 
     private IdlParseResult _parseResult;
 
@@ -142,11 +144,14 @@ record PairVolume {
             .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
-        _commandContext = new CommandContext([], Mock.Of<IRemainingArguments>(), "idltoschemata", null);
-
-        _commandHandler = new IdlToSchemataCommand(
+        var registrar = new FakeTypeRegistrar();
+        var command = new IdlToSchemataCommand(
             _console.Object,
             _idlTranslator.Object);
+        registrar.RegisterInstance(typeof(IdlToSchemataCommand), command);
+
+        _app = new CommandAppTester(registrar);
+        _app.SetDefaultCommand<IdlToSchemataCommand>();
     }
 
     [TearDown]
@@ -164,13 +169,7 @@ record PairVolume {
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = true,
-            OutputDirectory = sourceDir
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         var expectedResultFileContents = _parseResult.Match(
@@ -179,7 +178,7 @@ record PairVolume {
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
+            Assert.That(result.ExitCode, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
         }
     }
@@ -195,19 +194,13 @@ record PairVolume {
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = true,
-            OutputDirectory = sourceDir
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
         var schemaCount = sourceDir.GetFiles("*.avsc");
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
+            Assert.That(result.ExitCode, Is.Zero);
             Assert.That(schemaCount, Has.Exactly(3).Items);
         }
     }
@@ -225,15 +218,9 @@ record PairVolume {
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = true,
-            OutputDirectory = sourceDir
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Not.Zero);
+        Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
     [Test]
@@ -248,15 +235,9 @@ record PairVolume {
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = false,
-            OutputDirectory = sourceDir
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Not.Zero);
+        Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
     [Test]
@@ -271,15 +252,9 @@ record PairVolume {
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = true,
-            OutputDirectory = sourceDir
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Zero);
+        Assert.That(result.ExitCode, Is.Zero);
     }
 
     [Test]
@@ -297,66 +272,48 @@ record PairVolume {
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         // expect an error in overwriting if in the same dir
-        var command = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName,
-            Overwrite = false,
-            OutputDirectory = null
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName], default);
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
 
-        Assert.That(result, Is.Not.Zero);
+        Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
     [Test]
-    public void Validate_WithMissingInputFile_ReturnsError()
+    public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var settings = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = string.Empty
-        };
-
-        var result = _commandHandler.Validate(_commandContext, settings);
+        var result = await _app.RunAsync([string.Empty], default);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Successful, Is.False);
-            Assert.That(result.Message, Is.EqualTo("An IDL file must be provided."));
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("An IDL file must be provided."));
         }
     }
 
     [Test]
-    public void Validate_WithNonExistentInputFile_ReturnsError()
+    public async Task Validate_WithNonExistentInputFile_ReturnsError()
     {
-        var settings = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = "a/b/c.avdl"
-        };
+        const string IdlFile = "a/b/c.avdl";
 
-        var result = _commandHandler.Validate(_commandContext, settings);
+        var result = await _app.RunAsync([IdlFile], default);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Successful, Is.False);
-            Assert.That(result.Message, Is.EqualTo($"An IDL file could not be found at: {settings.IdlFile}"));
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain($"An IDL file could not be found at: {IdlFile}"));
         }
     }
 
     [Test]
-    public void Validate_WithValidParameters_ReturnsSuccess()
+    public async Task Validate_WithValidParameters_ReturnsSuccess()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, SimpleTestIdl);
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
 
-        var settings = new IdlToSchemataCommand.Settings
-        {
-            IdlFile = sourceFile.FullName
-        };
+        var result = await _app.RunAsync([sourceFile.FullName], default);
 
-        var result = _commandHandler.Validate(_commandContext, settings);
-        Assert.That(result.Successful, Is.True);
+        Assert.That(result.Output, Is.Empty);
     }
 }

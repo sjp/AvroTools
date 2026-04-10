@@ -8,7 +8,7 @@ using NUnit.Framework;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
-using Spectre.Console.Cli;
+using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
@@ -95,11 +95,10 @@ internal class CodeGenCommandTests
 }
 """;
 
+    private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
-    private CommandContext _commandContext;
-    private CodeGenCommand _commandHandler;
 
     private IdlParseResult _parseResult;
 
@@ -117,13 +116,12 @@ internal class CodeGenCommandTests
             .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
-        _commandContext = new CommandContext([], Mock.Of<IRemainingArguments>(), "codegen", null);
+        var registrar = new FakeTypeRegistrar();
+        var command = new CodeGenCommand(_console.Object, new CodeGeneratorResolver(), _idlTranslator.Object);
+        registrar.RegisterInstance(typeof(CodeGenCommand), command);
 
-        _commandHandler = new CodeGenCommand(
-            _console.Object,
-            new CodeGeneratorResolver(),
-            _idlTranslator.Object
-        );
+        _app = new CommandAppTester(registrar);
+        _app.SetDefaultCommand<CodeGenCommand>();
     }
 
     [TearDown]
@@ -141,14 +139,7 @@ internal class CodeGenCommandTests
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         const string expectedResultFileContents = """
@@ -208,7 +199,7 @@ namespace SJP.Avro.CodeGen.Test
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
+            Assert.That(result.ExitCode, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
         }
     }
@@ -223,14 +214,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         const string expectedResultFileContents = """
@@ -271,7 +255,7 @@ namespace SJP.Avro.CodeGen.Test
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
+            Assert.That(result.ExitCode, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
         }
     }
@@ -285,14 +269,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         const string expectedResultFileContents = """
@@ -333,7 +310,7 @@ namespace SJP.Avro.CodeGen.Test
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
+            Assert.That(result.ExitCode, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
         }
     }
@@ -347,14 +324,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         const string expectedResultFileContents = """
@@ -414,7 +384,7 @@ namespace SJP.Avro.CodeGen.Test
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
+            Assert.That(result.ExitCode, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(expectedResultFileContents).IgnoreLineEndingFormat);
         }
     }
@@ -428,14 +398,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var pairVolumeFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.PairVolume.cs"));
         var datumFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Datum.cs"));
         var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestRecord.cs"));
@@ -607,7 +570,7 @@ namespace TestNamespace
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
+            Assert.That(result.ExitCode, Is.Zero);
             Assert.That(pairVolumeFileContents, Is.EqualTo(ExpectedPairVolumeFileContents).IgnoreLineEndingFormat);
             Assert.That(datumFileContents, Is.EqualTo(ExpectedDatumFileContents).IgnoreLineEndingFormat);
             Assert.That(testRecordFileContents, Is.EqualTo(ExpectedTestRecordFileContents).IgnoreLineEndingFormat);
@@ -627,16 +590,9 @@ namespace TestNamespace
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Not.Zero);
+        Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
     [Test]
@@ -651,16 +607,9 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = false,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Not.Zero);
+        Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
     [Test]
@@ -675,16 +624,9 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = false,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Not.Zero);
+        Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
     [Test]
@@ -699,16 +641,9 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Zero);
+        Assert.That(result.ExitCode, Is.Zero);
     }
 
     [Test]
@@ -723,16 +658,9 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = true,
-            Namespace = TestNamespace,
-            OutputDirectory = sourceDir,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
-        Assert.That(result, Is.Zero);
+        Assert.That(result.ExitCode, Is.Zero);
     }
 
     [Test]
@@ -750,91 +678,65 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         // expect an error in overwriting if in the same dir
-        var command = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Overwrite = false,
-            Namespace = TestNamespace,
-            OutputDirectory = null,
-        };
-        var result = await _commandHandler.ExecuteAsync(_commandContext, command, default);
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace], default);
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
 
-        Assert.That(result, Is.Not.Zero);
+        Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
     [Test]
-    public void Validate_WithMissingInputFile_ReturnsError()
+    public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var settings = new CodeGenCommand.Settings
-        {
-            InputFile = string.Empty,
-            Namespace = TestNamespace
-        };
-
-        var result = _commandHandler.Validate(_commandContext, settings);
+        var result = await _app.RunAsync(["", TestNamespace], default);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Successful, Is.False);
-            Assert.That(result.Message, Is.EqualTo("An input file must be provided."));
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("An input file must be provided."));
         }
     }
 
     [Test]
-    public void Validate_WithNonExistentInputFile_ReturnsError()
+    public async Task Validate_WithNonExistentInputFile_ReturnsError()
     {
-        var settings = new CodeGenCommand.Settings
-        {
-            InputFile = "a/b/c.avdl",
-            Namespace = TestNamespace
-        };
+        const string InputFile = "a/b/c.avdl";
 
-        var result = _commandHandler.Validate(_commandContext, settings);
+        var result = await _app.RunAsync([InputFile, TestNamespace], default);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Successful, Is.False);
-            Assert.That(result.Message, Is.EqualTo($"An input file could not be found at: {settings.InputFile}"));
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain($"An input file could not be found at: {InputFile}"));
         }
     }
 
     [Test]
-    public void Validate_WithInvalidNamespace_ReturnsError()
+    public async Task Validate_WithInvalidNamespace_ReturnsError()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, SimpleTestIdl);
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
 
-        var settings = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Namespace = "123"
-        };
+        const string CodeNamespace = "123";
 
-        var result = _commandHandler.Validate(_commandContext, settings);
+        var result = await _app.RunAsync([sourceFile.FullName, CodeNamespace], default);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Successful, Is.False);
-            Assert.That(result.Message, Is.EqualTo($"The value '{settings.Namespace}' is not a valid C# namespace."));
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain($"The value '{CodeNamespace}' is not a valid C# namespace."));
         }
     }
 
     [Test]
-    public void Validate_WithValidParameters_ReturnsSuccess()
+    public async Task Validate_WithValidParameters_ReturnsSuccess()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        File.WriteAllText(sourceFile.FullName, SimpleTestIdl);
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
 
-        var settings = new CodeGenCommand.Settings
-        {
-            InputFile = sourceFile.FullName,
-            Namespace = TestNamespace
-        };
+        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace], default);
 
-        var result = _commandHandler.Validate(_commandContext, settings);
-        Assert.That(result.Successful, Is.True);
+        Assert.That(result.Output, Is.Empty);
     }
 }

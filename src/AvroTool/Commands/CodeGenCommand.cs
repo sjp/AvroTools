@@ -57,7 +57,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         _idlTranslator = idlTranslator;
     }
 
-    public override ValidationResult Validate(CommandContext context, Settings settings)
+    protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (string.IsNullOrWhiteSpace(settings.InputFile))
             return ValidationResult.Error("An input file must be provided.");
@@ -71,7 +71,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         return ValidationResult.Success();
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         AvroProtocol? protocol = null;
         IEnumerable<AvroSchema> schemas;
