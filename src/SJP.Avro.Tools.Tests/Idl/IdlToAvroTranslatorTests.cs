@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using FluentAssertions;
-using JsonDiffPatch;
+using JsonDiffPatchDotNet;
 using Microsoft.Extensions.FileProviders;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -43,9 +43,10 @@ internal class IdlToAvroTranslatorTests
         var parseResult = await _translator.Translate(inputFileReadStream);
         var jsonText = parseResult.Match(p => p.ToString(), s => s.ToString());
 
-        var differ = new JsonDiffer();
-        var diffResult = differ.Diff(JObject.Parse(jsonText), JObject.Parse(outputContents), true);
-        Assert.That(diffResult.Operations, Is.Empty);
+        var patcher = new JsonDiffPatch();
+        var diffResult = patcher.Diff(JObject.Parse(jsonText), JObject.Parse(outputContents));
+
+        Assert.That(diffResult, Is.Null);
     }
 
     private static IEnumerable<object[]> IdlInputOutputFilenames()
