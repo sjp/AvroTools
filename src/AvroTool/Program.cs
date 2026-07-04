@@ -32,6 +32,9 @@ internal static class Program
             config.AddCommand<IdlCommand>("idl").WithDescription("Generates a JSON protocol file from an Avro IDL file.");
             config.AddCommand<IdlToSchemataCommand>("idl2schemata").WithDescription("Extract JSON schemata of the types from an Avro IDL file.");
             config.AddCommand<CodeGenCommand>("codegen").WithDescription("Generates C# code for a given Avro IDL, protocol or schema.");
+            config.AddCommand<CompletionsCommand>("completions")
+                .WithDescription("Generates a shell completion script (bash, zsh, fish, powershell).")
+                .WithExample("completions", "bash");
 
             config.PropagateExceptions();
             config.ValidateExamples();

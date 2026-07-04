@@ -165,3 +165,23 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 
 // Contents of files omitted for brevity
 ```
+
+### Shell completions
+
+`avrotool completions <shell>` writes a completion script for the given shell
+(`bash`, `zsh`, `fish` or `powershell`) to standard output. Redirect it to a
+location your shell loads completions from:
+
+```sh
+# bash
+avrotool completions bash > ~/.local/share/bash-completion/completions/avrotool
+
+# zsh (a directory on your $fpath)
+avrotool completions zsh > ~/.zsh/completions/_avrotool
+
+# fish
+avrotool completions fish > ~/.config/fish/completions/avrotool.fish
+
+# PowerShell (add to your $PROFILE)
+avrotool completions powershell | Out-String | Invoke-Expression
+```
