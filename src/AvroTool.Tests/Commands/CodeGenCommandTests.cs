@@ -139,7 +139,7 @@ internal class CodeGenCommandTests
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         const string expectedResultFileContents = """
@@ -214,7 +214,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         const string expectedResultFileContents = """
@@ -269,7 +269,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         const string expectedResultFileContents = """
@@ -324,7 +324,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         const string expectedResultFileContents = """
@@ -398,7 +398,7 @@ namespace SJP.Avro.CodeGen.Test
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
         var pairVolumeFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.PairVolume.cs"));
         var datumFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Datum.cs"));
         var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestRecord.cs"));
@@ -590,7 +590,7 @@ namespace TestNamespace
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }
@@ -607,7 +607,7 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", sourceDir.FullName], default);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }
@@ -624,7 +624,7 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", sourceDir.FullName], default);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }
@@ -641,7 +641,7 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
         Assert.That(result.ExitCode, Is.Zero);
     }
@@ -658,7 +658,7 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
 
         Assert.That(result.ExitCode, Is.Zero);
     }
@@ -678,7 +678,7 @@ namespace TestNamespace
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
 
         // expect an error in overwriting if in the same dir
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace], default);
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
@@ -712,7 +712,7 @@ namespace TestNamespace
     [Test]
     public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var result = await _app.RunAsync(["", TestNamespace], default);
+        var result = await _app.RunAsync(["", "-n", TestNamespace], default);
 
         using (Assert.EnterMultipleScope())
         {
@@ -726,7 +726,7 @@ namespace TestNamespace
     {
         const string InputFile = "a/b/c.avdl";
 
-        var result = await _app.RunAsync([InputFile, TestNamespace], default);
+        var result = await _app.RunAsync([InputFile, "-n", TestNamespace], default);
 
         using (Assert.EnterMultipleScope())
         {
@@ -743,7 +743,7 @@ namespace TestNamespace
 
         const string CodeNamespace = "123";
 
-        var result = await _app.RunAsync([sourceFile.FullName, CodeNamespace], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", CodeNamespace], default);
 
         using (Assert.EnterMultipleScope())
         {
@@ -758,8 +758,31 @@ namespace TestNamespace
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
         await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
 
-        var result = await _app.RunAsync([sourceFile.FullName, TestNamespace], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace], default);
 
         Assert.That(result.Output, Is.Empty);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenMultipleSchemaInputs_GeneratesCodeForEach()
+    {
+        const string otherSchema = @"{""type"":""record"",""name"":""OtherRecord"",""fields"":[{""name"":""Value"",""type"":""int""}]}";
+
+        var one = Path.Combine(_tempDir.DirectoryPath, "one.avsc");
+        var two = Path.Combine(_tempDir.DirectoryPath, "two.avsc");
+        await File.WriteAllTextAsync(one, SimpleTestSchema);
+        await File.WriteAllTextAsync(two, otherSchema);
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var result = await _app.RunAsync([one, two, "-n", TestNamespace, "--output-dir", outputDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "TestRecord.cs")), Is.True);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "OtherRecord.cs")), Is.True);
+        }
     }
 }

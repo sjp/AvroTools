@@ -18,29 +18,35 @@ namespace AvroTool.Commands;
 
 internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 {
+    private static readonly string[] InputExtensions = [".avdl", ".avpr", ".avsc"];
+
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "[INPUT_FILE]")]
-        [Description("An IDL, protocol or schema file to generate C# code from. Omit and use --stdin to read from standard input.")]
-        public string InputFile { get; set; } = string.Empty;
-
-        [CommandArgument(1, "[NAMESPACE]")]
-        [Description("A base namespace to use for generated files. Only used when a defined namespace is not present. May also be supplied via --namespace.")]
-        public string Namespace { get; set; } = string.Empty;
+        [CommandArgument(0, "[INPUT_FILES]")]
+        [Description("One or more IDL, protocol or schema files, directories or glob patterns to generate C# code from. Omit and use --stdin to read from standard input.")]
+        public string[] InputFiles { get; set; } = [];
 
         [CommandOption("-n|--namespace")]
-        [Description("A base namespace to use for generated files. An alternative to the NAMESPACE argument, useful with --stdin.")]
-        public string? NamespaceOption { get; set; }
+        [Description("A base namespace to use for generated files. Only used when a defined namespace is not present.")]
+        public string? Namespace { get; set; }
 
         [CommandOption("--stdin")]
         [Description("Read the input from standard input instead of a file.")]
         [DefaultValue(false)]
         public bool FromStandardInput { get; set; }
 
-        /// <summary>
-        /// The effective base namespace, preferring the --namespace option over the positional argument.
-        /// </summary>
-        public string BaseNamespace => !string.IsNullOrWhiteSpace(NamespaceOption) ? NamespaceOption : Namespace;
+        [CommandOption("--no-recursive")]
+        [Description("When a directory is given, only process its top-level files instead of recursing.")]
+        [DefaultValue(false)]
+        public bool NoRecursive { get; set; }
+
+        [CommandOption("--fail-fast")]
+        [Description("Abort on the first input that fails instead of processing the rest.")]
+        [DefaultValue(false)]
+        public bool FailFast { get; set; }
+
+        /// <summary>The effective base namespace for generated files.</summary>
+        public string BaseNamespace => Namespace ?? string.Empty;
 
         [CommandOption("-o|--overwrite")]
         [Description("Overwrite any existing generated code.")]
@@ -75,11 +81,9 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
     {
         if (!settings.FromStandardInput)
         {
-            if (string.IsNullOrWhiteSpace(settings.InputFile))
-                return ValidationResult.Error("An input file must be provided.");
-
-            if (!File.Exists(settings.InputFile))
-                return ValidationResult.Error($"An input file could not be found at: {settings.InputFile}");
+            var inputResult = InputValidation.Validate(settings.InputFiles, "input");
+            if (!inputResult.Successful)
+                return inputResult;
         }
 
         if (!string.IsNullOrWhiteSpace(settings.BaseNamespace) && !CsharpValidation.IsValidCsharpNamespace(settings.BaseNamespace))
@@ -90,48 +94,78 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var inputContent = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.InputFile, cancellationToken);
+        var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
+        var collector = new OutputCollector(settings.Overwrite);
+
+        if (settings.FromStandardInput)
+        {
+            var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
+            var ok = await ProcessAsync(content, "<stdin>", settings, outputDir, collector, cancellationToken);
+            return ok ? ErrorCode.Success : ErrorCode.Error;
+        }
+
+        var expansion = InputExpander.Expand(settings.InputFiles, InputExtensions, !settings.NoRecursive);
+        foreach (var token in expansion.UnmatchedTokens)
+            _console.MarkupLineInterpolated($"[red]No input files matched: {token}[/]");
+
+        if (expansion.Files.Count == 0)
+        {
+            _console.MarkupLine("[red]No input files were found to generate code from.[/]");
+            return ErrorCode.Error;
+        }
+
+        var anyFailed = expansion.UnmatchedTokens.Count > 0;
+        foreach (var file in expansion.Files)
+        {
+            var content = await File.ReadAllTextAsync(file, cancellationToken);
+            var ok = await ProcessAsync(content, file, settings, outputDir, collector, cancellationToken);
+            if (!ok)
+            {
+                anyFailed = true;
+                if (settings.FailFast)
+                    break;
+            }
+        }
+
+        return anyFailed ? ErrorCode.Error : ErrorCode.Success;
+    }
+
+    private async Task<bool> ProcessAsync(
+        string inputContent,
+        string source,
+        Settings settings,
+        DirectoryInfo outputDir,
+        OutputCollector collector,
+        CancellationToken cancellationToken)
+    {
         var input = await AvroInputResolver.ResolveAsync(inputContent, _idlTranslator, cancellationToken);
         if (input == null)
         {
-            _console.MarkupLine("[red]Input file unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
-            return ErrorCode.Error;
+            _console.MarkupLineInterpolated($"[red]Input '{source}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
+            return false;
         }
 
         var protocol = input.Protocol;
         IEnumerable<AvroSchema> schemas = input.Schemas;
 
-        var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
-
         try
         {
-            if (protocol != null)
-            {
-                var outputFilePath = Path.Combine(outputDir.FullName, protocol.Name + ".cs");
-
-                if (File.Exists(outputFilePath) && !settings.Overwrite)
-                {
-                    _console.MarkupLine("[red]Unable to generate C# files. A file already exists.[/]");
-                    _console.MarkupLineInterpolated($"[red]    {outputFilePath}[/]");
-                    return ErrorCode.Error;
-                }
-            }
-
             var namedTypes = schemas
                 .SelectMany(s => s.GetNamedTypes())
                 .ToList();
 
-            var filenames = namedTypes
-                .Select(s => Path.Combine(outputDir.FullName, s.Fullname + ".cs"))
-                .ToList();
+            // Reserve every output this input could produce so collisions with other inputs
+            // (and pre-existing files without --overwrite) are reported before anything is written.
+            var reservations = new List<string>();
+            if (protocol != null)
+                reservations.Add(Path.Combine(outputDir.FullName, protocol.Name + ".cs"));
+            reservations.AddRange(namedTypes.Select(s => Path.Combine(outputDir.FullName, s.Fullname + ".cs")));
 
-            var existingFiles = filenames.Where(File.Exists).ToList();
-            if (existingFiles.Count > 0 && !settings.Overwrite)
+            var reserveError = collector.Reserve(reservations, source);
+            if (reserveError != null)
             {
-                _console.MarkupLine("[red]Unable to generate C# files. One or more files exist.[/]");
-                foreach (var existingFile in existingFiles)
-                    _console.MarkupLineInterpolated($"[red]    {existingFile}[/]");
-                return ErrorCode.Error;
+                _console.MarkupLineInterpolated($"[red]Unable to generate C# files from '{source}': {reserveError}[/]");
+                return false;
             }
 
             if (protocol != null)
@@ -146,10 +180,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                     var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
                     var protocolOutput = protocolGenerator.Generate(protocol, settings.BaseNamespace);
 
-                    if (File.Exists(outputFilePath))
-                        File.Delete(outputFilePath);
-
-                    await File.WriteAllTextAsync(outputFilePath, protocolOutput, cancellationToken);
+                    await OutputCollector.WriteAsync(outputFilePath, protocolOutput, cancellationToken);
                     _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
                 }
             }
@@ -170,21 +201,18 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 if (string.IsNullOrWhiteSpace(schemaOutput))
                     continue;
 
-                if (File.Exists(outputFilePath))
-                    File.Delete(outputFilePath);
-
-                await File.WriteAllTextAsync(outputFilePath, schemaOutput, cancellationToken);
+                await OutputCollector.WriteAsync(outputFilePath, schemaOutput, cancellationToken);
                 _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
             }
 
-            return ErrorCode.Success;
+            return true;
         }
         catch (Exception ex)
         {
-            _console.MarkupLine("[red]Failed to generate C# files.[/]");
+            _console.MarkupLineInterpolated($"[red]Failed to generate C# files from '{source}'.[/]");
             _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
 
-            return ErrorCode.Error;
+            return false;
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -15,16 +16,28 @@ namespace AvroTool.Commands;
 
 internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.Settings>
 {
+    private static readonly string[] IdlExtensions = [".avdl"];
+
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "[IDL_FILE]")]
-        [Description("An IDL file to compile. Omit and use --stdin to read from standard input.")]
-        public string IdlFile { get; set; } = string.Empty;
+        [CommandArgument(0, "[IDL_FILES]")]
+        [Description("One or more IDL files, directories or glob patterns to compile. Omit and use --stdin to read from standard input.")]
+        public string[] IdlFiles { get; set; } = [];
 
         [CommandOption("--stdin")]
         [Description("Read the IDL from standard input instead of a file.")]
         [DefaultValue(false)]
         public bool FromStandardInput { get; set; }
+
+        [CommandOption("--no-recursive")]
+        [Description("When a directory is given, only process its top-level files instead of recursing.")]
+        [DefaultValue(false)]
+        public bool NoRecursive { get; set; }
+
+        [CommandOption("--fail-fast")]
+        [Description("Abort on the first input that fails instead of processing the rest.")]
+        [DefaultValue(false)]
+        public bool FailFast { get; set; }
 
         [CommandOption("-o|--overwrite")]
         [Description("Overwrite any existing types.")]
@@ -55,26 +68,70 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         if (settings.FromStandardInput)
             return ValidationResult.Success();
 
-        if (string.IsNullOrWhiteSpace(settings.IdlFile))
-            return ValidationResult.Error("An IDL file must be provided.");
-
-        if (!File.Exists(settings.IdlFile))
-            return ValidationResult.Error($"An IDL file could not be found at: {settings.IdlFile}");
-
-        return ValidationResult.Success();
+        return InputValidation.Validate(settings.IdlFiles, "IDL");
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var idlContent = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.IdlFile, cancellationToken);
-        var parseResult = await ParseIdl(idlContent, cancellationToken);
-        if (!parseResult.Success)
+        var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
+        var collector = new OutputCollector(settings.Overwrite);
+
+        if (settings.FromStandardInput)
         {
-            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document: {parseResult.Exception.Message}[/]");
+            var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
+            var ok = await ProcessAsync(content, "<stdin>", outputDir, collector, cancellationToken);
+            return ok ? ErrorCode.Success : ErrorCode.Error;
+        }
+
+        var expansion = InputExpander.Expand(settings.IdlFiles, IdlExtensions, !settings.NoRecursive);
+        foreach (var token in expansion.UnmatchedTokens)
+            _console.MarkupLineInterpolated($"[red]No IDL files matched: {token}[/]");
+
+        if (expansion.Files.Count == 0)
+        {
+            _console.MarkupLine("[red]No IDL files were found to compile.[/]");
             return ErrorCode.Error;
         }
 
-        var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
+        var anyFailed = expansion.UnmatchedTokens.Count > 0;
+        foreach (var file in expansion.Files)
+        {
+            var content = await File.ReadAllTextAsync(file, cancellationToken);
+            var ok = await ProcessAsync(content, file, outputDir, collector, cancellationToken);
+            if (!ok)
+            {
+                anyFailed = true;
+                if (settings.FailFast)
+                    break;
+            }
+        }
+
+        return anyFailed ? ErrorCode.Error : ErrorCode.Success;
+    }
+
+    private async Task<bool> ProcessAsync(
+        string idlContent,
+        string source,
+        DirectoryInfo outputDir,
+        OutputCollector collector,
+        CancellationToken cancellationToken)
+    {
+        IdlFileParseResult parseResult;
+        try
+        {
+            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
+            parseResult = IdlFileParseResult.Ok(result);
+        }
+        catch (Exception ex)
+        {
+            parseResult = IdlFileParseResult.Error(ex);
+        }
+
+        if (!parseResult.Success)
+        {
+            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document '{source}': {parseResult.Exception.Message}[/]");
+            return false;
+        }
 
         try
         {
@@ -90,20 +147,16 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 .Select(s => Path.Combine(outputDir.FullName, s.Fullname + ".avsc"))
                 .ToList();
 
-            var existingFiles = filenames.Where(File.Exists).ToList();
-            if (existingFiles.Count > 0 && !settings.Overwrite)
+            var reserveError = collector.Reserve(filenames, source);
+            if (reserveError != null)
             {
-                _console.MarkupLine("[red]Unable to generate schema files. One or more files exist.[/]");
-                foreach (var existingFile in existingFiles)
-                    _console.MarkupLineInterpolated($"[red]    {existingFile}[/]");
-                return ErrorCode.Error;
+                _console.MarkupLineInterpolated($"[red]Unable to generate schema files from '{source}': {reserveError}[/]");
+                return false;
             }
 
             foreach (var namedType in namedTypes)
             {
                 var namedTypeFilename = Path.Combine(outputDir.FullName, namedType.Fullname + ".avsc");
-                if (File.Exists(namedTypeFilename))
-                    File.Delete(namedTypeFilename);
 
                 // format output so it's human-readable
                 var jsonNode = JsonNode.Parse(namedType.ToString());
@@ -112,31 +165,18 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                     WriteIndented = true
                 });
 
-                await File.WriteAllTextAsync(namedTypeFilename, formattedOutput, cancellationToken);
+                await OutputCollector.WriteAsync(namedTypeFilename, formattedOutput, cancellationToken);
                 _console.MarkupLineInterpolated($"[green]Generated {namedTypeFilename}[/]");
             }
 
-            return ErrorCode.Success;
+            return true;
         }
         catch (Exception ex)
         {
-            _console.MarkupLine("[red]Failed to generate schema files.[/]");
+            _console.MarkupLineInterpolated($"[red]Failed to generate schema files from '{source}'.[/]");
             _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
 
-            return ErrorCode.Error;
-        }
-    }
-
-    private async Task<IdlFileParseResult> ParseIdl(string idlContent, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
-            return IdlFileParseResult.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return IdlFileParseResult.Error(ex);
+            return false;
         }
     }
 }

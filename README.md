@@ -46,9 +46,11 @@ OPTIONS:
     -v, --version    Prints version information
 
 COMMANDS:
-    idl [IDL_FILE]                      Generates a JSON protocol file from an Avro IDL file
-    idl2schemata [IDL_FILE]             Extract JSON schemata of the types from an Avro IDL file
-    codegen [INPUT_FILE] [NAMESPACE]    Generates C# code for a given Avro IDL, protocol or schema
+    idl [IDL_FILES]                     Generates a JSON protocol file from an Avro IDL file
+    idl2schemata [IDL_FILES]            Extract JSON schemata of the types from an Avro IDL file
+    codegen [INPUT_FILES]               Generates C# code for a given Avro IDL, protocol or schema
+    canonical [SCHEMA_FILE]             Prints the Parsing Canonical Form of a schema
+    fingerprint [SCHEMA_FILE]           Computes a schema fingerprint (crc-64-avro, md5 or sha-256)
 ```
 
 Each of the `idl`, `idl2schemata` and `codegen` commands can read its input from
@@ -162,12 +164,45 @@ protocol TestProtocol {
   void Ping();
 }
 
-$ avrotool codegen sample.avdl Test.Code.Namespace
+$ avrotool codegen sample.avdl --namespace Test.Code.Namespace
 Generated /home/sjp/repos/AvroTools/TestProtocol.cs
 Generated /home/sjp/repos/AvroTools/TestRecord.cs
 
 // Contents of files omitted for brevity
 ```
+
+> The base namespace is supplied with `--namespace` (`-n`); it is only used for
+> types that do not declare their own namespace.
+
+#### Canonical form and fingerprints
+
+`avrotool canonical` prints the [Parsing Canonical Form](https://avro.apache.org/docs/current/specification/#parsing-canonical-form-for-schemas)
+of a schema — the normalised form that strips `doc`, `aliases`, defaults and
+other non-structural attributes and fully-qualifies names, so two structurally
+identical schemas compare equal regardless of formatting.
+
+```plain
+$ avrotool canonical Person.avsc
+{"name":"ns.Person","type":"record","fields":[{"name":"Name","type":"string"},{"name":"Age","type":"int"}]}
+```
+
+`avrotool fingerprint` computes a fingerprint over that canonical form — the same
+value the wider Avro ecosystem uses for single-object encoding and registry
+lookups. The default algorithm is `crc-64-avro` (the Rabin fingerprint), with
+`md5` and `sha-256` also available.
+
+```plain
+$ avrotool fingerprint Person.avsc                       # crc-64-avro, lowercase hex
+b0e15e3c5393d356
+$ avrotool fingerprint Person.avsc --format long         # crc-64-avro as a signed 64-bit integer
+6256506293052170672
+$ avrotool fingerprint Person.avsc --algorithm sha-256
+dfcf26207b59396b32b55e6269a8413e2ba78708cef6d7370a489c84ae151009
+```
+
+Both commands accept an IDL, protocol or schema as input (and `--stdin`). When
+given a protocol, they emit one line per named type; `fingerprint` labels each
+line with the type's full name (`<fingerprint>  <name>`).
 
 ### Standard input and output
 
@@ -175,9 +210,9 @@ The `idl`, `idl2schemata` and `codegen` commands can participate in shell
 pipelines rather than only reading and writing files on disk.
 
 - **Reading from standard input:** pass `--stdin` to read the IDL, protocol or
-  schema from standard input instead of a file. The `INPUT_FILE`/`IDL_FILE`
-  argument is then omitted. Because `codegen`'s namespace is normally a trailing
-  positional argument, supply it with `--namespace` (`-n`) when using `--stdin`.
+  schema from standard input instead of a file. The `IDL_FILES`/`INPUT_FILES`
+  argument is then omitted. For `codegen`, supply the base namespace with
+  `--namespace` (`-n`).
 - **Writing to standard output:** the `idl` command accepts `--stdout` (`-s`) to
   write the generated JSON to standard output instead of a file.
 - **Clean pipelines:** all human-facing status messages (the green
@@ -199,6 +234,44 @@ cat sample.avdl | avrotool idl --stdin --stdout \
 
 Multi-file commands (`idl2schemata` and `codegen`) still write their generated
 files to disk; only their input can come from standard input.
+
+### Multiple inputs, directories and glob patterns
+
+The `idl`, `idl2schemata` and `codegen` commands accept more than one input in a
+single invocation, so a whole tree of `*.avdl` / `*.avsc` / `*.avpr` files can be
+processed at once instead of one command per file. Any mix of the following is
+accepted for the input argument(s):
+
+```sh
+# Several explicit files
+avrotool codegen a.avdl b.avdl --namespace My.Ns
+
+# A directory — recognised files are found recursively by default
+avrotool idl schemas/
+
+# ...or only its top level
+avrotool idl schemas/ --no-recursive
+
+# A glob pattern (** descends into subdirectories)
+avrotool codegen "schemas/**/*.avsc" --namespace My.Ns
+```
+
+Details:
+
+- **Output naming** continues to derive from each schema/protocol's own name and
+  the `--output-dir`, so many inputs can safely share one output directory. The
+  existing `--overwrite` semantics are respected per file.
+- **Duplicate outputs** — two inputs that would generate the same output file are
+  detected and reported rather than silently racing.
+- **Per-file reporting** — a failure in one input does not abort the rest; the
+  exit code is non-zero if *any* input failed. Pass `--fail-fast` to stop on the
+  first failure instead.
+- Because `codegen` now takes a variable number of input files, its base
+  namespace is supplied with `--namespace` (`-n`) rather than as a trailing
+  positional argument.
+- Directory and glob expansion only pick up recognised extensions (`.avdl` for
+  `idl`/`idl2schemata`; `.avdl`, `.avpr`, `.avsc` for `codegen`); an explicitly
+  named file is always used regardless of its extension.
 
 ### Shell completions
 

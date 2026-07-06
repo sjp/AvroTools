@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -13,16 +14,28 @@ namespace AvroTool.Commands;
 
 internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 {
+    private static readonly string[] IdlExtensions = [".avdl"];
+
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "[IDL_FILE]")]
-        [Description("An IDL file to compile. Omit and use --stdin to read from standard input.")]
-        public string IdlFile { get; set; } = string.Empty;
+        [CommandArgument(0, "[IDL_FILES]")]
+        [Description("One or more IDL files, directories or glob patterns to compile. Omit and use --stdin to read from standard input.")]
+        public string[] IdlFiles { get; set; } = [];
 
         [CommandOption("--stdin")]
         [Description("Read the IDL from standard input instead of a file.")]
         [DefaultValue(false)]
         public bool FromStandardInput { get; set; }
+
+        [CommandOption("--no-recursive")]
+        [Description("When a directory is given, only process its top-level files instead of recursing.")]
+        [DefaultValue(false)]
+        public bool NoRecursive { get; set; }
+
+        [CommandOption("--fail-fast")]
+        [Description("Abort on the first input that fails instead of processing the rest.")]
+        [DefaultValue(false)]
+        public bool FailFast { get; set; }
 
         [CommandOption("-o|--overwrite")]
         [Description("Overwrite any existing types.")]
@@ -34,7 +47,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         public DirectoryInfo? OutputDirectory { get; set; }
 
         [CommandOption("-s|--stdout")]
-        [Description("Write the generated JSON to standard output instead of a file.")]
+        [Description("Write the generated JSON to standard output instead of a file. Only valid for a single input.")]
         [DefaultValue(false)]
         public bool ToStandardOutput { get; set; }
     }
@@ -58,28 +71,79 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         if (settings.FromStandardInput)
             return ValidationResult.Success();
 
-        if (string.IsNullOrWhiteSpace(settings.IdlFile))
-            return ValidationResult.Error("An IDL file must be provided.");
-
-        if (!File.Exists(settings.IdlFile))
-            return ValidationResult.Error($"An IDL file could not be found at: {settings.IdlFile}");
-
-        return ValidationResult.Success();
+        return InputValidation.Validate(settings.IdlFiles, "IDL");
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var idlContent = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.IdlFile, cancellationToken);
-        var parseResult = await ParseIdl(idlContent, cancellationToken);
-        if (!parseResult.Success)
+        var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
+        var collector = new OutputCollector(settings.Overwrite);
+
+        if (settings.FromStandardInput)
         {
-            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document: {parseResult.Exception.Message}[/]");
+            var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
+            var ok = await ProcessAsync(content, "<stdin>", settings, outputDir, collector, cancellationToken);
+            return ok ? ErrorCode.Success : ErrorCode.Error;
+        }
+
+        var expansion = InputExpander.Expand(settings.IdlFiles, IdlExtensions, !settings.NoRecursive);
+        foreach (var token in expansion.UnmatchedTokens)
+            _console.MarkupLineInterpolated($"[red]No IDL files matched: {token}[/]");
+
+        if (expansion.Files.Count == 0)
+        {
+            _console.MarkupLine("[red]No IDL files were found to compile.[/]");
             return ErrorCode.Error;
         }
 
-        var avroOutputType = parseResult.Result.Match(
-            _ => "protocol",
-            _ => "schema");
+        if (settings.ToStandardOutput && expansion.Files.Count > 1)
+        {
+            _console.MarkupLine("[red]The --stdout option is only valid for a single input.[/]");
+            return ErrorCode.Error;
+        }
+
+        var anyFailed = expansion.UnmatchedTokens.Count > 0;
+        foreach (var file in expansion.Files)
+        {
+            var content = await File.ReadAllTextAsync(file, cancellationToken);
+            var ok = await ProcessAsync(content, file, settings, outputDir, collector, cancellationToken);
+            if (!ok)
+            {
+                anyFailed = true;
+                if (settings.FailFast)
+                    break;
+            }
+        }
+
+        return anyFailed ? ErrorCode.Error : ErrorCode.Success;
+    }
+
+    private async Task<bool> ProcessAsync(
+        string idlContent,
+        string source,
+        Settings settings,
+        DirectoryInfo outputDir,
+        OutputCollector collector,
+        CancellationToken cancellationToken)
+    {
+        IdlFileParseResult parseResult;
+        try
+        {
+            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
+            parseResult = IdlFileParseResult.Ok(result);
+        }
+        catch (Exception ex)
+        {
+            parseResult = IdlFileParseResult.Error(ex);
+        }
+
+        if (!parseResult.Success)
+        {
+            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document '{source}': {parseResult.Exception.Message}[/]");
+            return false;
+        }
+
+        var avroOutputType = parseResult.Result.Match(_ => "protocol", _ => "schema");
 
         try
         {
@@ -97,50 +161,33 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             if (settings.ToStandardOutput)
             {
                 await Console.Out.WriteLineAsync(formattedOutput.AsMemory(), cancellationToken);
-                return ErrorCode.Success;
+                return true;
             }
 
-            var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
             var outputFileName = parseResult.Result.Match(
                 p => p.Name + ".avpr",
                 s => s.Name + ".avsc");
             var outputPath = Path.Combine(outputDir.FullName, outputFileName);
 
-            if (File.Exists(outputPath) && !settings.Overwrite)
+            var reserveError = collector.Reserve([outputPath], source);
+            if (reserveError != null)
             {
-                _console.MarkupLineInterpolated($"[red]The output file path '{outputPath}' cannot be used[/]");
-                _console.MarkupLine("[red]A file already exists. Consider using the 'overwrite' option.[/]");
-                return ErrorCode.Error;
+                _console.MarkupLineInterpolated($"[red]The output file path '{outputPath}' cannot be used: {reserveError}[/]");
+                return false;
             }
 
-            if (File.Exists(outputPath))
-                File.Delete(outputPath);
-
-            await File.WriteAllTextAsync(outputPath, formattedOutput, cancellationToken);
+            await OutputCollector.WriteAsync(outputPath, formattedOutput, cancellationToken);
 
             _console.MarkupLineInterpolated($"[green]Generated {outputPath}[/]");
 
-            return ErrorCode.Success;
+            return true;
         }
         catch (Exception ex)
         {
-            _console.MarkupLine($"[red]Failed to generate Avro {avroOutputType} file.[/]");
+            _console.MarkupLineInterpolated($"[red]Failed to generate Avro {avroOutputType} file from '{source}'.[/]");
             _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
 
-            return ErrorCode.Error;
-        }
-    }
-
-    private async Task<IdlFileParseResult> ParseIdl(string idlContent, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
-            return IdlFileParseResult.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return IdlFileParseResult.Error(ex);
+            return false;
         }
     }
 }

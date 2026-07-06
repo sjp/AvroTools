@@ -21,6 +21,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.9" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
     <PackageReference Include="Spectre.Console.Cli.Extensions.DependencyInjection" Version="0.26.0" />
   </ItemGroup>

@@ -270,4 +270,120 @@ internal class IdlCommandTests
 
         Assert.That(result.Output, Is.Empty);
     }
+
+    private const string ProtocolOneJson = @"{""protocol"":""ProtocolOne"",""types"":[],""messages"":{}}";
+    private const string ProtocolTwoJson = @"{""protocol"":""ProtocolTwo"",""types"":[],""messages"":{}}";
+
+    private void SetupTranslatorToParseProtocolFromContent()
+    {
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, CancellationToken _) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenDirectoryInput_ProcessesContainedFiles()
+    {
+        var inputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "inputs"));
+        inputDir.Create();
+        await File.WriteAllTextAsync(Path.Combine(inputDir.FullName, "input.avdl"), SimpleTestIdl);
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var result = await _app.RunAsync([inputDir.FullName, "--output-dir", outputDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "TestProtocol.avpr")), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenGlobInput_ProcessesMatchingFiles()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "input.avdl"), SimpleTestIdl);
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var glob = Path.Combine(_tempDir.DirectoryPath, "*.avdl");
+        var result = await _app.RunAsync([glob, "--output-dir", outputDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "TestProtocol.avpr")), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenMultipleDistinctInputs_ProcessesAll()
+    {
+        SetupTranslatorToParseProtocolFromContent();
+
+        var one = Path.Combine(_tempDir.DirectoryPath, "one.avdl");
+        var two = Path.Combine(_tempDir.DirectoryPath, "two.avdl");
+        await File.WriteAllTextAsync(one, ProtocolOneJson);
+        await File.WriteAllTextAsync(two, ProtocolTwoJson);
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var result = await _app.RunAsync([one, two, "--output-dir", outputDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "ProtocolOne.avpr")), Is.True);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "ProtocolTwo.avpr")), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenMultipleInputsProducingSameOutput_ReportsDuplicateAndFails()
+    {
+        // Both inputs translate to the same protocol name, so the second collides with the first.
+        var one = Path.Combine(_tempDir.DirectoryPath, "one.avdl");
+        var two = Path.Combine(_tempDir.DirectoryPath, "two.avdl");
+        await File.WriteAllTextAsync(one, SimpleTestIdl);
+        await File.WriteAllTextAsync(two, SimpleTestIdl);
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var result = await _app.RunAsync([one, two, "--overwrite", "--output-dir", outputDir.FullName], default);
+
+        Assert.That(result.ExitCode, Is.Not.Zero);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenFailFastAndFailingFirstInput_DoesNotProcessRest()
+    {
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, CancellationToken _) =>
+                content.Contains("BAD")
+                    ? throw new InvalidOperationException("bad input")
+                    : IdlParseResult.Protocol(AvroProtocol.Parse(content)));
+
+        // Ordinal ordering within the directory means 1_bad.avdl is processed before 2_good.avdl.
+        var bad = Path.Combine(_tempDir.DirectoryPath, "1_bad.avdl");
+        var good = Path.Combine(_tempDir.DirectoryPath, "2_good.avdl");
+        await File.WriteAllTextAsync(bad, "BAD");
+        await File.WriteAllTextAsync(good, ProtocolOneJson);
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var glob = Path.Combine(_tempDir.DirectoryPath, "*.avdl");
+        var result = await _app.RunAsync([glob, "--fail-fast", "--output-dir", outputDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "ProtocolOne.avpr")), Is.False);
+        }
+    }
 }
