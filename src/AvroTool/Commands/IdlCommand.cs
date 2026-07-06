@@ -2,8 +2,6 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools.Idl;
@@ -151,12 +149,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
                 p => p.ToString(),
                 s => s.ToString());
 
-            // format output so it's human-readable
-            var jsonNode = JsonNode.Parse(output);
-            var formattedOutput = jsonNode!.ToJsonString(new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
+            var formattedOutput = JsonFormatting.Indent(output);
 
             if (settings.ToStandardOutput)
             {

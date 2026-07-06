@@ -30,4 +30,13 @@ internal static class InputSource
 
         return await File.ReadAllTextAsync(path!, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Opens a binary stream over standard input, or the given file path.
+    /// </summary>
+    /// <param name="useStandardInput">When <c>true</c>, read from standard input and ignore <paramref name="path"/>.</param>
+    /// <param name="path">A file path to open when not reading from standard input.</param>
+    /// <returns>A readable stream over the requested input.</returns>
+    public static Stream OpenRead(bool useStandardInput, string? path) =>
+        useStandardInput ? Console.OpenStandardInput() : File.OpenRead(path!);
 }
