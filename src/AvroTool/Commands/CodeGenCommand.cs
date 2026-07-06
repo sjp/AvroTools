@@ -20,13 +20,27 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "<INPUT_FILE>")]
-        [Description("An IDL, protocol or schema file to generate C# code from.")]
+        [CommandArgument(0, "[INPUT_FILE]")]
+        [Description("An IDL, protocol or schema file to generate C# code from. Omit and use --stdin to read from standard input.")]
         public string InputFile { get; set; } = string.Empty;
 
-        [CommandArgument(1, "<NAMESPACE>")]
-        [Description("A base namespace to use for generated files. Only used when a defined namespace is not present.")]
+        [CommandArgument(1, "[NAMESPACE]")]
+        [Description("A base namespace to use for generated files. Only used when a defined namespace is not present. May also be supplied via --namespace.")]
         public string Namespace { get; set; } = string.Empty;
+
+        [CommandOption("-n|--namespace")]
+        [Description("A base namespace to use for generated files. An alternative to the NAMESPACE argument, useful with --stdin.")]
+        public string? NamespaceOption { get; set; }
+
+        [CommandOption("--stdin")]
+        [Description("Read the input from standard input instead of a file.")]
+        [DefaultValue(false)]
+        public bool FromStandardInput { get; set; }
+
+        /// <summary>
+        /// The effective base namespace, preferring the --namespace option over the positional argument.
+        /// </summary>
+        public string BaseNamespace => !string.IsNullOrWhiteSpace(NamespaceOption) ? NamespaceOption : Namespace;
 
         [CommandOption("-o|--overwrite")]
         [Description("Overwrite any existing generated code.")]
@@ -59,14 +73,17 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.InputFile))
-            return ValidationResult.Error("An input file must be provided.");
+        if (!settings.FromStandardInput)
+        {
+            if (string.IsNullOrWhiteSpace(settings.InputFile))
+                return ValidationResult.Error("An input file must be provided.");
 
-        if (!File.Exists(settings.InputFile))
-            return ValidationResult.Error($"An input file could not be found at: {settings.InputFile}");
+            if (!File.Exists(settings.InputFile))
+                return ValidationResult.Error($"An input file could not be found at: {settings.InputFile}");
+        }
 
-        if (!string.IsNullOrWhiteSpace(settings.Namespace) && !CsharpValidation.IsValidCsharpNamespace(settings.Namespace))
-            return ValidationResult.Error($"The value '{settings.Namespace}' is not a valid C# namespace.");
+        if (!string.IsNullOrWhiteSpace(settings.BaseNamespace) && !CsharpValidation.IsValidCsharpNamespace(settings.BaseNamespace))
+            return ValidationResult.Error($"The value '{settings.BaseNamespace}' is not a valid C# namespace.");
 
         return ValidationResult.Success();
     }
@@ -75,14 +92,15 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
     {
         AvroProtocol? protocol = null;
         IEnumerable<AvroSchema> schemas;
-        var parseResult = await ParseIdl(settings.InputFile, cancellationToken);
+        var inputContent = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.InputFile, cancellationToken);
+        var parseResult = await ParseIdl(inputContent, cancellationToken);
 
-        if (TryParseAvroProtocol(settings.InputFile, out var inputProtocol))
+        if (TryParseAvroProtocol(inputContent, out var inputProtocol))
         {
             protocol = inputProtocol;
             schemas = [.. inputProtocol.Types];
         }
-        else if (TryParseAvroSchema(settings.InputFile, out var inputSchema))
+        else if (TryParseAvroSchema(inputContent, out var inputSchema))
         {
             schemas = [inputSchema];
         }
@@ -140,7 +158,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 {
                     var outputFilePath = Path.Combine(outputDir.FullName, protocol.Name + ".cs");
                     var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
-                    var protocolOutput = protocolGenerator.Generate(protocol, settings.Namespace);
+                    var protocolOutput = protocolGenerator.Generate(protocol, settings.BaseNamespace);
 
                     if (File.Exists(outputFilePath))
                         File.Delete(outputFilePath);
@@ -156,10 +174,10 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
                 var schemaOutput = namedType.Tag switch
                 {
-                    AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.Namespace),
-                    AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)namedType, settings.Namespace),
-                    AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.Namespace),
-                    AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.Namespace),
+                    AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.BaseNamespace),
+                    AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)namedType, settings.BaseNamespace),
+                    AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace),
+                    AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace),
                     _ => null
                 };
 
@@ -184,12 +202,11 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         }
     }
 
-    private static bool TryParseAvroProtocol(string filePath, out AvroProtocol protocol)
+    private static bool TryParseAvroProtocol(string content, out AvroProtocol protocol)
     {
         try
         {
-            var json = File.ReadAllText(filePath);
-            protocol = AvroProtocol.Parse(json);
+            protocol = AvroProtocol.Parse(content);
             return true;
         }
         catch
@@ -199,12 +216,11 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         }
     }
 
-    private static bool TryParseAvroSchema(string filePath, out AvroSchema schema)
+    private static bool TryParseAvroSchema(string content, out AvroSchema schema)
     {
         try
         {
-            var json = File.ReadAllText(filePath);
-            schema = AvroSchema.Parse(json);
+            schema = AvroSchema.Parse(content);
             return true;
         }
         catch
@@ -214,12 +230,11 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         }
     }
 
-    private async Task<IdlFileParseResult> ParseIdl(string idlFile, CancellationToken cancellationToken)
+    private async Task<IdlFileParseResult> ParseIdl(string idlContent, CancellationToken cancellationToken)
     {
         try
         {
-            await using var idlFileStream = File.OpenRead(idlFile);
-            var result = await _idlTranslator.Translate(idlFileStream, cancellationToken);
+            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
             return IdlFileParseResult.Ok(result);
         }
         catch (Exception ex)

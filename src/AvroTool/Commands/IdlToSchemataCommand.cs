@@ -17,9 +17,14 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 {
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "<IDL_FILE>")]
-        [Description("An IDL file to compile.")]
+        [CommandArgument(0, "[IDL_FILE]")]
+        [Description("An IDL file to compile. Omit and use --stdin to read from standard input.")]
         public string IdlFile { get; set; } = string.Empty;
+
+        [CommandOption("--stdin")]
+        [Description("Read the IDL from standard input instead of a file.")]
+        [DefaultValue(false)]
+        public bool FromStandardInput { get; set; }
 
         [CommandOption("-o|--overwrite")]
         [Description("Overwrite any existing types.")]
@@ -47,6 +52,9 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
+        if (settings.FromStandardInput)
+            return ValidationResult.Success();
+
         if (string.IsNullOrWhiteSpace(settings.IdlFile))
             return ValidationResult.Error("An IDL file must be provided.");
 
@@ -58,7 +66,8 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var parseResult = await ParseIdl(settings.IdlFile, cancellationToken);
+        var idlContent = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.IdlFile, cancellationToken);
+        var parseResult = await ParseIdl(idlContent, cancellationToken);
         if (!parseResult.Success)
         {
             _console.MarkupLineInterpolated($"[red]Unable to parse IDL document: {parseResult.Exception.Message}[/]");
@@ -118,12 +127,11 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         }
     }
 
-    private async Task<IdlFileParseResult> ParseIdl(string idlFile, CancellationToken cancellationToken)
+    private async Task<IdlFileParseResult> ParseIdl(string idlContent, CancellationToken cancellationToken)
     {
         try
         {
-            await using var idlFileStream = File.OpenRead(idlFile);
-            var result = await _idlTranslator.Translate(idlFileStream, cancellationToken);
+            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
             return IdlFileParseResult.Ok(result);
         }
         catch (Exception ex)

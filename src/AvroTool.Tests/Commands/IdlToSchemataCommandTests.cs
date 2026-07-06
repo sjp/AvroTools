@@ -141,7 +141,7 @@ record PairVolume {
         _parseResult = IdlParseResult.Schema(AvroSchema.Parse(SimpleTestAvroSchema));
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
         var registrar = new FakeTypeRegistrar();
@@ -214,7 +214,7 @@ record PairVolume {
         await File.WriteAllTextAsync(sourceFile.FullName, input);
 
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);

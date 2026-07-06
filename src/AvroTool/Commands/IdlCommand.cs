@@ -15,9 +15,14 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "<IDL_FILE>")]
-        [Description("An IDL file to compile.")]
+        [CommandArgument(0, "[IDL_FILE]")]
+        [Description("An IDL file to compile. Omit and use --stdin to read from standard input.")]
         public string IdlFile { get; set; } = string.Empty;
+
+        [CommandOption("--stdin")]
+        [Description("Read the IDL from standard input instead of a file.")]
+        [DefaultValue(false)]
+        public bool FromStandardInput { get; set; }
 
         [CommandOption("-o|--overwrite")]
         [Description("Overwrite any existing types.")]
@@ -27,6 +32,11 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         [CommandOption("-d|--output-dir")]
         [Description("Directory to save generated JSON.")]
         public DirectoryInfo? OutputDirectory { get; set; }
+
+        [CommandOption("-s|--stdout")]
+        [Description("Write the generated JSON to standard output instead of a file.")]
+        [DefaultValue(false)]
+        public bool ToStandardOutput { get; set; }
     }
 
     private readonly IAnsiConsole _console;
@@ -45,6 +55,9 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
+        if (settings.FromStandardInput)
+            return ValidationResult.Success();
+
         if (string.IsNullOrWhiteSpace(settings.IdlFile))
             return ValidationResult.Error("An IDL file must be provided.");
 
@@ -56,23 +69,11 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var parseResult = await ParseIdl(settings.IdlFile, cancellationToken);
+        var idlContent = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.IdlFile, cancellationToken);
+        var parseResult = await ParseIdl(idlContent, cancellationToken);
         if (!parseResult.Success)
         {
             _console.MarkupLineInterpolated($"[red]Unable to parse IDL document: {parseResult.Exception.Message}[/]");
-            return ErrorCode.Error;
-        }
-
-        var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
-        var outputFileName = parseResult.Result.Match(
-            p => p.Name + ".avpr",
-            s => s.Name + ".avsc");
-        var outputPath = Path.Combine(outputDir.FullName, outputFileName);
-
-        if (File.Exists(outputPath) && !settings.Overwrite)
-        {
-            _console.MarkupLineInterpolated($"[red]The output file path '{outputPath}' cannot be used[/]");
-            _console.MarkupLine("[red]A file already exists. Consider using the 'overwrite' option.[/]");
             return ErrorCode.Error;
         }
 
@@ -85,8 +86,6 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             var output = parseResult.Result.Match(
                 p => p.ToString(),
                 s => s.ToString());
-            if (File.Exists(outputPath))
-                File.Delete(outputPath);
 
             // format output so it's human-readable
             var jsonNode = JsonNode.Parse(output);
@@ -94,6 +93,28 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             {
                 WriteIndented = true
             });
+
+            if (settings.ToStandardOutput)
+            {
+                await Console.Out.WriteLineAsync(formattedOutput.AsMemory(), cancellationToken);
+                return ErrorCode.Success;
+            }
+
+            var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
+            var outputFileName = parseResult.Result.Match(
+                p => p.Name + ".avpr",
+                s => s.Name + ".avsc");
+            var outputPath = Path.Combine(outputDir.FullName, outputFileName);
+
+            if (File.Exists(outputPath) && !settings.Overwrite)
+            {
+                _console.MarkupLineInterpolated($"[red]The output file path '{outputPath}' cannot be used[/]");
+                _console.MarkupLine("[red]A file already exists. Consider using the 'overwrite' option.[/]");
+                return ErrorCode.Error;
+            }
+
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
 
             await File.WriteAllTextAsync(outputPath, formattedOutput, cancellationToken);
 
@@ -110,12 +131,11 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         }
     }
 
-    private async Task<IdlFileParseResult> ParseIdl(string idlFile, CancellationToken cancellationToken)
+    private async Task<IdlFileParseResult> ParseIdl(string idlContent, CancellationToken cancellationToken)
     {
         try
         {
-            await using var idlFileStream = File.OpenRead(idlFile);
-            var result = await _idlTranslator.Translate(idlFileStream, cancellationToken);
+            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
             return IdlFileParseResult.Ok(result);
         }
         catch (Exception ex)

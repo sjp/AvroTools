@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -16,7 +17,18 @@ internal static class Program
 {
     public static Task<int> Main(string[] args)
     {
+        // Route status and diagnostic output to standard error so that standard
+        // output carries only command payloads (e.g. 'idl --stdout'), keeping the
+        // tool clean to use in shell pipelines.
+        var errorConsole = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.Detect,
+            ColorSystem = ColorSystemSupport.Detect,
+            Out = new AnsiConsoleOutput(Console.Error),
+        });
+
         var services = new ServiceCollection();
+        services.AddSingleton<IAnsiConsole>(errorConsole);
         services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
         services.AddTransient<IFileProvider>(_ => new PhysicalFileProvider(Directory.GetCurrentDirectory()));
         services.AddTransient<IIdlToAvroTranslator, IdlToAvroTranslator>();
@@ -29,6 +41,11 @@ internal static class Program
             config.SetApplicationName("avrotool");
             config.SetApplicationVersion(GetVersion());
 
+            // Spectre special-cases the console it injects into commands and uses for
+            // its own diagnostics, so configure it explicitly (DI registration alone
+            // is not honoured) to keep standard output a clean payload channel.
+            config.ConfigureConsole(errorConsole);
+
             config.AddCommand<IdlCommand>("idl").WithDescription("Generates a JSON protocol file from an Avro IDL file.");
             config.AddCommand<IdlToSchemataCommand>("idl2schemata").WithDescription("Extract JSON schemata of the types from an Avro IDL file.");
             config.AddCommand<CodeGenCommand>("codegen").WithDescription("Generates C# code for a given Avro IDL, protocol or schema.");
@@ -40,7 +57,7 @@ internal static class Program
             config.ValidateExamples();
             config.SetExceptionHandler((ex, _) =>
             {
-                AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
+                errorConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
             });
         });
 

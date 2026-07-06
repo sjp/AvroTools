@@ -113,7 +113,7 @@ internal class CodeGenCommandTests
         _parseResult = IdlParseResult.Schema(AvroSchema.Parse(SimpleTestSchema));
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
         var registrar = new FakeTypeRegistrar();
@@ -583,7 +583,7 @@ namespace TestNamespace
         const string input = "%";
 
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
@@ -684,6 +684,29 @@ namespace TestNamespace
         Directory.SetCurrentDirectory(originalDir);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStdinInput_GeneratesExpectedOutput()
+    {
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+
+        var originalIn = Console.In;
+        Console.SetIn(new StringReader(SimpleTestIdl));
+        try
+        {
+            var result = await _app.RunAsync(["--stdin", "--namespace", TestNamespace, "--output-dir", sourceDir.FullName], default);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")), Is.True);
+            }
+        }
+        finally
+        {
+            Console.SetIn(originalIn);
+        }
     }
 
     [Test]

@@ -67,7 +67,7 @@ internal class IdlCommandTests
         _parseResult = IdlParseResult.Protocol(AvroProtocol.Parse(SimpleTestProtocolJson));
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
         var registrar = new FakeTypeRegistrar();
@@ -106,12 +106,66 @@ internal class IdlCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenStdoutOption_WritesPayloadToStandardOutput()
+    {
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+
+        var originalOut = Console.Out;
+        var stdout = new StringWriter();
+        Console.SetOut(stdout);
+        try
+        {
+            var result = await _app.RunAsync([sourceFile.FullName, "--stdout"], default);
+
+            var normalizedStdout = stdout.ToString().ReplaceLineEndings("\n");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(normalizedStdout, Does.Contain(SimpleTestProtocolJson.ReplaceLineEndings("\n")));
+                // no file should be written when emitting to standard output
+                Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr")), Is.False);
+            }
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStdinInputAndStdoutOption_PipesInputToOutput()
+    {
+        var originalIn = Console.In;
+        var originalOut = Console.Out;
+        Console.SetIn(new StringReader(SimpleTestIdl));
+        var stdout = new StringWriter();
+        Console.SetOut(stdout);
+        try
+        {
+            var result = await _app.RunAsync(["--stdin", "--stdout"], default);
+
+            var normalizedStdout = stdout.ToString().ReplaceLineEndings("\n");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(normalizedStdout, Does.Contain(SimpleTestProtocolJson.ReplaceLineEndings("\n")));
+            }
+        }
+        finally
+        {
+            Console.SetIn(originalIn);
+            Console.SetOut(originalOut);
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenInvalidInput_ReturnsError()
     {
         const string input = "%";
 
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));

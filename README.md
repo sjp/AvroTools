@@ -46,10 +46,13 @@ OPTIONS:
     -v, --version    Prints version information
 
 COMMANDS:
-    idl <IDL_FILE>                      Generates a JSON protocol file from an Avro IDL file
-    idl2schemata <IDL_FILE>             Extract JSON schemata of the types from an Avro IDL file
-    codegen <INPUT_FILE> <NAMESPACE>    Generates C# code for a given Avro IDL, protocol or schem
+    idl [IDL_FILE]                      Generates a JSON protocol file from an Avro IDL file
+    idl2schemata [IDL_FILE]             Extract JSON schemata of the types from an Avro IDL file
+    codegen [INPUT_FILE] [NAMESPACE]    Generates C# code for a given Avro IDL, protocol or schema
 ```
+
+Each of the `idl`, `idl2schemata` and `codegen` commands can read its input from
+standard input instead of a file (see [Standard input and output](#standard-input-and-output)).
 
 ### Examples
 
@@ -165,6 +168,37 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 
 // Contents of files omitted for brevity
 ```
+
+### Standard input and output
+
+The `idl`, `idl2schemata` and `codegen` commands can participate in shell
+pipelines rather than only reading and writing files on disk.
+
+- **Reading from standard input:** pass `--stdin` to read the IDL, protocol or
+  schema from standard input instead of a file. The `INPUT_FILE`/`IDL_FILE`
+  argument is then omitted. Because `codegen`'s namespace is normally a trailing
+  positional argument, supply it with `--namespace` (`-n`) when using `--stdin`.
+- **Writing to standard output:** the `idl` command accepts `--stdout` (`-s`) to
+  write the generated JSON to standard output instead of a file.
+- **Clean pipelines:** all human-facing status messages (the green
+  `Generated ...` lines and any errors) are written to **standard error**, so
+  standard output carries only the payload.
+
+```sh
+# Compile IDL piped in, and print the JSON protocol to stdout
+cat sample.avdl | avrotool idl --stdin --stdout
+
+# Chain commands together: IDL -> protocol JSON -> generated C#
+cat sample.avdl | avrotool idl --stdin --stdout \
+  | avrotool codegen --stdin --namespace Test.Code.Namespace --output-dir ./generated
+```
+
+> Note: a bare `-` is a common convention for "read from standard input", but the
+> underlying command-line parser reserves a leading `-` for options, so this tool
+> uses an explicit `--stdin` flag instead.
+
+Multi-file commands (`idl2schemata` and `codegen`) still write their generated
+files to disk; only their input can come from standard input.
 
 ### Shell completions
 
