@@ -97,6 +97,8 @@ internal class CompletionsCommandTests
         Assert.That(script, Does.Contain("idl"));
         Assert.That(script, Does.Contain("idl2schemata"));
         Assert.That(script, Does.Contain("codegen"));
+        Assert.That(script, Does.Contain("canonical"));
+        Assert.That(script, Does.Contain("fingerprint"));
         Assert.That(script, Does.Contain("completions"));
         Assert.That(script, Does.Contain("overwrite"));
         Assert.That(script, Does.Contain("output-dir"));

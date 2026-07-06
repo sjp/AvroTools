@@ -90,30 +90,16 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        AvroProtocol? protocol = null;
-        IEnumerable<AvroSchema> schemas;
         var inputContent = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.InputFile, cancellationToken);
-        var parseResult = await ParseIdl(inputContent, cancellationToken);
-
-        if (TryParseAvroProtocol(inputContent, out var inputProtocol))
-        {
-            protocol = inputProtocol;
-            schemas = [.. inputProtocol.Types];
-        }
-        else if (TryParseAvroSchema(inputContent, out var inputSchema))
-        {
-            schemas = [inputSchema];
-        }
-        else if (parseResult.Success)
-        {
-            protocol = parseResult.Result.Match(p => p, _ => (AvroProtocol?)null);
-            schemas = parseResult.Result.Match(p => p.Types, s => [s]);
-        }
-        else
+        var input = await AvroInputResolver.ResolveAsync(inputContent, _idlTranslator, cancellationToken);
+        if (input == null)
         {
             _console.MarkupLine("[red]Input file unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
             return ErrorCode.Error;
         }
+
+        var protocol = input.Protocol;
+        IEnumerable<AvroSchema> schemas = input.Schemas;
 
         var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
 
@@ -199,47 +185,6 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
 
             return ErrorCode.Error;
-        }
-    }
-
-    private static bool TryParseAvroProtocol(string content, out AvroProtocol protocol)
-    {
-        try
-        {
-            protocol = AvroProtocol.Parse(content);
-            return true;
-        }
-        catch
-        {
-            protocol = default!;
-            return false;
-        }
-    }
-
-    private static bool TryParseAvroSchema(string content, out AvroSchema schema)
-    {
-        try
-        {
-            schema = AvroSchema.Parse(content);
-            return true;
-        }
-        catch
-        {
-            schema = default!;
-            return false;
-        }
-    }
-
-    private async Task<IdlFileParseResult> ParseIdl(string idlContent, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
-            return IdlFileParseResult.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return IdlFileParseResult.Error(ex);
         }
     }
 }

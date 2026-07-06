@@ -25,6 +25,8 @@ internal static class CompletionScriptGenerator
         new("idl", typeof(IdlCommand.Settings)),
         new("idl2schemata", typeof(IdlToSchemataCommand.Settings)),
         new("codegen", typeof(CodeGenCommand.Settings)),
+        new("canonical", typeof(CanonicalCommand.Settings)),
+        new("fingerprint", typeof(FingerprintCommand.Settings)),
         new("completions", typeof(CompletionsCommand.Settings)),
     ];
 
