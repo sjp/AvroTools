@@ -15,6 +15,10 @@ One other benefit of this project is avoiding the pre-requisite for a Java runti
 * Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/1.12.0/specification/#protocol-declaration).
 * Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to [Avro Schema](https://avro.apache.org/docs/1.12.0/specification/#schema-declaration).
 * Generate C# classes for protocols and schemas.
+* Check whether two Avro schemas are compatible under Avro's schema-evolution rules (`compat`).
+* Print a semantic, field-level diff between two Avro schema versions (`diff`).
+* Print the Parsing Canonical Form and fingerprint of a schema (`canonical`, `fingerprint`).
+* Inspect Avro object container files: print the embedded writer schema or decode records to JSON (`getschema`, `tojson`).
 * Supports additional logical types compared to reference compiler. Note that these may not be usable in practice but can be compiled to compatible Avro Protocol/Schema. The following additional logical types are supported in IDL:
   * `uuid`
   * `time-micros`
@@ -46,15 +50,21 @@ OPTIONS:
     -v, --version    Prints version information
 
 COMMANDS:
-    idl [IDL_FILES]                     Generates a JSON protocol file from an Avro IDL file
-    idl2schemata [IDL_FILES]            Extract JSON schemata of the types from an Avro IDL file
-    codegen [INPUT_FILES]               Generates C# code for a given Avro IDL, protocol or schema
-    canonical [SCHEMA_FILE]             Prints the Parsing Canonical Form of a schema
-    fingerprint [SCHEMA_FILE]           Computes a schema fingerprint (crc-64-avro, md5 or sha-256)
+    idl                           Generates a JSON protocol file from an Avro IDL file
+    idl2schemata                  Extract JSON schemata of the types from an Avro IDL file
+    codegen                       Generates C# code for a given Avro IDL, protocol or schema
+    compat <SCHEMAS>              Checks whether two Avro schemas are compatible under Avro's schema-evolution rules
+    diff <SCHEMA_A> <SCHEMA_B>    Prints a semantic diff between two Avro schemas
+    canonical                     Prints the Parsing Canonical Form of an Avro IDL, protocol or schema
+    fingerprint                   Computes a fingerprint (crc-64-avro, md5 or sha-256) of an Avro IDL, protocol or schema
+    getschema                     Prints the writer schema embedded in an Avro object container file
+    tojson                        Decodes an Avro object container file's records to JSON
+    completions <SHELL>           Generates a shell completion script (bash, zsh, fish, powershell)
 ```
 
-Each of the `idl`, `idl2schemata` and `codegen` commands can read its input from
-standard input instead of a file (see [Standard input and output](#standard-input-and-output)).
+Each of the `idl`, `idl2schemata`, `codegen`, `getschema` and `tojson` commands
+can read its input from standard input instead of a file (see
+[Standard input and output](#standard-input-and-output)).
 
 ### Examples
 
@@ -204,10 +214,101 @@ Both commands accept an IDL, protocol or schema as input (and `--stdin`). When
 given a protocol, they emit one line per named type; `fingerprint` labels each
 line with the type's full name (`<fingerprint>  <name>`).
 
+#### Compatibility checking
+
+`avrotool compat <READER> <WRITER>` checks whether data written with the
+`<WRITER>` schema can be read with the `<READER>` schema under Avro's
+schema-evolution rules, and reports every incompatibility it finds.
+
+```plain
+$ avrotool compat v2.avsc v1.avsc
+COMPATIBLE (backward) reader 'v2.avsc' can read writer 'v1.avsc'
+Schemas are compatible.
+```
+
+The default mode is `backward`; `--mode` also accepts `forward`, `full`, and
+their `-transitive` variants, which take a candidate schema followed by every
+earlier version to check it against. `--json` emits a machine-readable list of
+incompatibilities (kind, location and message) instead of the summary above.
+Exit code `0` means compatible, so `compat` slots directly into CI as a
+pre-merge gate.
+
+#### Schema diff
+
+`avrotool diff <SCHEMA_A> <SCHEMA_B>` prints a semantic, field-level diff
+between two versions of a schema — the "what changed" complement to `compat`'s
+"is this safe".
+
+```plain
+$ avrotool diff v1.avsc v2.avsc
+FIELD_ADDED at /fields/Email: field added with a default value
+Schemas differ (1 change(s)).
+```
+
+`--json` emits the same information as a list of typed change records for
+tooling or PR comments:
+
+```plain
+$ avrotool diff v1.avsc v2.avsc --json
+{
+  "identical": false,
+  "changes": [
+    {
+      "kind": "FIELD_ADDED",
+      "location": "/fields/Email",
+      "message": "field added with a default value",
+      "oldValue": null,
+      "newValue": null,
+      "isValidPromotion": null
+    }
+  ]
+}
+```
+
+Reordering fields doesn't count as a change (it mirrors canonical-form
+thinking), but type changes, default changes, renames (detected via
+`aliases`), and enum/fixed/union shape changes are all reported. Pass
+`--verbose` to also report `doc`/`aliases` metadata changes that don't affect
+the schema's shape. Exit code `0` means the schemas are identical, so `diff`
+also works as a CI "did the schema change?" gate.
+
+Like `compat`, each of `<SCHEMA_A>` and `<SCHEMA_B>` must resolve to a single
+schema — a protocol with more than one named type is rejected with a clear
+error.
+
+#### Inspecting Avro data files
+
+`avrotool getschema` and `avrotool tojson` read an Avro **object container
+file** (`.avro`) rather than a schema/IDL definition.
+
+```plain
+$ avrotool getschema people.avro --pretty
+{
+  "type": "record",
+  "name": "Person",
+  "namespace": "ns",
+  "fields": [
+    { "name": "Name", "type": "string" },
+    { "name": "Age", "type": "int" },
+    { "name": "Email", "default": "", "type": "string" }
+  ]
+}
+
+$ avrotool tojson people.avro
+{"Name":"Alice","Age":30,"Email":"alice@example.com"}
+{"Name":"Bob","Age":25,"Email":""}
+```
+
+`getschema` prints the writer schema embedded in the file's header;
+`tojson` decodes every record to JSON Lines (one record per line). Both accept
+`--pretty` for indented output and `--stdin` to read the container file from
+standard input instead of a path.
+
 ### Standard input and output
 
-The `idl`, `idl2schemata` and `codegen` commands can participate in shell
-pipelines rather than only reading and writing files on disk.
+The `idl`, `idl2schemata`, `codegen`, `getschema` and `tojson` commands can
+participate in shell pipelines rather than only reading and writing files on
+disk.
 
 - **Reading from standard input:** pass `--stdin` to read the IDL, protocol or
   schema from standard input instead of a file. The `IDL_FILES`/`INPUT_FILES`
