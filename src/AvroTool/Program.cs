@@ -49,6 +49,7 @@ internal static class Program
             config.AddCommand<IdlCommand>("idl").WithDescription("Generates a JSON protocol file from an Avro IDL file.");
             config.AddCommand<IdlToSchemataCommand>("idl2schemata").WithDescription("Extract JSON schemata of the types from an Avro IDL file.");
             config.AddCommand<CodeGenCommand>("codegen").WithDescription("Generates C# code for a given Avro IDL, protocol or schema.");
+            config.AddCommand<CompatCommand>("compat").WithDescription("Checks whether two Avro schemas are compatible under Avro's schema-evolution rules.");
             config.AddCommand<CanonicalCommand>("canonical").WithDescription("Prints the Parsing Canonical Form of an Avro IDL, protocol or schema.");
             config.AddCommand<FingerprintCommand>("fingerprint").WithDescription("Computes a fingerprint (crc-64-avro, md5 or sha-256) of an Avro IDL, protocol or schema.");
             config.AddCommand<CompletionsCommand>("completions")
