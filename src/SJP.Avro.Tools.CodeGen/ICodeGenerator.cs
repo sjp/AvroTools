@@ -14,6 +14,7 @@ public interface ICodeGenerator<in T>
     /// </summary>
     /// <param name="source">A definition of Avro source schema or protocol.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+    /// <param name="options">Optional C# output style options. Defaults to <see cref="CodeGenOptions.Default"/> when omitted.</param>
     /// <returns>A string representing a C# file containing a definition of the provided source.</returns>
-    string Generate(T source, string baseNamespace);
+    string Generate(T source, string baseNamespace, CodeGenOptions? options = null);
 }

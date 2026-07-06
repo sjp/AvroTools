@@ -21,10 +21,11 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     /// </summary>
     /// <param name="protocol">A definition of an Avro protocol.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+    /// <param name="options">Ignored. Protocols generate abstract methods rather than properties, so output style options have no effect.</param>
     /// <returns>A string representing a C# file containing a class definition. Empty when no messages are present in the protocol.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
-    public string Generate(Protocol protocol, string baseNamespace)
+    public string Generate(Protocol protocol, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(protocol);
         ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);

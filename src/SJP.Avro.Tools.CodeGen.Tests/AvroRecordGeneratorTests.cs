@@ -586,4 +586,308 @@ namespace avro.test.protocol
 
         Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
+
+    [Test]
+    public static void Generate_GivenRequiredOption_MarksNonOptionalFieldsAsRequired()
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        var schema = (RecordSchema)Schema.Parse("""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "fields" : [
+    { "name" : "id", "type" : "int" },
+    { "name" : "name", "type" : "string" },
+    { "name" : "nickname", "type" : [ "null", "string" ] },
+    { "name" : "count", "type" : "int", "default" : 0 }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(RequiredProperties: true));
+
+        const string expected = """
+using System;
+using System.Collections.Generic;
+using Avro;
+using Avro.Specific;
+using AvroSchema = Avro.Schema;
+
+namespace Test.Avro.Namespace
+{
+    public record Widget : ISpecificRecord
+    {
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]},{\"name\":\"count\",\"default\":0,\"type\":\"int\"}]}");
+
+        public AvroSchema Schema { get; } = _schema;
+
+        public required int id { get; set; }
+
+        public required string name { get; set; }
+
+        public string? nickname { get; set; }
+
+        public int count { get; set; }
+
+        public object Get(int fieldPos)
+        {
+            var widgetField = (WidgetField)fieldPos;
+            return widgetField switch
+            {
+                WidgetField.id => id,
+                WidgetField.name => name,
+                WidgetField.nickname => nickname,
+                WidgetField.count => count,
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+            };
+        }
+
+        public void Put(int fieldPos, object fieldValue)
+        {
+            var widgetField = (WidgetField)fieldPos;
+            switch (widgetField)
+            {
+                case WidgetField.id:
+                    id = (int)fieldValue;
+                    break;
+                case WidgetField.name:
+                    name = (string)fieldValue;
+                    break;
+                case WidgetField.nickname:
+                    nickname = (string?)fieldValue;
+                    break;
+                case WidgetField.count:
+                    count = (int)fieldValue;
+                    break;
+                default:
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+            }
+        }
+
+        private enum WidgetField
+        {
+            id,
+            name,
+            nickname,
+            count
+        }
+    }
+}
+""";
+
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
+    }
+
+    [Test]
+    public static void Generate_GivenInitOnlyOption_UsesBackingFieldsAndInitAccessors()
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        var schema = (RecordSchema)Schema.Parse("""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "fields" : [
+    { "name" : "id", "type" : "int" },
+    { "name" : "name", "type" : "string" },
+    { "name" : "nickname", "type" : [ "null", "string" ] }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(InitOnlyProperties: true));
+
+        const string expected = """
+using System;
+using System.Collections.Generic;
+using Avro;
+using Avro.Specific;
+using AvroSchema = Avro.Schema;
+
+namespace Test.Avro.Namespace
+{
+    public record Widget : ISpecificRecord
+    {
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]}]}");
+
+        public AvroSchema Schema { get; } = _schema;
+
+        private int _id;
+
+        public int id { get => _id; init => _id = value; }
+
+        private string _name = default!;
+
+        public string name { get => _name; init => _name = value; }
+
+        private string? _nickname;
+
+        public string? nickname { get => _nickname; init => _nickname = value; }
+
+        public object Get(int fieldPos)
+        {
+            var widgetField = (WidgetField)fieldPos;
+            return widgetField switch
+            {
+                WidgetField.id => id,
+                WidgetField.name => name,
+                WidgetField.nickname => nickname,
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+            };
+        }
+
+        public void Put(int fieldPos, object fieldValue)
+        {
+            var widgetField = (WidgetField)fieldPos;
+            switch (widgetField)
+            {
+                case WidgetField.id:
+                    _id = (int)fieldValue;
+                    break;
+                case WidgetField.name:
+                    _name = (string)fieldValue;
+                    break;
+                case WidgetField.nickname:
+                    _nickname = (string?)fieldValue;
+                    break;
+                default:
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+            }
+        }
+
+        private enum WidgetField
+        {
+            id,
+            name,
+            nickname
+        }
+    }
+}
+""";
+
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
+    }
+
+    [Test]
+    public static void Generate_GivenRequiredAndInitOnlyOptions_CombinesBoth()
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        var schema = (RecordSchema)Schema.Parse("""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "fields" : [
+    { "name" : "id", "type" : "int" },
+    { "name" : "name", "type" : "string" },
+    { "name" : "nickname", "type" : [ "null", "string" ] }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(RequiredProperties: true, InitOnlyProperties: true));
+
+        const string expected = """
+using System;
+using System.Collections.Generic;
+using Avro;
+using Avro.Specific;
+using AvroSchema = Avro.Schema;
+
+namespace Test.Avro.Namespace
+{
+    public record Widget : ISpecificRecord
+    {
+        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]}]}");
+
+        public AvroSchema Schema { get; } = _schema;
+
+        private int _id;
+
+        public required int id { get => _id; init => _id = value; }
+
+        private string _name = default!;
+
+        public required string name { get => _name; init => _name = value; }
+
+        private string? _nickname;
+
+        public string? nickname { get => _nickname; init => _nickname = value; }
+
+        public object Get(int fieldPos)
+        {
+            var widgetField = (WidgetField)fieldPos;
+            return widgetField switch
+            {
+                WidgetField.id => id,
+                WidgetField.name => name,
+                WidgetField.nickname => nickname,
+                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+            };
+        }
+
+        public void Put(int fieldPos, object fieldValue)
+        {
+            var widgetField = (WidgetField)fieldPos;
+            switch (widgetField)
+            {
+                case WidgetField.id:
+                    _id = (int)fieldValue;
+                    break;
+                case WidgetField.name:
+                    _name = (string)fieldValue;
+                    break;
+                case WidgetField.nickname:
+                    _nickname = (string?)fieldValue;
+                    break;
+                default:
+                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+            }
+        }
+
+        private enum WidgetField
+        {
+            id,
+            name,
+            nickname
+        }
+    }
+}
+""";
+
+        Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
+    }
+
+    [Test]
+    public static void Generate_GivenInitOnlyOptionWithCollidingFieldNames_GeneratesUniqueBackingFields()
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        // "schema" collides with the hardcoded "_schema" field; "_x"/"x" would otherwise
+        // both converge on the same backing field name without cross-field collision tracking.
+        var schema = (RecordSchema)Schema.Parse("""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "fields" : [
+    { "name" : "schema", "type" : "string" },
+    { "name" : "x", "type" : "int" },
+    { "name" : "_x", "type" : "int" }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(InitOnlyProperties: true));
+
+        var backingFieldDeclarations = System.Text.RegularExpressions.Regex.Matches(result, @"private \w+\??\s+(_+\w+);")
+            .Select(m => m.Groups[1].Value)
+            .ToList();
+
+        Assert.That(backingFieldDeclarations, Is.Unique);
+    }
 }

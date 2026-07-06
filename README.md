@@ -184,6 +184,28 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 > The base namespace is supplied with `--namespace` (`-n`); it is only used for
 > types that do not declare their own namespace.
 
+Generated types are already `record`s with unconditional nullable (`T?`)
+annotations for optional (`["null", ...]`) fields. Two further output styles
+are opt-in via flags on `codegen`:
+
+| Option | Effect |
+|--------|--------|
+| `--required` | Marks properties that have no Avro-declared default and aren't a nullable union with the `required` modifier. |
+| `--init-only` | Generates `init`-only properties instead of settable ones. A private backing field is used internally so `ISpecificRecord.Put` can still populate the instance after construction — deserialization is unaffected. |
+
+```sh
+$ avrotool codegen sample.avsc --namespace Test.Code.Namespace --required --init-only
+```
+
+```csharp
+public required string FirstName { get => _FirstName; init => _FirstName = value; }
+```
+
+> `required` is a compile-time-only check tied to `new T()` syntax; it has no
+> effect on `Activator.CreateInstance`-based deserialization, which is what
+> `Apache.Avro` uses. Both flags default to off, so existing output is
+> unchanged unless you opt in.
+
 #### Canonical form and fingerprints
 
 `avrotool canonical` prints the [Parsing Canonical Form](https://avro.apache.org/docs/current/specification/#parsing-canonical-form-for-schemas)

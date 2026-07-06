@@ -56,6 +56,16 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         [CommandOption("-d|--output-dir")]
         [Description("Directory to save generated C# files.")]
         public DirectoryInfo? OutputDirectory { get; set; }
+
+        [CommandOption("--required")]
+        [Description("Mark non-optional properties (no Avro-declared default, not a nullable union) with the 'required' modifier.")]
+        [DefaultValue(false)]
+        public bool Required { get; set; }
+
+        [CommandOption("--init-only")]
+        [Description("Generate 'init'-only properties instead of settable ones. A private backing field is used so deserialization still works.")]
+        [DefaultValue(false)]
+        public bool InitOnly { get; set; }
     }
 
     private readonly IAnsiConsole _console;
@@ -145,6 +155,8 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             return false;
         }
 
+        var codeGenOptions = new CodeGenOptions(RequiredProperties: settings.Required, InitOnlyProperties: settings.InitOnly);
+
         var protocol = input.Protocol;
         IEnumerable<AvroSchema> schemas = input.Schemas;
 
@@ -178,7 +190,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 {
                     var outputFilePath = Path.Combine(outputDir.FullName, protocol.Name + ".cs");
                     var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
-                    var protocolOutput = protocolGenerator.Generate(protocol, settings.BaseNamespace);
+                    var protocolOutput = protocolGenerator.Generate(protocol, settings.BaseNamespace, codeGenOptions);
 
                     await OutputCollector.WriteAsync(outputFilePath, protocolOutput, cancellationToken);
                     _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
@@ -191,10 +203,10 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
                 var schemaOutput = namedType.Tag switch
                 {
-                    AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.BaseNamespace),
-                    AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)namedType, settings.BaseNamespace),
-                    AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace),
-                    AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace),
+                    AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.BaseNamespace, codeGenOptions),
+                    AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)namedType, settings.BaseNamespace, codeGenOptions),
+                    AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace, codeGenOptions),
+                    AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace, codeGenOptions),
                     _ => null
                 };
 

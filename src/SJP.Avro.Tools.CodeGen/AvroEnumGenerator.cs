@@ -19,10 +19,11 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
     /// </summary>
     /// <param name="schema">A definition of an enum in Avro schema.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+    /// <param name="options">Ignored. Enum types have no properties for output style options to affect.</param>
     /// <returns>A string representing a C# file containing an enum definition.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
-    public string Generate(EnumSchema schema, string baseNamespace)
+    public string Generate(EnumSchema schema, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);

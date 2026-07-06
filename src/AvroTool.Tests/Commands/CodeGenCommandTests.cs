@@ -390,6 +390,46 @@ namespace SJP.Avro.CodeGen.Test
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenRequiredFlag_MarksNonOptionalPropertiesAsRequired()
+    {
+        const string input = SimpleTestSchema;
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName, "--required"], default);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(resultFileContents, Does.Contain("public required string FirstName { get; set; }"));
+            Assert.That(resultFileContents, Does.Contain("public required string LastName { get; set; }"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenInitOnlyFlag_UsesInitAccessorsWithBackingFields()
+    {
+        const string input = SimpleTestSchema;
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName, "--init-only"], default);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(resultFileContents, Does.Contain("public string FirstName { get => _FirstName; init => _FirstName = value; }"));
+            Assert.That(resultFileContents, Does.Contain("_FirstName = (string)fieldValue;"));
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenValidSchemaInputWithMultipleNamedTypes_WritesExpectedOutput()
     {
         const string input = MultiRecordSchema;

@@ -21,10 +21,11 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
     /// </summary>
     /// <param name="schema">A definition of a fixed type in Avro schema.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
+    /// <param name="options">Ignored. Fixed types have no per-field properties for output style options to affect.</param>
     /// <returns>A string representing a C# file containing a class definition.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
-    public string Generate(FixedSchema schema, string baseNamespace)
+    public string Generate(FixedSchema schema, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);
