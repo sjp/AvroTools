@@ -1,17 +1,21 @@
 {
-	"name": "AvroTools Development",
+	"name": "C# (.NET)",
 	"image": "mcr.microsoft.com/devcontainers/base:trixie",
 	"features": {
 		"ghcr.io/devcontainers/features/dotnet:2": {
 			"version": "latest"
-		}
+		},
+		"ghcr.io/devcontainers/features/node:2": {
+			"version": "26"
+		},
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
 	},
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"ms-dotnettools.csdevkit"
-			]
-		}
+	"mounts": [
+		"source=claude-code-config,target=/home/vscode/.claude,type=volume"
+	],
+	"remoteUser": "vscode",
+	"containerEnv": {
+		"CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
 	},
-	"remoteUser": "vscode"
+	"postCreateCommand": "bash .devcontainer/post-create.sh"
 }
