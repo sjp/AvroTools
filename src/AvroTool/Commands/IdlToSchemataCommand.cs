@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools;
@@ -166,11 +164,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 var namedTypeFilename = Path.Combine(outputDir.FullName, namedType.Fullname + ".avsc");
 
                 // format output so it's human-readable
-                var jsonNode = JsonNode.Parse(namedType.ToString());
-                var formattedOutput = jsonNode!.ToJsonString(new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
+                var formattedOutput = JsonFormatting.Indent(namedType.ToString());
 
                 await OutputCollector.WriteAsync(namedTypeFilename, formattedOutput, cancellationToken);
                 _console.MarkupLineInterpolated($"[green]Generated {namedTypeFilename}[/]");

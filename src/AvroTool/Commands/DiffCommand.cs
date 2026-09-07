@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +9,6 @@ using SJP.Avro.Tools.Diff;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using AvroSchema = Avro.Schema;
 
 namespace AvroTool.Commands;
 
@@ -70,11 +68,11 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var before = await ResolveSingleSchema(settings.SchemaA, cancellationToken);
+        var before = await AvroInputResolver.ResolveSingleSchemaAsync(settings.SchemaA, _idlTranslator, "diff", _console, cancellationToken);
         if (before == null)
             return ErrorCode.Error;
 
-        var after = await ResolveSingleSchema(settings.SchemaB, cancellationToken);
+        var after = await AvroInputResolver.ResolveSingleSchemaAsync(settings.SchemaB, _idlTranslator, "diff", _console, cancellationToken);
         if (after == null)
             return ErrorCode.Error;
 
@@ -98,31 +96,11 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         return result.IsIdentical ? ErrorCode.Success : ErrorCode.Error;
     }
 
-    private async Task<SchemaSource?> ResolveSingleSchema(string schemaFile, CancellationToken cancellationToken)
-    {
-        var content = await File.ReadAllTextAsync(schemaFile, cancellationToken);
-        var baseDirectory = InputSource.ImportBaseDirectory(false, schemaFile);
-        var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
-        if (input == null)
-        {
-            _console.MarkupLineInterpolated($"[red]Input '{schemaFile}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
-            return null;
-        }
-
-        if (input.Schemas.Count != 1)
-        {
-            _console.MarkupLineInterpolated($"[red]Input '{schemaFile}' resolves to {input.Schemas.Count} named types; diff expects a single schema per input.[/]");
-            return null;
-        }
-
-        return new SchemaSource(schemaFile, input.Schemas[0]);
-    }
-
     private void WriteHuman(SchemaDiffResult result)
     {
         foreach (var change in result.Changes)
         {
-            var kind = ToUpperSnake(change.Kind);
+            var kind = NamingConventions.ToUpperSnake(change.Kind);
             var color = ChangeColor(change.Kind);
             _console.MarkupLineInterpolated($"[{color}]{kind}[/] at {change.Location}: {change.Message}");
         }
@@ -149,7 +127,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
             identical = result.IsIdentical,
             changes = result.Changes.Select(change => new
             {
-                kind = ToUpperSnake(change.Kind),
+                kind = NamingConventions.ToUpperSnake(change.Kind),
                 location = change.Location,
                 message = change.Message,
                 oldValue = change.OldValue,
@@ -158,24 +136,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
             }),
         };
 
-        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(payload, JsonFormatting.IndentedOptions);
         await Console.Out.WriteLineAsync(json.AsMemory(), cancellationToken);
     }
-
-    // Renders a change kind in the UPPER_SNAKE_CASE convention shared with the compat command.
-    private static string ToUpperSnake(ChangeKind kind)
-    {
-        var name = kind.ToString();
-        var builder = new StringBuilder(name.Length + 6);
-        for (var i = 0; i < name.Length; i++)
-        {
-            if (i > 0 && char.IsUpper(name[i]))
-                builder.Append('_');
-            builder.Append(char.ToUpperInvariant(name[i]));
-        }
-
-        return builder.ToString();
-    }
-
-    private sealed record SchemaSource(string Source, AvroSchema Schema);
 }

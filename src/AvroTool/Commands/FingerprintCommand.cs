@@ -40,7 +40,7 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
     public static readonly IReadOnlyList<string> SupportedAlgorithms = ["crc-64-avro", "md5", "sha-256"];
 
     // The algorithm names understood by Apache.Avro's SchemaNormalization, keyed by a normalised
-    // (lower-case, hyphen-stripped) form of the user-supplied value.
+    // (lower-case, separator-stripped) form of the user-supplied value.
     private static readonly Dictionary<string, string> Algorithms = new()
     {
         ["crc64avro"] = "CRC-64-AVRO",
@@ -73,14 +73,14 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
-        if (!Algorithms.ContainsKey(Normalise(settings.Algorithm)))
+        if (!Algorithms.ContainsKey(NamingConventions.NormaliseOption(settings.Algorithm)))
             return ValidationResult.Error($"Unknown algorithm '{settings.Algorithm}'. Supported: {string.Join(", ", SupportedAlgorithms)}.");
 
-        var format = Normalise(settings.Format);
+        var format = NamingConventions.NormaliseOption(settings.Format);
         if (format is not (HexFormat or Base64Format or LongFormat))
             return ValidationResult.Error($"Unknown format '{settings.Format}'. Supported: {string.Join(", ", SupportedFormats)}.");
 
-        if (format == LongFormat && Algorithms[Normalise(settings.Algorithm)] != "CRC-64-AVRO")
+        if (format == LongFormat && Algorithms[NamingConventions.NormaliseOption(settings.Algorithm)] != "CRC-64-AVRO")
             return ValidationResult.Error("The 'long' format is only valid for the crc-64-avro algorithm.");
 
         if (settings.FromStandardInput)
@@ -106,8 +106,8 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
             return ErrorCode.Error;
         }
 
-        var avroAlgorithm = Algorithms[Normalise(settings.Algorithm)];
-        var format = Normalise(settings.Format);
+        var avroAlgorithm = Algorithms[NamingConventions.NormaliseOption(settings.Algorithm)];
+        var format = NamingConventions.NormaliseOption(settings.Format);
 
         try
         {
@@ -145,7 +145,4 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
             ? Convert.ToBase64String(bytes)
             : Convert.ToHexString(bytes).ToLowerInvariant();
     }
-
-    private static string Normalise(string value) =>
-        (value ?? string.Empty).Trim().ToLowerInvariant().Replace("-", string.Empty);
 }

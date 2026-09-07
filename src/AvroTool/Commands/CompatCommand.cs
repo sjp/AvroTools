@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +10,6 @@ using SJP.Avro.Tools.Compatibility;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using AvroSchema = Avro.Schema;
 
 namespace AvroTool.Commands;
 
@@ -72,7 +70,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
-        if (!Modes.TryGetValue(Normalise(settings.Mode), out var mode))
+        if (!Modes.TryGetValue(NamingConventions.NormaliseOption(settings.Mode), out var mode))
             return ValidationResult.Error($"Unknown mode '{settings.Mode}'. Supported: {string.Join(", ", SupportedModes)}.");
 
         if (settings.Schemas.Length < 2)
@@ -95,27 +93,16 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var mode = Modes[Normalise(settings.Mode)];
+        var mode = Modes[NamingConventions.NormaliseOption(settings.Mode)];
 
         var sources = new List<SchemaSource>(settings.Schemas.Length);
         foreach (var schemaFile in settings.Schemas)
         {
-            var content = await File.ReadAllTextAsync(schemaFile, cancellationToken);
-            var baseDirectory = InputSource.ImportBaseDirectory(false, schemaFile);
-            var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
-            if (input == null)
-            {
-                _console.MarkupLineInterpolated($"[red]Input '{schemaFile}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
+            var source = await AvroInputResolver.ResolveSingleSchemaAsync(schemaFile, _idlTranslator, "compat", _console, cancellationToken);
+            if (source == null)
                 return ErrorCode.Error;
-            }
 
-            if (input.Schemas.Count != 1)
-            {
-                _console.MarkupLineInterpolated($"[red]Input '{schemaFile}' resolves to {input.Schemas.Count} named types; compat expects a single schema per input.[/]");
-                return ErrorCode.Error;
-            }
-
-            sources.Add(new SchemaSource(schemaFile, input.Schemas[0]));
+            sources.Add(source);
         }
 
         List<CompatibilityCheck> checks;
@@ -186,7 +173,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
             {
                 _console.MarkupLineInterpolated($"[red]INCOMPATIBLE[/] ({check.Direction}) reader '{check.Reader.Source}' cannot read writer '{check.Writer.Source}'");
                 foreach (var incompatibility in check.Result.Incompatibilities)
-                    _console.MarkupLineInterpolated($"    [yellow]{ToUpperSnake(incompatibility.Type)}[/] at {incompatibility.Location}: {incompatibility.Message}");
+                    _console.MarkupLineInterpolated($"    [yellow]{NamingConventions.ToUpperSnake(incompatibility.Type)}[/] at {incompatibility.Location}: {incompatibility.Message}");
             }
         }
 
@@ -210,39 +197,19 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
                 compatible = check.Result.IsCompatible,
                 incompatibilities = check.Result.Incompatibilities.Select(incompatibility => new
                 {
-                    type = ToUpperSnake(incompatibility.Type),
+                    type = NamingConventions.ToUpperSnake(incompatibility.Type),
                     location = incompatibility.Location,
                     message = incompatibility.Message,
                 }),
             }),
         };
 
-        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(payload, JsonFormatting.IndentedOptions);
         await Console.Out.WriteLineAsync(json.AsMemory(), cancellationToken);
     }
 
     private static bool IsTransitive(CompatibilityMode mode) =>
         mode is CompatibilityMode.BackwardTransitive or CompatibilityMode.ForwardTransitive or CompatibilityMode.FullTransitive;
-
-    private static string Normalise(string value) =>
-        (value ?? string.Empty).Trim().Replace("-", string.Empty).Replace("_", string.Empty);
-
-    // Renders an incompatibility kind in the UPPER_SNAKE_CASE convention shared with the Java tooling.
-    private static string ToUpperSnake(SchemaIncompatibilityType type)
-    {
-        var name = type.ToString();
-        var builder = new StringBuilder(name.Length + 6);
-        for (var i = 0; i < name.Length; i++)
-        {
-            if (i > 0 && char.IsUpper(name[i]))
-                builder.Append('_');
-            builder.Append(char.ToUpperInvariant(name[i]));
-        }
-
-        return builder.ToString();
-    }
-
-    private sealed record SchemaSource(string Source, AvroSchema Schema);
 
     private sealed record CompatibilityCheck(string Direction, SchemaSource Reader, SchemaSource Writer, SchemaCompatibilityResult Result);
 }

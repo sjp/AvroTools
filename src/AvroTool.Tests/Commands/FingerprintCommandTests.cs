@@ -112,6 +112,18 @@ internal class FingerprintCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenUnderscoredAndUpperCasedAlgorithm_WritesSha256Hex()
+    {
+        var (exitCode, stdout) = await RunAsync("-a", "SHA_256", "-f", "HEX");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero);
+            Assert.That(stdout, Is.EqualTo(ExpectedSha256Hex));
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenMd5Base64_WritesMd5Base64()
     {
         var (exitCode, stdout) = await RunAsync("-a", "md5", "-f", "base64");
