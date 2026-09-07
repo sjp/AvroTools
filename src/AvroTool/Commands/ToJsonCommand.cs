@@ -75,6 +75,11 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
         {
             var schema = reader.GetSchema();
 
+            // A container file can hold millions of records, and standard output flushes on every
+            // write, so records are buffered and forwarded in blocks. Disposal flushes whatever is
+            // left, including when decoding fails part way through.
+            using var output = new BufferedTextWriter(Console.Out);
+
             try
             {
                 while (reader.HasNext())
@@ -84,7 +89,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
                     if (settings.Pretty)
                         json = JsonFormatting.Indent(json);
 
-                    await Console.Out.WriteLineAsync(json.AsMemory(), cancellationToken);
+                    await output.WriteLineAsync(json.AsMemory(), cancellationToken);
                 }
             }
             catch (Exception ex)

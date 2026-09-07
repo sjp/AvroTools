@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Avro;
@@ -109,6 +110,45 @@ internal class ToJsonCommandTests
                 Assert.That(result.ExitCode, Is.Zero);
                 Assert.That(stdout.ToString(), Does.Contain("\n"));
                 Assert.That(stdout.ToString(), Does.Contain("  \"name\""));
+            }
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenManyRecords_WritesEveryRecordInOrder()
+    {
+        const int recordCount = 5_000;
+
+        var schema = Schema;
+        var records = new GenericRecord[recordCount];
+        for (var i = 0; i < recordCount; i++)
+        {
+            var record = new GenericRecord(schema);
+            record.Add("name", i.ToString(CultureInfo.InvariantCulture));
+            record.Add("nickname", null);
+            records[i] = record;
+        }
+
+        var avroFile = CreateAvroFile(records);
+
+        var originalOut = Console.Out;
+        var stdout = new StringWriter();
+        Console.SetOut(stdout);
+        try
+        {
+            var result = await _app.RunAsync([avroFile], default);
+
+            var lines = stdout.ToString().Trim().ReplaceLineEndings("\n").Split('\n');
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(lines, Has.Length.EqualTo(recordCount));
+                Assert.That(lines[0], Is.EqualTo("""{"name":"0","nickname":null}"""));
+                Assert.That(lines[^1], Is.EqualTo("""{"name":"4999","nickname":null}"""));
             }
         }
         finally
