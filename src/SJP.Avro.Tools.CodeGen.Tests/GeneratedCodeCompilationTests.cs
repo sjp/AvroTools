@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using Avro;
@@ -140,6 +140,47 @@ internal static class GeneratedCodeCompilationTests
             Assert.That(typeof(ISpecificProtocol).IsAssignableFrom(generatedType), Is.True);
             Assert.That(generatedType.IsAbstract, Is.True);
             Assert.That(generatedType.GetMethod("echo"), Is.Not.Null);
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenUuidLogicalType_RoundTripsThroughSpecificDatumReaderAsGuid()
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledUuidWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "id", "type" : { "type" : "string", "logicalType" : "uuid" } },
+    { "name" : "parentId", "type" : [ "null", { "type" : "string", "logicalType" : "uuid" } ] }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledUuidWidget");
+
+        var id = Guid.NewGuid();
+        var parentId = Guid.NewGuid();
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, id);
+        widget.Put(1, parentId);
+
+        using var stream = new MemoryStream();
+        new SpecificDatumWriter<ISpecificRecord>(schema).Write(widget, new BinaryEncoder(stream));
+        stream.Seek(0, SeekOrigin.Begin);
+
+        var deserialized = new SpecificDatumReader<ISpecificRecord>(schema, schema).Read(null!, new BinaryDecoder(stream));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("id")!.PropertyType, Is.EqualTo(typeof(Guid)));
+            Assert.That(generatedType.GetProperty("parentId")!.PropertyType, Is.EqualTo(typeof(Guid?)));
+            Assert.That(deserialized.Get(0), Is.EqualTo(id));
+            Assert.That(deserialized.Get(1), Is.EqualTo(parentId));
         }
     }
 

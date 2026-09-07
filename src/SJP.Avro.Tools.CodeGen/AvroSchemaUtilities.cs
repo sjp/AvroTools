@@ -51,7 +51,7 @@ internal static class AvroSchemaUtilities
             "local-timestamp-millis" => IdentifierName(nameof(DateTime)),
             "local-timestamp-micros" => IdentifierName(nameof(DateTime)),
             "duration" => IdentifierName(nameof(TimeSpan)),
-            "uuid" => IdentifierName(Token(SyntaxKind.StringKeyword)),
+            "uuid" => IdentifierName(nameof(Guid)),
             _ => throw new ArgumentOutOfRangeException($"Unable to resolve a type for logicalType of '{logicalSchema.Name}'")
         };
     }
@@ -141,8 +141,8 @@ internal static class AvroSchemaUtilities
             "timestamp-micros",
             "local-timestamp-millis",
             "local-timestamp-micros",
-            "duration"
-            // uuid is a string
+            "duration",
+            "uuid"
         ];
 
     private static readonly IEnumerable<Schema.Type> ValueTypes =
