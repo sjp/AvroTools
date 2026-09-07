@@ -74,6 +74,13 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
+        var directoryError = OutputCollector.EnsureDirectory(outputDir);
+        if (directoryError != null)
+        {
+            _console.MarkupLineInterpolated($"[red]{directoryError}[/]");
+            return ErrorCode.Error;
+        }
+
         var collector = new OutputCollector(settings.Overwrite);
 
         if (settings.FromStandardInput)

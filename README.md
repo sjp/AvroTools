@@ -459,6 +459,9 @@ Details:
 - **Output naming** continues to derive from each schema/protocol's own name and
   the `--output-dir`, so many inputs can safely share one output directory. The
   existing `--overwrite` semantics are respected per file.
+- **Output directory creation** — `--output-dir` (`-d`) is created if it does not
+  already exist, including any missing parent directories, so a generated tree can
+  be written straight into a fresh location.
 - **Duplicate outputs** — two outputs that would be written to the same file are
   detected and reported rather than silently racing, whether they come from two
   inputs or from a single one (for example, a protocol and a type of the same

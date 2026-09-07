@@ -77,6 +77,26 @@ internal sealed class OutputCollector
     }
 
     /// <summary>
+    /// Ensures that the directory generated files will be written to exists, creating it —
+    /// along with any missing parent directories — when it does not.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> on success; otherwise a message explaining why the directory is unusable.
+    /// </returns>
+    public static string? EnsureDirectory(DirectoryInfo directory)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory.FullName);
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return $"The output directory '{directory.FullName}' could not be created: {ex.Message}";
+        }
+    }
+
+    /// <summary>
     /// Writes content to a reserved output path, replacing any existing file. The content is
     /// written to a temporary file alongside the destination and then moved into place, so an
     /// interrupted write never leaves a missing or half-written output.

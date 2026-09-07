@@ -461,4 +461,20 @@ internal class IdlCommandTests
             Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr")), Is.False);
         }
     }
+
+    [Test]
+    public async Task ExecuteAsync_GivenOutputDirectoryThatDoesNotExist_CreatesItAndWritesOutput()
+    {
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+
+        var outputDir = Path.Combine(_tempDir.DirectoryPath, "does", "not", "exist");
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", outputDir], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir, "TestProtocol.avpr")), Is.True);
+        }
+    }
 }
