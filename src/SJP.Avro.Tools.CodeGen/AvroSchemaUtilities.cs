@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Avro;
 using Microsoft.CodeAnalysis;
@@ -13,18 +14,28 @@ internal static class AvroSchemaUtilities
 {
     public static TypeSyntax GetFieldType(Schema schema)
     {
+        return GetFieldType(schema, convertDecimals: true);
+    }
+
+    private static TypeSyntax GetFieldType(Schema schema, bool convertDecimals)
+    {
         var fieldIsNullable = IsNullableRefType(schema) || IsNullableValueType(schema);
-        var fieldType = GetSimpleFieldType(schema);
+        var fieldType = GetSimpleFieldType(schema, convertDecimals);
         return fieldIsNullable ? NullableType(fieldType) : fieldType;
     }
 
     public static TypeSyntax GetSimpleFieldType(Schema schema)
     {
+        return GetSimpleFieldType(schema, convertDecimals: true);
+    }
+
+    private static TypeSyntax GetSimpleFieldType(Schema schema, bool convertDecimals)
+    {
         if (SyntaxUtilities.TypeSyntaxMap.TryGetValue(schema.Tag, out var builtinType))
             return builtinType;
 
         if (schema is LogicalSchema logicalSchema)
-            return ResolveLogicalType(logicalSchema);
+            return ResolveLogicalType(logicalSchema, convertDecimals);
 
         if (schema is ArraySchema arraySchema)
             return ResolveArrayType(arraySchema);
@@ -33,16 +44,18 @@ internal static class AvroSchemaUtilities
             return ResolveMapType(mapSchema);
 
         if (schema is UnionSchema unionSchema)
-            return ResolveUnionType(unionSchema);
+            return ResolveUnionType(unionSchema, convertDecimals);
 
         return IdentifierName(schema.Name);
     }
 
-    private static TypeSyntax ResolveLogicalType(LogicalSchema logicalSchema)
+    private static TypeSyntax ResolveLogicalType(LogicalSchema logicalSchema, bool convertDecimals)
     {
         return logicalSchema.LogicalTypeName switch
         {
-            "decimal" => PredefinedType(Token(SyntaxKind.DecimalKeyword)),
+            DecimalLogicalTypeName => convertDecimals
+                ? PredefinedType(Token(SyntaxKind.DecimalKeyword))
+                : IdentifierName(nameof(AvroDecimal)),
             "date" => IdentifierName(nameof(DateTime)),
             "time-millis" => IdentifierName(nameof(TimeSpan)),
             "time-micros" => IdentifierName(nameof(TimeSpan)),
@@ -58,7 +71,9 @@ internal static class AvroSchemaUtilities
 
     private static TypeSyntax ResolveArrayType(ArraySchema arraySchema)
     {
-        var value = GetFieldType(arraySchema.ItemSchema);
+        // Values nested inside a collection are handed to and from Avro element by element, so
+        // they keep the representation the runtime uses rather than a converted one.
+        var value = GetFieldType(arraySchema.ItemSchema, convertDecimals: false);
         return GenericName(
             Identifier(nameof(System.Collections.Generic.List<>)))
             .WithTypeArgumentList(
@@ -68,7 +83,7 @@ internal static class AvroSchemaUtilities
 
     private static TypeSyntax ResolveMapType(MapSchema mapSchema)
     {
-        var value = GetFieldType(mapSchema.ValueSchema);
+        var value = GetFieldType(mapSchema.ValueSchema, convertDecimals: false);
         return GenericName(
             Identifier(nameof(IDictionary<,>)))
             .WithTypeArgumentList(
@@ -83,7 +98,7 @@ internal static class AvroSchemaUtilities
                         })));
     }
 
-    private static TypeSyntax ResolveUnionType(UnionSchema unionSchema)
+    private static TypeSyntax ResolveUnionType(UnionSchema unionSchema, bool convertDecimals)
     {
         var typeCount = unionSchema.Schemas
             .Select(s => s.Tag)
@@ -103,7 +118,64 @@ internal static class AvroSchemaUtilities
         if (nonNullType == null)
             return PredefinedType(Token(SyntaxKind.ObjectKeyword));
 
-        return GetFieldType(nonNullType);
+        return GetFieldType(nonNullType, convertDecimals);
+    }
+
+    /// <summary>
+    /// The name Avro gives the logical type whose values are exchanged as <see cref="AvroDecimal"/>.
+    /// </summary>
+    public const string DecimalLogicalTypeName = "decimal";
+
+    /// <summary>
+    /// Returns the decimal schema behind a position whose generated type is <c>decimal</c>, meaning
+    /// values must be converted to and from <see cref="AvroDecimal"/> when crossing the
+    /// <c>ISpecificRecord</c> boundary. A decimal qualifies when it is the field's own type or the
+    /// only non-null branch of its union. Every other position, including a decimal nested in an
+    /// array or a map, needs no conversion and yields <c>null</c>.
+    /// </summary>
+    /// <param name="schema">The schema of a record field.</param>
+    /// <returns>The decimal schema to convert, or <c>null</c> when no conversion applies.</returns>
+    public static LogicalSchema? GetConvertedDecimalSchema(Schema schema)
+    {
+        if (schema is LogicalSchema { LogicalTypeName: DecimalLogicalTypeName } decimalSchema)
+            return decimalSchema;
+
+        if (schema is not UnionSchema unionSchema)
+            return null;
+
+        var nonNullSchemas = unionSchema.Schemas
+            .Where(s => s.Tag != Schema.Type.Null)
+            .ToList();
+
+        return nonNullSchemas.Count == 1
+            && nonNullSchemas[0] is LogicalSchema { LogicalTypeName: DecimalLogicalTypeName } branchSchema
+            ? branchSchema
+            : null;
+    }
+
+    /// <summary>
+    /// Reads the scale of a decimal schema. Avro makes <c>scale</c> optional, defaulting to zero.
+    /// </summary>
+    /// <param name="decimalSchema">A schema whose logical type is <c>decimal</c>.</param>
+    /// <returns>The number of digits to the right of the decimal point.</returns>
+    public static int GetDecimalScale(LogicalSchema decimalSchema)
+    {
+        var scale = decimalSchema.GetProperty("scale");
+        return scale == null
+            ? 0
+            : int.Parse(scale, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Determines whether a schema position also admits a null value, i.e. whether its generated
+    /// type carries a <c>?</c> annotation.
+    /// </summary>
+    /// <param name="schema">The schema of a record field.</param>
+    /// <returns><c>true</c> if the position is nullable, otherwise <c>false</c>.</returns>
+    public static bool IsNullable(Schema schema)
+    {
+        return schema is UnionSchema unionSchema
+            && unionSchema.Schemas.Any(s => s.Tag == Schema.Type.Null);
     }
 
     public static bool IsNullableRefType(Schema schema)

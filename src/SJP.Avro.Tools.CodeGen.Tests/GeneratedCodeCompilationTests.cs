@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Avro;
@@ -182,6 +183,115 @@ internal static class GeneratedCodeCompilationTests
             Assert.That(deserialized.Get(0), Is.EqualTo(id));
             Assert.That(deserialized.Get(1), Is.EqualTo(parentId));
         }
+    }
+
+    [Test]
+    public static void Generate_GivenDecimalWithoutScale_RoundTripsThroughSpecificDatumReaderAtScaleZero()
+    {
+        // 'scale' is optional in Avro and defaults to zero.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledUnscaledWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "count", "type" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 10 } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledUnscaledWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, new AvroDecimal(7m));
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("count")!.PropertyType, Is.EqualTo(typeof(decimal)));
+            Assert.That(AvroDecimal.ToDecimal((AvroDecimal)deserialized.Get(0)), Is.EqualTo(7m));
+        }
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public static void Generate_GivenNullableDecimal_RoundTripsThroughSpecificDatumReader(bool hasValue)
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledNullableDecimalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amount", "type" : [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 2 } ] }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledNullableDecimalWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, hasValue ? new AvroDecimal(1.25m) : null!);
+
+        var deserialized = RoundTrip(schema, widget);
+        var expected = hasValue ? (decimal?)1.25m : null;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(decimal?)));
+            Assert.That(generatedType.GetProperty("amount")!.GetValue(widget), Is.EqualTo(expected));
+            Assert.That(deserialized.Get(0) is AvroDecimal d ? AvroDecimal.ToDecimal(d) : (decimal?)null, Is.EqualTo(expected));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenDecimalsInsideCollections_RoundTripsThroughSpecificDatumReaderAsAvroDecimal()
+    {
+        // Values inside an array or a map stay in Avro's own representation rather than being
+        // converted element by element, so the properties are typed in terms of AvroDecimal.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledDecimalCollectionWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amounts", "type" : { "type" : "array", "items" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 2 } } },
+    { "name" : "amountsByName", "type" : { "type" : "map", "values" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 2 } } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledDecimalCollectionWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, new List<AvroDecimal> { new(1.25m), new(2.50m) });
+        widget.Put(1, new Dictionary<string, AvroDecimal> { ["fee"] = new(3.75m) });
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("amounts")!.PropertyType, Is.EqualTo(typeof(List<AvroDecimal>)));
+            Assert.That(generatedType.GetProperty("amountsByName")!.PropertyType, Is.EqualTo(typeof(IDictionary<string, AvroDecimal>)));
+            Assert.That(((List<AvroDecimal>)deserialized.Get(0)).ConvertAll(AvroDecimal.ToDecimal), Is.EqualTo(new[] { 1.25m, 2.50m }));
+            Assert.That(AvroDecimal.ToDecimal(((IDictionary<string, AvroDecimal>)deserialized.Get(1))["fee"]), Is.EqualTo(3.75m));
+        }
+    }
+
+    private static ISpecificRecord RoundTrip(RecordSchema schema, ISpecificRecord record)
+    {
+        using var stream = new MemoryStream();
+        new SpecificDatumWriter<ISpecificRecord>(schema).Write(record, new BinaryEncoder(stream));
+        stream.Seek(0, SeekOrigin.Begin);
+
+        return new SpecificDatumReader<ISpecificRecord>(schema, schema).Read(null!, new BinaryDecoder(stream));
     }
 
     [Test]

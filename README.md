@@ -210,6 +210,19 @@ public required string FirstName { get => _FirstName; init => _FirstName = value
 > `Apache.Avro` uses. Both flags default to off, so existing output is
 > unchanged unless you opt in.
 
+Logical types map onto their natural C# counterparts: `uuid` becomes a `Guid`,
+the date and time types become `DateTime` or `TimeSpan`, and `decimal` becomes a
+`decimal`. A `decimal` that omits `scale` is generated with a scale of `0`, as
+the Avro specification requires.
+
+Because `Apache.Avro` exchanges decimal values as `AvroDecimal`, the generated
+`Get` and `Put` convert them. That conversion applies to a decimal field and to
+an optional (`["null", ...]`) decimal field, which are exposed as `decimal` and
+`decimal?` respectively. Decimals nested inside an array or a map are not
+converted element by element: those properties are typed
+`List<AvroDecimal>` and `IDictionary<string, AvroDecimal>` and are handed to
+Avro as-is.
+
 #### Canonical form and fingerprints
 
 `avrotool canonical` prints the [Parsing Canonical Form](https://avro.apache.org/docs/current/specification/#parsing-canonical-form-for-schemas)

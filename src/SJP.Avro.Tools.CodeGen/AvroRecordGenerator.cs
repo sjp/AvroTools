@@ -406,20 +406,11 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
     private static SwitchExpressionArmSyntax GenerateGetCaseStatement(Field field, string enumClassName)
     {
-        // special case for decimal
-        if (field.Schema is LogicalSchema logicalSchema && logicalSchema.LogicalTypeName == "decimal")
-        {
-            var scale = byte.Parse(logicalSchema.GetProperty("scale"));
-            var dec = GenerateGetDecimalCase(field, scale);
-
-            return SwitchExpressionArm(
-                ConstantPattern(
-                    MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        IdentifierName(enumClassName),
-                        IdentifierName(field.Name))),
-                dec);
-        }
+        // A decimal property must be converted back to the AvroDecimal the writer expects.
+        var decimalSchema = AvroSchemaUtilities.GetConvertedDecimalSchema(field.Schema);
+        var valueExpression = decimalSchema != null
+            ? GenerateGetDecimalCase(field, AvroSchemaUtilities.GetDecimalScale(decimalSchema), AvroSchemaUtilities.IsNullable(field.Schema))
+            : IdentifierName(field.Name);
 
         return SwitchExpressionArm(
             ConstantPattern(
@@ -427,10 +418,36 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                     SyntaxKind.SimpleMemberAccessExpression,
                     IdentifierName(enumClassName),
                     IdentifierName(field.Name))),
-            IdentifierName(field.Name));
+            valueExpression);
     }
 
-    private static ObjectCreationExpressionSyntax GenerateGetDecimalCase(Field field, int scale)
+    private static ExpressionSyntax GenerateGetDecimalCase(Field field, int scale, bool isNullable)
+    {
+        // Only the non-null branch can be rounded, so a nullable decimal keeps its null as-is.
+        var value = isNullable
+            ? MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName(field.Name),
+                IdentifierName(nameof(Nullable<int>.Value)))
+            : (ExpressionSyntax)IdentifierName(field.Name);
+
+        var conversion = GenerateAvroDecimalCreation(value, scale);
+
+        if (!isNullable)
+            return conversion;
+
+        return ConditionalExpression(
+            BinaryExpression(
+                SyntaxKind.EqualsExpression,
+                IdentifierName(field.Name),
+                LiteralExpression(SyntaxKind.NullLiteralExpression)),
+            CastExpression(
+                NullableType(IdentifierName(nameof(AvroDecimal))),
+                LiteralExpression(SyntaxKind.NullLiteralExpression)),
+            conversion);
+    }
+
+    private static ObjectCreationExpressionSyntax GenerateAvroDecimalCreation(ExpressionSyntax value, int scale)
     {
         return ObjectCreationExpression(
             IdentifierName(nameof(AvroDecimal)))
@@ -450,8 +467,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                         SeparatedList<ArgumentSyntax>(
                                             new SyntaxNodeOrToken[]
                                             {
-                                                    Argument(
-                                                        IdentifierName(field.Name)),
+                                                    Argument(value),
                                                     Token(SyntaxKind.CommaToken),
                                                     Argument(
                                                         LiteralExpression(
@@ -552,8 +568,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
     private static SwitchSectionSyntax GeneratePutCaseStatement(Field field, string enumClassName, string backingFieldName, CodeGenOptions options)
     {
-        // special case for decimal
-        if (field.Schema is LogicalSchema logicalSchema && logicalSchema.LogicalTypeName == "decimal")
+        // A decimal property must be converted from the AvroDecimal the reader supplies.
+        if (AvroSchemaUtilities.GetConvertedDecimalSchema(field.Schema) != null)
         {
             return GenerateDecimalPutCaseStatement(field, enumClassName, backingFieldName, options);
         }
@@ -586,6 +602,33 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     {
         var assignmentTargetName = options.InitOnlyProperties ? backingFieldName : field.Name;
 
+        ExpressionSyntax conversion = InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName(nameof(AvroDecimal)),
+                    IdentifierName(nameof(AvroDecimal.ToDecimal))))
+            .WithArgumentList(
+                ArgumentList(
+                    SingletonSeparatedList(
+                        Argument(
+                            CastExpression(
+                                IdentifierName(nameof(AvroDecimal)),
+                                IdentifierName("fieldValue"))))));
+
+        // A nullable decimal arrives as null whenever the union's null branch was written.
+        if (AvroSchemaUtilities.IsNullable(field.Schema))
+        {
+            conversion = ConditionalExpression(
+                BinaryExpression(
+                    SyntaxKind.EqualsExpression,
+                    IdentifierName("fieldValue"),
+                    LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                CastExpression(
+                    NullableType(PredefinedType(Token(SyntaxKind.DecimalKeyword))),
+                    LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                conversion);
+        }
+
         return SwitchSection()
             .WithLabels(
                 SingletonList<SwitchLabelSyntax>(
@@ -602,18 +645,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                 AssignmentExpression(
                                     SyntaxKind.SimpleAssignmentExpression,
                                     IdentifierName(assignmentTargetName),
-                                    InvocationExpression(
-                                        MemberAccessExpression(
-                                            SyntaxKind.SimpleMemberAccessExpression,
-                                            IdentifierName(nameof(AvroDecimal)),
-                                            IdentifierName(nameof(AvroDecimal.ToDecimal))))
-                                    .WithArgumentList(
-                                        ArgumentList(
-                                            SingletonSeparatedList(
-                                                Argument(
-                                                    CastExpression(
-                                                        IdentifierName(nameof(AvroDecimal)),
-                                                        IdentifierName("fieldValue")))))))),
+                                    conversion)),
                             BreakStatement()
                     }));
     }
