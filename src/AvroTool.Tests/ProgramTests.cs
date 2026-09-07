@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Cli.Extensions.DependencyInjection;
 using Spectre.Console.Testing;
@@ -45,6 +46,18 @@ internal sealed class ProgramTests
 
         var exitCode = await app.RunAsync(args, TestContext.CurrentContext.CancellationToken);
         return (exitCode, console.Output);
+    }
+
+    [Test]
+    public void CreateErrorConsole_GivenWriterThatIsNotATerminal_WritesLongMessageOnOneLine()
+    {
+        var writer = new StringWriter();
+        var console = Program.CreateErrorConsole(writer);
+        var message = "Generated /home/user/" + new string('a', 100) + "/Protocol.avpr";
+
+        console.MarkupLine(Markup.Escape(message));
+
+        Assert.That(writer.ToString().TrimEnd(), Is.EqualTo(message));
     }
 
     [Test]

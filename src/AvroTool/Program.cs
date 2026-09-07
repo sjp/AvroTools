@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SJP.Avro.Tools.CodeGen;
@@ -11,17 +12,18 @@ namespace AvroTool;
 
 internal static class Program
 {
+    /// <summary>
+    /// The width messages are laid out at when they are not going to a terminal. Wide enough
+    /// that no message reaches it, so nothing is wrapped.
+    /// </summary>
+    private const int UnwrappedWidth = int.MaxValue;
+
     public static Task<int> Main(string[] args)
     {
         // Route status and diagnostic output to standard error so that standard
         // output carries only command payloads (e.g. 'idl --stdout'), keeping the
         // tool clean to use in shell pipelines.
-        var errorConsole = AnsiConsole.Create(new AnsiConsoleSettings
-        {
-            Ansi = AnsiSupport.Detect,
-            ColorSystem = ColorSystemSupport.Detect,
-            Out = new AnsiConsoleOutput(Console.Error),
-        });
+        var errorConsole = CreateErrorConsole(Console.Error);
 
         var services = new ServiceCollection();
         RegisterServices(services, errorConsole, new ConsoleStandardStreams());
@@ -31,6 +33,30 @@ internal static class Program
         app.Configure(config => Configure(config, errorConsole));
 
         return app.RunAsync(args);
+    }
+
+    /// <summary>
+    /// Creates the console that status and diagnostic messages are written to.
+    /// </summary>
+    /// <param name="writer">The writer the console renders to.</param>
+    /// <returns>A console that renders to <paramref name="writer"/>.</returns>
+    public static IAnsiConsole CreateErrorConsole(TextWriter writer)
+    {
+        var console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.Detect,
+            ColorSystem = ColorSystemSupport.Detect,
+            Out = new AnsiConsoleOutput(writer),
+        });
+
+        // Every line is laid out to the width of the terminal, and when the destination is
+        // not one that width is assumed to be 80 columns. A pipe, a file or a CI log has no
+        // width of its own, so wrapping there splits paths and messages mid-word and leaves
+        // them impossible to copy, click or search for. Lay them out unwrapped instead.
+        if (!console.Profile.Out.IsTerminal)
+            console.Profile.Width = UnwrappedWidth;
+
+        return console;
     }
 
     /// <summary>
