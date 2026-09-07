@@ -57,12 +57,12 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
     /// <summary>The output formats the command accepts.</summary>
     public static readonly IReadOnlyList<string> SupportedFormats = [HexFormat, Base64Format, LongFormat];
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public FingerprintCommand(
-        IAnsiConsole console,
+        IStatusConsole console,
         IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {

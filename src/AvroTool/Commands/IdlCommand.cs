@@ -50,12 +50,12 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         public bool ToStandardOutput { get; set; }
     }
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public IdlCommand(
-        IAnsiConsole console,
+        IStatusConsole console,
         IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {

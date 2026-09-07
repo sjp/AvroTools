@@ -87,7 +87,7 @@ internal static class AvroInputResolver
         IStandardStreams streams,
         IIdlToAvroTranslator translator,
         string commandName,
-        IAnsiConsole console,
+        IStatusConsole console,
         CancellationToken cancellationToken)
     {
         var fromStandardInput = schemaFile == null;

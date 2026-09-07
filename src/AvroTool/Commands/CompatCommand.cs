@@ -63,12 +63,12 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         ["fulltransitive"] = CompatibilityMode.FullTransitive,
     };
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public CompatCommand(
-        IAnsiConsole console,
+        IStatusConsole console,
         IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {

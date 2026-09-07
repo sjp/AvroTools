@@ -9,7 +9,7 @@ namespace AvroTool;
 /// The standard streams a command reads its input from and writes its payload to.
 /// </summary>
 /// <remarks>
-/// Status and diagnostic messages go through the injected <see cref="Spectre.Console.IAnsiConsole"/>;
+/// Status and diagnostic messages go through the injected <see cref="IStatusConsole"/>;
 /// this is the payload channel alongside it. Commands take it as a dependency rather than reaching
 /// for <see cref="Console"/> so that a caller — notably a test — can supply its own streams without
 /// mutating process-global state.

@@ -47,12 +47,12 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         public DirectoryInfo? OutputDirectory { get; set; }
     }
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public IdlToSchemataCommand(
-        IAnsiConsole console,
+        IStatusConsole console,
         IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {

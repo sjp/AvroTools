@@ -24,12 +24,12 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
         public bool FromStandardInput { get; set; }
     }
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public CanonicalCommand(
-        IAnsiConsole console,
+        IStatusConsole console,
         IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {

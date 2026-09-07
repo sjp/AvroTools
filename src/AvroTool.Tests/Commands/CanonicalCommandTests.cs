@@ -21,7 +21,7 @@ internal class CanonicalCommandTests
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
     private TestStandardStreams _streams;
-    private Mock<IAnsiConsole> _console;
+    private Mock<IStatusConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
     [SetUp]
@@ -29,7 +29,7 @@ internal class CanonicalCommandTests
     {
         _tempDir = new TemporaryDirectory();
 
-        _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
+        _console = new Mock<IStatusConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);

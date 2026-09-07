@@ -68,13 +68,13 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         public bool InitOnly { get; set; }
     }
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
     private readonly ICodeGeneratorResolver _codeGeneratorResolver;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public CodeGenCommand(
-        IAnsiConsole console,
+        IStatusConsole console,
         IStandardStreams streams,
         ICodeGeneratorResolver codeGeneratorResolver,
         IIdlToAvroTranslator idlTranslator

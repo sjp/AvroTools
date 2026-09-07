@@ -533,7 +533,8 @@ rather than only reading and writing files on disk.
   standard output carries only the payload. An unusable command line — an
   unknown command, an argument that cannot be converted, a missing or
   non-existent input — is reported there as a single message, and the tool
-  exits with code `1`.
+  exits with code `1`. `--help` and `--version` are what was asked for rather
+  than status, so they go to **standard output** and can be piped or redirected.
 
 ```sh
 # Compile IDL piped in, and print the JSON protocol to stdout

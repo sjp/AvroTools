@@ -75,7 +75,7 @@ internal class IdlCommandTests
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
     private TestStandardStreams _streams;
-    private Mock<IAnsiConsole> _console;
+    private Mock<IStatusConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
     private IdlParseResult _parseResult;
@@ -85,7 +85,7 @@ internal class IdlCommandTests
     {
         _tempDir = new TemporaryDirectory();
 
-        _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
+        _console = new Mock<IStatusConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
         _parseResult = IdlParseResult.Protocol(AvroProtocol.Parse(SimpleTestProtocolJson));
@@ -463,7 +463,7 @@ internal class IdlCommandTests
         var console = new TestConsole().Width(200);
         var registrar = new FakeTypeRegistrar();
         var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
-        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(console, _streams, translator));
+        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(new StatusConsole(console), _streams, translator));
 
         var app = new CommandAppTester(registrar);
         app.SetDefaultCommand<IdlCommand>();

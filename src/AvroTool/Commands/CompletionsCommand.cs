@@ -25,10 +25,10 @@ internal sealed class CompletionsCommand : AsyncCommand<CompletionsCommand.Setti
         public ShellKind Shell { get; set; }
     }
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
 
-    public CompletionsCommand(IAnsiConsole console, IStandardStreams streams)
+    public CompletionsCommand(IStatusConsole console, IStandardStreams streams)
     {
         ArgumentNullException.ThrowIfNull(console);
         ArgumentNullException.ThrowIfNull(streams);

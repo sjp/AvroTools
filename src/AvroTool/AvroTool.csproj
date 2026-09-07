@@ -37,6 +37,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <!-- The assembly the mocking library generates its proxies into, so that tests can mock
+         the internal interfaces the commands depend on. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
 </Project>

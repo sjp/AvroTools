@@ -19,14 +19,14 @@ internal class GetSchemaCommandTests
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
     private TestStandardStreams _streams;
-    private Mock<IAnsiConsole> _console;
+    private Mock<IStatusConsole> _console;
 
     [SetUp]
     public void Setup()
     {
         _tempDir = new TemporaryDirectory();
 
-        _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
+        _console = new Mock<IStatusConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
         _streams = new TestStandardStreams();
 

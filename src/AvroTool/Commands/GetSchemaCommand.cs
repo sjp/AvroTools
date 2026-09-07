@@ -29,10 +29,10 @@ internal sealed class GetSchemaCommand : AsyncCommand<GetSchemaCommand.Settings>
         public bool Pretty { get; set; }
     }
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
 
-    public GetSchemaCommand(IAnsiConsole console, IStandardStreams streams)
+    public GetSchemaCommand(IStatusConsole console, IStandardStreams streams)
     {
         ArgumentNullException.ThrowIfNull(console);
         ArgumentNullException.ThrowIfNull(streams);

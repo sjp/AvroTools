@@ -30,10 +30,10 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
         public bool Pretty { get; set; }
     }
 
-    private readonly IAnsiConsole _console;
+    private readonly IStatusConsole _console;
     private readonly IStandardStreams _streams;
 
-    public ToJsonCommand(IAnsiConsole console, IStandardStreams streams)
+    public ToJsonCommand(IStatusConsole console, IStandardStreams streams)
     {
         ArgumentNullException.ThrowIfNull(console);
         ArgumentNullException.ThrowIfNull(streams);

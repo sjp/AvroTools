@@ -22,15 +22,17 @@ internal static class Program
     {
         // Route status and diagnostic output to standard error so that standard
         // output carries only command payloads (e.g. 'idl --stdout'), keeping the
-        // tool clean to use in shell pipelines.
-        var errorConsole = CreateErrorConsole(Console.Error);
+        // tool clean to use in shell pipelines. Help and version are payloads in
+        // their own right, so they go to standard output as every other tool does.
+        var statusConsole = CreateStatusConsole(Console.Error);
+        var helpConsole = CreateHelpConsole(Console.Out);
 
         var services = new ServiceCollection();
-        RegisterServices(services, errorConsole, new ConsoleStandardStreams());
+        RegisterServices(services, statusConsole, new ConsoleStandardStreams());
         using var registrar = new DependencyInjectionRegistrar(services);
 
         var app = new CommandApp(registrar);
-        app.Configure(config => Configure(config, errorConsole));
+        app.Configure(config => Configure(config, helpConsole, statusConsole));
 
         return app.RunAsync(args);
     }
@@ -40,7 +42,7 @@ internal static class Program
     /// </summary>
     /// <param name="writer">The writer the console renders to.</param>
     /// <returns>A console that renders to <paramref name="writer"/>.</returns>
-    public static IAnsiConsole CreateErrorConsole(TextWriter writer)
+    public static IStatusConsole CreateStatusConsole(TextWriter writer)
     {
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
@@ -56,18 +58,35 @@ internal static class Program
         if (!console.Profile.Out.IsTerminal)
             console.Profile.Width = UnwrappedWidth;
 
-        return console;
+        return new StatusConsole(console);
     }
+
+    /// <summary>
+    /// Creates the console that help and version output are written to.
+    /// </summary>
+    /// <param name="writer">The writer the console renders to.</param>
+    /// <returns>A console that renders to <paramref name="writer"/>.</returns>
+    /// <remarks>
+    /// Unlike status messages, help is a laid-out document of columns whose alignment is the
+    /// point, so it keeps the default width rather than being rendered unwrapped.
+    /// </remarks>
+    public static IAnsiConsole CreateHelpConsole(TextWriter writer) =>
+        AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.Detect,
+            ColorSystem = ColorSystemSupport.Detect,
+            Out = new AnsiConsoleOutput(writer),
+        });
 
     /// <summary>
     /// Registers the services the commands take as dependencies.
     /// </summary>
     /// <param name="services">The collection to register into.</param>
-    /// <param name="errorConsole">The console status and diagnostic messages are written to.</param>
+    /// <param name="statusConsole">The console status and diagnostic messages are written to.</param>
     /// <param name="streams">The streams command payloads are read from and written to.</param>
-    public static void RegisterServices(IServiceCollection services, IAnsiConsole errorConsole, IStandardStreams streams)
+    public static void RegisterServices(IServiceCollection services, IStatusConsole statusConsole, IStandardStreams streams)
     {
-        services.AddSingleton(errorConsole);
+        services.AddSingleton(statusConsole);
         services.AddSingleton(streams);
         services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
         services.AddTransient<IIdlFileReader, PhysicalIdlFileReader>();
@@ -81,8 +100,9 @@ internal static class Program
     /// under test.
     /// </summary>
     /// <param name="config">The configurator to apply the configuration to.</param>
-    /// <param name="errorConsole">The console errors are written to.</param>
-    public static void Configure(IConfigurator config, IAnsiConsole errorConsole)
+    /// <param name="helpConsole">The console help and version output are written to.</param>
+    /// <param name="statusConsole">The console errors are written to.</param>
+    public static void Configure(IConfigurator config, IAnsiConsole helpConsole, IStatusConsole statusConsole)
     {
         config.SetApplicationName("avrotool");
         config.SetApplicationVersion(GetVersion());
@@ -92,10 +112,11 @@ internal static class Program
         // quietly does something other than what was asked for.
         config.UseStrictParsing();
 
-        // Spectre special-cases the console it injects into commands and uses for
-        // its own diagnostics, so configure it explicitly (DI registration alone
-        // is not honoured) to keep standard output a clean payload channel.
-        config.ConfigureConsole(errorConsole);
+        // Help and version are what the user asked for, so they belong on standard output
+        // where a pipe or a redirect can capture them. This is also the console the framework
+        // injects into any command that asks for an IAnsiConsole, which is why status output
+        // travels under its own interface instead.
+        config.ConfigureConsole(helpConsole);
 
         foreach (var command in CommandCatalogue.Commands)
             command.Register(config);
@@ -111,13 +132,13 @@ internal static class Program
             switch (ex)
             {
                 case CommandAppException { Pretty: { } pretty }:
-                    errorConsole.Write(pretty);
+                    statusConsole.Write(pretty);
                     break;
                 case CommandAppException:
-                    errorConsole.MarkupLine($"[red]{Markup.Escape(ex.Message)}[/]");
+                    statusConsole.MarkupLine($"[red]{Markup.Escape(ex.Message)}[/]");
                     break;
                 default:
-                    errorConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
+                    statusConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
                     break;
             }
 

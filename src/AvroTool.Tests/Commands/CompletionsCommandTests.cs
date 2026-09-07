@@ -18,14 +18,14 @@ internal class CompletionsCommandTests
 {
     private CommandAppTester _app;
     private TestStandardStreams _streams;
-    private Mock<IAnsiConsole> _console;
+    private Mock<IStatusConsole> _console;
 
     private static IEnumerable<CompletionsCommand.ShellKind> Shells => Enum.GetValues<CompletionsCommand.ShellKind>();
 
     [SetUp]
     public void Setup()
     {
-        _console = new Mock<IAnsiConsole>(MockBehavior.Loose);
+        _console = new Mock<IStatusConsole>(MockBehavior.Loose);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
         _streams = new TestStandardStreams();
 

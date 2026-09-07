@@ -127,7 +127,7 @@ record PairVolume {
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
     private TestStandardStreams _streams;
-    private Mock<IAnsiConsole> _console;
+    private Mock<IStatusConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
     private IdlParseResult _parseResult;
@@ -137,7 +137,7 @@ record PairVolume {
     {
         _tempDir = new TemporaryDirectory();
 
-        _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
+        _console = new Mock<IStatusConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
         _parseResult = IdlParseResult.Schema(AvroSchema.Parse(SimpleTestAvroSchema));
@@ -327,7 +327,7 @@ record PairVolume {
     {
         var console = new TestConsole().Width(200);
         var registrar = new FakeTypeRegistrar();
-        registrar.RegisterInstance(typeof(IdlToSchemataCommand), new IdlToSchemataCommand(console, _streams, _idlTranslator.Object));
+        registrar.RegisterInstance(typeof(IdlToSchemataCommand), new IdlToSchemataCommand(new StatusConsole(console), _streams, _idlTranslator.Object));
 
         var app = new CommandAppTester(registrar);
         app.SetDefaultCommand<IdlToSchemataCommand>();
