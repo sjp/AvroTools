@@ -161,27 +161,22 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 .DistinctBy(static t => t.Fullname, StringComparer.Ordinal)
                 .ToList();
 
+            // format output so it's human-readable
             var reservations = namedTypes
-                .Select(s => new OutputReservation(Path.Combine(outputDir.FullName, s.Fullname + ".avsc"), $"type '{s.Fullname}'"))
+                .Select(s => new OutputReservation(
+                    Path.Combine(outputDir.FullName, s.Fullname + ".avsc"),
+                    $"type '{s.Fullname}'",
+                    JsonFormatting.Indent(s.ToString())))
                 .ToList();
 
-            var reserveError = collector.Reserve(reservations, source);
-            if (reserveError != null)
+            var plan = collector.Reserve(reservations, source);
+            if (plan.Error != null)
             {
-                _console.MarkupLineInterpolated($"[red]Unable to generate schema files from '{source}': {reserveError}[/]");
+                _console.MarkupLineInterpolated($"[red]Unable to generate schema files from '{source}': {plan.Error}[/]");
                 return false;
             }
 
-            foreach (var namedType in namedTypes)
-            {
-                var namedTypeFilename = Path.Combine(outputDir.FullName, namedType.Fullname + ".avsc");
-
-                // format output so it's human-readable
-                var formattedOutput = JsonFormatting.Indent(namedType.ToString());
-
-                await OutputCollector.WriteAsync(namedTypeFilename, formattedOutput, cancellationToken);
-                _console.MarkupLineInterpolated($"[green]Generated {namedTypeFilename}[/]");
-            }
+            await OutputCollector.WritePlanAsync(plan, _console, cancellationToken);
 
             return true;
         }

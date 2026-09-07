@@ -585,10 +585,12 @@ Details:
 - **Output directory creation** — `--output-dir` (`-d`) is created if it does not
   already exist, including any missing parent directories, so a generated tree can
   be written straight into a fresh location.
-- **Duplicate outputs** — two outputs that would be written to the same file are
-  detected and reported rather than silently racing, whether they come from two
-  inputs or from a single one (for example, a protocol and a type of the same
-  name).
+- **Shared outputs** — a type shared through an import belongs to every document
+  that imports it, so the same file produced more than once with identical
+  content is written once and reported as already generated for the inputs that
+  follow. Two outputs that would write *different* content to one path — whether
+  from two inputs or from a single one, for example a protocol and a type of the
+  same name — are reported as a conflict instead of silently racing.
 - **Per-file reporting** — a failure in one input does not abort the rest; the
   exit code is non-zero if *any* input failed. Pass `--fail-fast` to stop on the
   first failure instead.

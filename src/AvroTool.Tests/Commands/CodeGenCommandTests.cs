@@ -1077,6 +1077,58 @@ namespace TestNamespace
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenTwoInputsSharingAnImport_GeneratesTheSharedTypeOnceAndBothOwnTypes()
+    {
+        var (app, _) = CreateAppWithRealParsers();
+
+        var sharedDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "shared"));
+        await File.WriteAllTextAsync(
+            Path.Combine(sharedDir.FullName, "common.avdl"),
+            "protocol Shared { record SharedRecord { int s; } }",
+            TestContext.CurrentContext.CancellationToken);
+
+        var a = Path.Combine(_tempDir.DirectoryPath, "a.avdl");
+        var b = Path.Combine(_tempDir.DirectoryPath, "b.avdl");
+        await File.WriteAllTextAsync(a, """protocol A { import idl "shared/common.avdl"; record RA { SharedRecord s; } }""", TestContext.CurrentContext.CancellationToken);
+        await File.WriteAllTextAsync(b, """protocol B { import idl "shared/common.avdl"; record RB { SharedRecord s; } }""", TestContext.CurrentContext.CancellationToken);
+
+        var outputDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "out"));
+
+        var result = await app.RunAsync([a, b, "-n", TestNamespace, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "SharedRecord.cs")), Is.True);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "RA.cs")), Is.True);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "RB.cs")), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenTwoInputsDefiningTheSameTypeDifferently_ReportsTheConflict()
+    {
+        var (app, console) = CreateAppWithRealParsers();
+
+        var a = Path.Combine(_tempDir.DirectoryPath, "a.avdl");
+        var b = Path.Combine(_tempDir.DirectoryPath, "b.avdl");
+        await File.WriteAllTextAsync(a, "protocol A { record Same { int x; } record OnlyA { int a; } }", TestContext.CurrentContext.CancellationToken);
+        await File.WriteAllTextAsync(b, "protocol B { record Same { string y; } record OnlyB { int b; } }", TestContext.CurrentContext.CancellationToken);
+
+        var outputDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "out"));
+
+        var result = await app.RunAsync([a, b, "-n", TestNamespace, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("Same.cs"));
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "OnlyA.cs")), Is.True);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "OnlyB.cs")), Is.False);
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenSchemaWithInvalidName_ReportsTheSchemaParserMessage()
     {
         var (app, console) = CreateAppWithRealParsers();

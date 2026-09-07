@@ -424,9 +424,33 @@ internal class IdlCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenMultipleInputsProducingSameOutput_ReportsDuplicateAndFails()
+    public async Task ExecuteAsync_GivenMultipleInputsProducingConflictingOutput_ReportsDuplicateAndFails()
     {
-        // Both inputs translate to the same protocol name, so the second collides with the first.
+        // Both inputs translate to the same protocol name but different content, so there is no
+        // one file that represents them both.
+        const string conflictingProtocolJson = @"{""protocol"":""ProtocolOne"",""types"":[{""type"":""record"",""name"":""Other"",""fields"":[]}],""messages"":{}}";
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, string _, CancellationToken __) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
+
+        var one = Path.Combine(_tempDir.DirectoryPath, "one.avdl");
+        var two = Path.Combine(_tempDir.DirectoryPath, "two.avdl");
+        await File.WriteAllTextAsync(one, ProtocolOneJson, TestContext.CurrentContext.CancellationToken);
+        await File.WriteAllTextAsync(two, conflictingProtocolJson, TestContext.CurrentContext.CancellationToken);
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var result = await _app.RunAsync([one, two, "--overwrite", "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        Assert.That(result.ExitCode, Is.Not.Zero);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenMultipleInputsProducingIdenticalOutput_WritesItOnceAndSucceeds()
+    {
+        // Both inputs translate to the same protocol, so the one file already on disk represents
+        // them both.
         var one = Path.Combine(_tempDir.DirectoryPath, "one.avdl");
         var two = Path.Combine(_tempDir.DirectoryPath, "two.avdl");
         await File.WriteAllTextAsync(one, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
@@ -435,9 +459,14 @@ internal class IdlCommandTests
         var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
         outputDir.Create();
 
-        var result = await _app.RunAsync([one, two, "--overwrite", "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+        var result = await _app.RunAsync([one, two, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
 
-        Assert.That(result.ExitCode, Is.Not.Zero);
+        var generated = await File.ReadAllTextAsync(Path.Combine(outputDir.FullName, "TestProtocol.avpr"), TestContext.CurrentContext.CancellationToken);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(generated, Is.EqualTo(SimpleTestProtocolJson).IgnoreLineEndingFormat);
+        }
     }
 
     [Test]

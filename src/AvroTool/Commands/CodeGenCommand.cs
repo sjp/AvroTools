@@ -214,34 +214,23 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 }
             }
 
-            // Reserve every output this input will produce so collisions within it and with other
-            // inputs (and pre-existing files without --overwrite) are reported before anything is written.
+            // Generate every output this input produces before writing any of it, so collisions
+            // within the input and with other inputs (and pre-existing files without --overwrite)
+            // are settled while the output directory is still untouched.
             var reservations = new List<OutputReservation>();
             if (generatesProtocol)
-                reservations.Add(new OutputReservation(Path.Combine(outputDir.FullName, protocol!.Name + ".cs"), $"protocol '{protocol.Name}'"));
-            reservations.AddRange(namedTypes.Select(s => new OutputReservation(Path.Combine(outputDir.FullName, s.Fullname + ".cs"), $"type '{s.Fullname}'")));
-
-            var reserveError = collector.Reserve(reservations, source);
-            if (reserveError != null)
             {
-                _console.MarkupLineInterpolated($"[red]Unable to generate C# files from '{source}': {reserveError}[/]");
-                return false;
-            }
-
-            if (generatesProtocol)
-            {
-                var outputFilePath = Path.Combine(outputDir.FullName, protocol!.Name + ".cs");
                 var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
-                var protocolOutput = protocolGenerator.Generate(protocol, settings.BaseNamespace, codeGenOptions);
+                var protocolOutput = protocolGenerator.Generate(protocol!, settings.BaseNamespace, codeGenOptions);
 
-                await OutputCollector.WriteAsync(outputFilePath, protocolOutput, cancellationToken);
-                _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
+                reservations.Add(new OutputReservation(
+                    Path.Combine(outputDir.FullName, protocol!.Name + ".cs"),
+                    $"protocol '{protocol.Name}'",
+                    protocolOutput));
             }
 
             foreach (var namedType in namedTypes)
             {
-                var outputFilePath = Path.Combine(outputDir.FullName, namedType.Fullname + ".cs");
-
                 var schemaOutput = namedType.Tag switch
                 {
                     AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.BaseNamespace, codeGenOptions),
@@ -254,9 +243,20 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 if (string.IsNullOrWhiteSpace(schemaOutput))
                     continue;
 
-                await OutputCollector.WriteAsync(outputFilePath, schemaOutput, cancellationToken);
-                _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
+                reservations.Add(new OutputReservation(
+                    Path.Combine(outputDir.FullName, namedType.Fullname + ".cs"),
+                    $"type '{namedType.Fullname}'",
+                    schemaOutput));
             }
+
+            var plan = collector.Reserve(reservations, source);
+            if (plan.Error != null)
+            {
+                _console.MarkupLineInterpolated($"[red]Unable to generate C# files from '{source}': {plan.Error}[/]");
+                return false;
+            }
+
+            await OutputCollector.WritePlanAsync(plan, _console, cancellationToken);
 
             return true;
         }

@@ -181,16 +181,14 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             var outputExtension = parsed.Match(_ => ".avpr", _ => ".avsc");
             var outputPath = Path.Combine(outputDir.FullName, outputName + outputExtension);
 
-            var reserveError = collector.Reserve([new OutputReservation(outputPath, $"{avroOutputType} '{outputName}'")], source);
-            if (reserveError != null)
+            var plan = collector.Reserve([new OutputReservation(outputPath, $"{avroOutputType} '{outputName}'", formattedOutput)], source);
+            if (plan.Error != null)
             {
-                _console.MarkupLineInterpolated($"[red]The output file path '{outputPath}' cannot be used: {reserveError}[/]");
+                _console.MarkupLineInterpolated($"[red]Unable to generate an Avro {avroOutputType} file from '{source}': {plan.Error}[/]");
                 return false;
             }
 
-            await OutputCollector.WriteAsync(outputPath, formattedOutput, cancellationToken);
-
-            _console.MarkupLineInterpolated($"[green]Generated {outputPath}[/]");
+            await OutputCollector.WritePlanAsync(plan, _console, cancellationToken);
 
             return true;
         }
