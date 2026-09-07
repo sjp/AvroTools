@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
 using NUnit.Framework;
+using Microsoft.Extensions.FileProviders;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 using AvroProtocol = Avro.Protocol;
 
 namespace AvroTool.Tests.Commands;
@@ -384,6 +386,31 @@ internal class IdlCommandTests
         {
             Assert.That(result.ExitCode, Is.Not.Zero);
             Assert.That(File.Exists(Path.Combine(outputDir.FullName, "ProtocolOne.avpr")), Is.False);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenInputWithUntokenisableCharacter_ReportsPositionAndReturnsError()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        var translator = new IdlToAvroTranslator(new PhysicalFileProvider(_tempDir.DirectoryPath));
+        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(console, translator));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<IdlCommand>();
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "lex.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, "protocol TestProtocol { record TestRecord { string a; # } }");
+
+        var result = await app.RunAsync([sourceFile.FullName, "--output-dir", _tempDir.DirectoryPath], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("Unable to parse IDL document"));
+            Assert.That(console.Output, Does.Contain("line 1:54"));
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr")), Is.False);
         }
     }
 }

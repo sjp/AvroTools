@@ -61,12 +61,17 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private static IdlParser.IdlFileContext ParseIdlContent(AntlrInputStream inputStream)
     {
+        var errorListener = new ThrowingErrorListener();
+
         var lexer = new IdlLexer(inputStream);
+        lexer.RemoveErrorListeners();
+        lexer.AddErrorListener(errorListener);
+
         var tokenStream = new CommonTokenStream(lexer);
         var parser = new IdlParser(tokenStream);
 
         parser.RemoveErrorListeners();
-        parser.AddErrorListener(new ThrowingErrorListener());
+        parser.AddErrorListener(errorListener);
 
         return parser.idlFile();
     }

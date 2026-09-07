@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using FluentAssertions;
 using JsonDiffPatchDotNet;
@@ -47,6 +49,27 @@ internal class IdlToAvroTranslatorTests
         var diffResult = patcher.Diff(JObject.Parse(jsonText), JObject.Parse(outputContents));
 
         Assert.That(diffResult, Is.Null);
+    }
+
+    [Test]
+    public void Translate_GivenTextThatCannotBeTokenised_ThrowsWithPosition()
+    {
+        const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";
+
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl));
+
+        Assert.That(thrown.Message, Does.Contain("Syntax error at line 1:54"));
+    }
+
+    [Test]
+    public void Translate_GivenStreamThatCannotBeTokenised_ThrowsWithPosition()
+    {
+        const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(idl));
+
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(stream));
+
+        Assert.That(thrown.Message, Does.Contain("Syntax error at line 1:54"));
     }
 
     private static IEnumerable<object[]> IdlInputOutputFilenames()

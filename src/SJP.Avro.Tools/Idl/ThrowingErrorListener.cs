@@ -5,12 +5,12 @@ using Antlr4.Runtime;
 namespace SJP.Avro.Tools.Idl;
 
 /// <summary>
-/// Error listener that throws on syntax errors.
+/// Error listener that throws on syntax errors, for both lexing and parsing.
 /// </summary>
-public class ThrowingErrorListener : BaseErrorListener
+public class ThrowingErrorListener : BaseErrorListener, IAntlrErrorListener<int>
 {
     /// <summary>
-    /// Method called when a syntax error is encountered.
+    /// Method called when a syntax error is encountered while parsing.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when a syntax error has occurred.</exception>
     public override void SyntaxError(
@@ -22,7 +22,28 @@ public class ThrowingErrorListener : BaseErrorListener
         string msg,
         RecognitionException e)
     {
-        throw new InvalidOperationException(
+        throw SyntaxErrorException(line, charPositionInLine, msg, e);
+    }
+
+    /// <summary>
+    /// Method called when a syntax error is encountered while tokenising.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when a syntax error has occurred.</exception>
+    public void SyntaxError(
+        TextWriter output,
+        IRecognizer recognizer,
+        int offendingSymbol,
+        int line,
+        int charPositionInLine,
+        string msg,
+        RecognitionException e)
+    {
+        throw SyntaxErrorException(line, charPositionInLine, msg, e);
+    }
+
+    private static InvalidOperationException SyntaxErrorException(int line, int charPositionInLine, string msg, RecognitionException e)
+    {
+        return new InvalidOperationException(
             $"Syntax error at line {line}:{charPositionInLine} - {msg}",
             e);
     }
