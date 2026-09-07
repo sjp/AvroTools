@@ -368,7 +368,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var symbols = new JArray();
         foreach (var symbol in context._enumSymbols)
         {
-            symbols.Add(symbol.name.GetText());
+            symbols.Add(IdlName.EscapeName(symbol.name.GetText()));
         }
 
         var enumJson = new JObject
@@ -388,13 +388,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             enumJson["doc"] = doc;
 
         if (context.defaultSymbol != null)
-        {
-            // the defaultSymbol will look like '=Example;'
-            // but we actually want 'Example'
-            enumJson["default"] = context.defaultSymbol.GetText()
-                .TrimStart('=')
-                .TrimEnd(';');
-        }
+            enumJson["default"] = IdlName.EscapeName(context.defaultSymbol.defaultSymbolName.GetText());
 
         foreach (var prop in properties)
         {
