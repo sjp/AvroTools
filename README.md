@@ -19,13 +19,10 @@ One other benefit of this project is avoiding the pre-requisite for a Java runti
 * Print a semantic, field-level diff between two Avro schema versions (`diff`).
 * Print the Parsing Canonical Form and fingerprint of a schema (`canonical`, `fingerprint`).
 * Inspect Avro object container files: print the embedded writer schema or decode records to JSON (`getschema`, `tojson`).
-* Supports additional logical types compared to reference compiler. Note that these may not be usable in practice but can be compiled to compatible Avro Protocol/Schema. The following additional logical types are supported in IDL:
-  * `uuid`
-  * `time-micros`
-  * `timestamp-micros`
-  * `local-timestamp-ms`
-  * `local-timestamp-micros`
-  * `duration`
+* Compile every Avro logical type from IDL: `date`, `time_ms`, `timestamp_ms`,
+  `local_timestamp_ms`, `uuid` and `decimal` have a dedicated keyword, and the rest are
+  written as a `@logicalType` annotation on the type that backs them (see
+  [Logical types in IDL](#logical-types-in-idl)).
 
 ## Installation
 
@@ -45,21 +42,32 @@ $ avrotool --help
 USAGE:
     avrotool [OPTIONS] <COMMAND>
 
+EXAMPLES:
+    avrotool completions bash
+
 OPTIONS:
     -h, --help       Prints help information
     -v, --version    Prints version information
 
 COMMANDS:
-    idl                           Generates a JSON protocol file from an Avro IDL file
-    idl2schemata                  Extract JSON schemata of the types from an Avro IDL file
-    codegen                       Generates C# code for a given Avro IDL, protocol or schema
-    compat <SCHEMAS>              Checks whether two Avro schemas are compatible under Avro's schema-evolution rules
-    diff <SCHEMA_A> <SCHEMA_B>    Prints a semantic diff between two Avro schemas
-    canonical                     Prints the Parsing Canonical Form of an Avro IDL, protocol or schema
-    fingerprint                   Computes a fingerprint (crc-64-avro, md5 or sha-256) of an Avro IDL, protocol or schema
-    getschema                     Prints the writer schema embedded in an Avro object container file
-    tojson                        Decodes an Avro object container file's records to JSON
-    completions <SHELL>           Generates a shell completion script (bash, zsh, fish, powershell)
+    idl                    Generates a JSON protocol file from an Avro IDL file
+    idl2schemata           Extract JSON schemata of the types from an Avro IDL
+                           file
+    codegen                Generates C# code for a given Avro IDL, protocol or
+                           schema
+    compat                 Checks whether two Avro schemas are compatible under
+                           Avro's schema-evolution rules
+    diff                   Prints a semantic diff between two Avro schemas
+    canonical              Prints the Parsing Canonical Form of an Avro IDL,
+                           protocol or schema
+    fingerprint            Computes a fingerprint (crc-64-avro, md5 or sha-256)
+                           of an Avro IDL, protocol or schema
+    getschema              Prints the writer schema embedded in an Avro object
+                           container file
+    tojson                 Decodes an Avro object container file's records to
+                           JSON
+    completions <SHELL>    Generates a shell completion script (bash, zsh, fish,
+                           powershell)
 ```
 
 Every schema-consuming command can read an input from standard input instead of
@@ -87,6 +95,7 @@ $ cat TestProtocol.avpr
   "types": [
     {
       "type": "record",
+      "name": "TestRecord",
       "fields": [
         {
           "name": "FirstName",
@@ -96,8 +105,7 @@ $ cat TestProtocol.avpr
           "name": "LastName",
           "type": "string"
         }
-      ],
-      "name": "TestRecord"
+      ]
     }
   ],
   "messages": {
@@ -133,31 +141,89 @@ Generated /home/sjp/repos/AvroTools/TestEnum.avsc
 
 $ cat TestRecord.avsc
 {
-    "type": "record",
-    "name": "TestRecord",
-    "fields": [
-        {
-            "name": "FirstName",
-            "type": "string"
-        },
-        {
-            "name": "LastName",
-            "type": "string"
-        }
-    ]
+  "type": "record",
+  "name": "TestRecord",
+  "fields": [
+    {
+      "name": "FirstName",
+      "type": "string"
+    },
+    {
+      "name": "LastName",
+      "type": "string"
+    }
+  ]
 }
 
 $ cat TestEnum.avsc
 {
-    "type": "enum",
-    "name": "TestEnum",
-    "symbols": [
-        "A",
-        "B",
-        "C"
-    ]
+  "type": "enum",
+  "name": "TestEnum",
+  "symbols": [
+    "A",
+    "B",
+    "C"
+  ]
 }
 ```
+
+#### Logical types in IDL
+
+Five logical types have a dedicated IDL keyword, and `decimal` has a keyword taking
+its precision and scale. Each is written wherever a type is expected:
+
+| IDL keyword | Compiled schema |
+|-------------|-----------------|
+| `date` | `{ "type": "int", "logicalType": "date" }` |
+| `time_ms` | `{ "type": "int", "logicalType": "time-millis" }` |
+| `timestamp_ms` | `{ "type": "long", "logicalType": "timestamp-millis" }` |
+| `local_timestamp_ms` | `{ "type": "long", "logicalType": "local-timestamp-millis" }` |
+| `uuid` | `{ "type": "string", "logicalType": "uuid" }` |
+| `decimal(precision)` | `{ "type": "bytes", "logicalType": "decimal", "precision": 10 }` |
+| `decimal(precision, scale)` | `{ "type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2 }` |
+
+Every other logical type — `time-micros`, `timestamp-micros`,
+`local-timestamp-micros`, `duration`, or one specific to your own tooling — has no
+keyword. It is written as a `@logicalType` annotation on the Avro type that backs it,
+which the compiler passes through onto the generated schema:
+
+```plain
+$ cat job.avdl
+record Job {
+  uuid jobid;
+  @logicalType("timestamp-micros")
+  long finishTime;
+}
+$ avrotool idl2schemata job.avdl
+Generated /home/sjp/repos/AvroTools/Job.avsc
+$ cat Job.avsc
+{
+  "type": "record",
+  "name": "Job",
+  "fields": [
+    {
+      "name": "jobid",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "finishTime",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-micros"
+      }
+    }
+  ]
+}
+```
+
+Choosing the backing type is up to you: the annotation is passed through verbatim and
+is not checked against the Avro specification. Pairing a logical type with the
+representation the specification gives it — `long` for `timestamp-micros`, a 12-byte
+`fixed` for `duration` — is what makes the result readable by other Avro
+implementations.
 
 #### Generate C# code for Avro Protocol and Schema
 
@@ -215,10 +281,37 @@ public required string FirstName { get => _FirstName; init => _FirstName = value
 > `Apache.Avro` uses. Both flags default to off, so existing output is
 > unchanged unless you opt in.
 
-Logical types map onto their natural C# counterparts: `uuid` becomes a `Guid`,
-the date and time types become `DateTime` or `TimeSpan`, and `decimal` becomes a
-`decimal`. A `decimal` that omits `scale` is generated with a scale of `0`, as
-the Avro specification requires.
+Each Avro type maps onto a C# type as follows:
+
+| Avro type | C# type |
+|-----------|---------|
+| `boolean` | `bool` |
+| `int` | `int` |
+| `long` | `long` |
+| `float` | `float` |
+| `double` | `double` |
+| `string` | `string` |
+| `bytes` | `byte[]` |
+| `null` | `object` |
+| `enum` | the generated `enum` |
+| `record`, `error`, `fixed` | the generated type |
+| `array` | `List<T>` |
+| `map` | `IDictionary<string, T>` |
+| `["null", T]` | the mapping of `T`, annotated nullable (`T?`) |
+| any other union | `object`, annotated nullable (`object?`) when it has a `null` branch |
+
+Logical types map onto their natural C# counterparts, whatever type backs them:
+
+| Logical type | C# type |
+|--------------|---------|
+| `uuid` | `Guid` |
+| `date`, `timestamp-millis`, `timestamp-micros`, `local-timestamp-millis`, `local-timestamp-micros` | `DateTime` |
+| `time-millis`, `time-micros`, `duration` | `TimeSpan` |
+| `decimal` | `decimal` (`AvroDecimal` inside an `array` or `map`, see below) |
+
+A logical type outside that list is reported as a failure for that input rather than
+being generated as its backing type. A `decimal` that omits `scale` is generated with
+a scale of `0`, as the Avro specification requires.
 
 Because `Apache.Avro` exchanges decimal values as `AvroDecimal`, the generated
 `Get` and `Put` convert them. That conversion applies to a decimal field and to
@@ -500,6 +593,11 @@ Details:
 - Directory and glob expansion only pick up recognised extensions (`.avdl` for
   `idl`/`idl2schemata`; `.avdl`, `.avpr`, `.avsc` for `codegen`); an explicitly
   named file is always used regardless of its extension.
+
+The remaining commands do not take a variable number of inputs. `canonical`,
+`fingerprint`, `getschema` and `tojson` each accept exactly one file (or `--stdin`),
+and `compat` and `diff` accept only the schemas they compare. A directory or a glob
+pattern is not expanded for any of them.
 
 ### Shell completions
 

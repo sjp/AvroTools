@@ -1,4 +1,5 @@
-﻿using Avro;
+﻿using System;
+using Avro;
 using NUnit.Framework;
 
 namespace SJP.Avro.Tools.CodeGen.Tests;
@@ -70,5 +71,60 @@ internal static class AvroSchemaUtilitiesTests
         var schema = Schema.Parse(json);
 
         Assert.That(AvroSchemaUtilities.IsValueType(schema), Is.False);
+    }
+
+    [TestCase(""" "boolean" """, "bool")]
+    [TestCase(""" "int" """, "int")]
+    [TestCase(""" "long" """, "long")]
+    [TestCase(""" "float" """, "float")]
+    [TestCase(""" "double" """, "double")]
+    [TestCase(""" "string" """, "string")]
+    [TestCase(""" "bytes" """, "byte[]")]
+    [TestCase(""" "null" """, "object")]
+    [TestCase(""" { "type" : "enum", "name" : "E", "symbols" : [ "X" ] } """, "E")]
+    [TestCase(""" { "type" : "fixed", "name" : "F", "size" : 4 } """, "F")]
+    [TestCase(""" { "type" : "record", "name" : "A", "fields" : [] } """, "A")]
+    [TestCase(""" { "type" : "error", "name" : "Oops", "fields" : [] } """, "Oops")]
+    [TestCase(""" { "type" : "array", "items" : "string" } """, "List<string>")]
+    [TestCase(""" { "type" : "map", "values" : "int" } """, "IDictionary<string,int>")]
+    [TestCase(""" [ "null", "int" ] """, "int?")]
+    [TestCase(""" [ "null", "string" ] """, "string?")]
+    [TestCase(""" [ "int", "string" ] """, "object")]
+    [TestCase(""" [ "null", "int", "string" ] """, "object?")]
+    [TestCase(""" { "type" : "string", "logicalType" : "uuid" } """, "Guid")]
+    [TestCase(""" { "type" : "int", "logicalType" : "date" } """, "DateTime")]
+    [TestCase(""" { "type" : "int", "logicalType" : "time-millis" } """, "TimeSpan")]
+    [TestCase(""" { "type" : "long", "logicalType" : "time-micros" } """, "TimeSpan")]
+    [TestCase(""" { "type" : "long", "logicalType" : "timestamp-millis" } """, "DateTime")]
+    [TestCase(""" { "type" : "long", "logicalType" : "timestamp-micros" } """, "DateTime")]
+    [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-millis" } """, "DateTime")]
+    [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-micros" } """, "DateTime")]
+    [TestCase(""" { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } """, "TimeSpan")]
+    [TestCase(""" { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } """, "decimal")]
+    [TestCase(""" [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } ] """, "decimal?")]
+    public static void GetFieldType_GivenSchema_ReturnsDocumentedCsharpType(string json, string expectedType)
+    {
+        var schema = Schema.Parse(json);
+
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
+    }
+
+    // A decimal reached through a collection keeps the representation Avro hands to and
+    // from the collection's elements, so it is not converted to 'decimal'.
+    [TestCase(""" { "type" : "array", "items" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "List<AvroDecimal>")]
+    [TestCase(""" { "type" : "map", "values" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "IDictionary<string,AvroDecimal>")]
+    public static void GetFieldType_GivenCollectionOfDecimals_ReturnsUnconvertedElementType(string json, string expectedType)
+    {
+        var schema = Schema.Parse(json);
+
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
+    }
+
+    [Test]
+    public static void GetFieldType_GivenUnrecognisedLogicalType_ThrowsArgumentOutOfRangeException()
+    {
+        var schema = Schema.Parse(""" { "type" : "long", "logicalType" : "made-up" } """);
+
+        Assert.That(() => AvroSchemaUtilities.GetFieldType(schema), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 }

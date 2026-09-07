@@ -38,7 +38,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         public bool FailFast { get; set; }
 
         [CommandOption("-o|--overwrite")]
-        [Description("Overwrite any existing types.")]
+        [Description("Overwrite existing output files.")]
         [DefaultValue(false)]
         public bool Overwrite { get; set; }
 

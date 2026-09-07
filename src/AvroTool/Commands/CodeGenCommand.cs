@@ -49,7 +49,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         public string BaseNamespace => Namespace ?? string.Empty;
 
         [CommandOption("-o|--overwrite")]
-        [Description("Overwrite any existing generated code.")]
+        [Description("Overwrite existing output files.")]
         [DefaultValue(false)]
         public bool Overwrite { get; set; }
 
