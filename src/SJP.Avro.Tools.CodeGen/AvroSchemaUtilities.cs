@@ -19,8 +19,8 @@ internal static class AvroSchemaUtilities
 
     private static TypeSyntax GetFieldType(Schema schema, bool convertDecimals)
     {
-        var fieldIsNullable = IsNullableRefType(schema) || IsNullableValueType(schema);
         var fieldType = GetSimpleFieldType(schema, convertDecimals);
+        var fieldIsNullable = IsNullable(schema);
         return fieldIsNullable ? NullableType(fieldType) : fieldType;
     }
 
@@ -161,7 +161,8 @@ internal static class AvroSchemaUtilities
 
     /// <summary>
     /// Determines whether a schema position also admits a null value, i.e. whether its generated
-    /// type carries a <c>?</c> annotation.
+    /// type carries a <c>?</c> annotation. Only a union can, and it does so whenever one of its
+    /// branches is null, whatever the remaining branches map onto.
     /// </summary>
     /// <param name="schema">The schema of a record field.</param>
     /// <returns><c>true</c> if the position is nullable, otherwise <c>false</c>.</returns>
@@ -169,20 +170,6 @@ internal static class AvroSchemaUtilities
     {
         return schema is UnionSchema unionSchema
             && unionSchema.Schemas.Any(s => s.Tag == Schema.Type.Null);
-    }
-
-    public static bool IsNullableRefType(Schema schema)
-    {
-        return schema is UnionSchema unionSchema
-            && unionSchema.Schemas.Any(s => s.Tag == Schema.Type.Null)
-            && !unionSchema.Schemas.Any(s => s.Tag != Schema.Type.Null && IsValueType(schema));
-    }
-
-    public static bool IsNullableValueType(Schema schema)
-    {
-        return schema is UnionSchema unionSchema
-            && unionSchema.Schemas.Any(s => s.Tag == Schema.Type.Null)
-            && !unionSchema.Schemas.Any(s => s.Tag != Schema.Type.Null && !IsValueType(schema));
     }
 
     public static bool IsValueType(Schema schema)

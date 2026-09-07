@@ -160,7 +160,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
     private static IEnumerable<MemberDeclarationSyntax> BuildField(Field field, string propertyName, string backingFieldName, CodeGenOptions options)
     {
-        var fieldIsNullable = AvroSchemaUtilities.IsNullableRefType(field.Schema) || AvroSchemaUtilities.IsNullableValueType(field.Schema);
+        var fieldIsNullable = AvroSchemaUtilities.IsNullable(field.Schema);
 
         if (!SyntaxUtilities.TypeSyntaxMap.TryGetValue(field.Schema.Tag, out var columnTypeSyntax))
         {
