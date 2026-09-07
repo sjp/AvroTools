@@ -47,7 +47,36 @@ internal static class AvroEnumGeneratorTests
 
     [TestCase("")]
     [TestCase("    ")]
-    public static void Generate_GivenEmptyOrWhitespaceBaseNamespace_ThrowsArgumentException(string baseNamespace)
+    public static void Generate_GivenEmptyOrWhitespaceBaseNamespaceAndSchemaWithoutNamespace_ThrowsArgumentException(string baseNamespace)
+    {
+        var enumGenerator = new AvroEnumGenerator();
+
+        var schema = Schema.Parse("""
+{
+    "type": "enum",
+    "name": "Position",
+    "doc": "Test documentation",
+    "symbols": [
+        "P",
+        "C",
+        "B1",
+        "B2",
+        "B3",
+        "SS",
+        "LF",
+        "CF",
+        "RF",
+        "DH"
+    ]
+}
+""") as EnumSchema;
+
+        Assert.That(() => enumGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
+    }
+
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenEmptyOrWhitespaceBaseNamespaceAndSchemaWithNamespace_UsesTheSchemaNamespace(string baseNamespace)
     {
         var enumGenerator = new AvroEnumGenerator();
 
@@ -72,7 +101,9 @@ internal static class AvroEnumGeneratorTests
 }
 """) as EnumSchema;
 
-        Assert.That(() => enumGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
+        var result = enumGenerator.Generate(schema, baseNamespace);
+
+        Assert.That(result, Does.Contain("namespace avro.examples.baseball"));
     }
 
     [Test]

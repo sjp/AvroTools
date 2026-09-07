@@ -24,16 +24,16 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     /// <param name="options">Optional C# output style options. Defaults to <see cref="CodeGenOptions.Default"/> when omitted.</param>
     /// <returns>A string representing a C# file containing a class definition.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace and <paramref name="schema"/> does not declare a namespace.</exception>
     public string Generate(RecordSchema schema, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
-        ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);
+        ArgumentNullException.ThrowIfNull(baseNamespace);
 
         options ??= CodeGenOptions.Default;
 
         var isError = schema.Tag == Schema.Type.Error;
-        var ns = schema.Namespace ?? baseNamespace;
+        var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, baseNamespace, schema.Fullname);
 
         var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
 

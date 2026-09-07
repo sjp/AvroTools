@@ -37,7 +37,26 @@ internal static class AvroFixedGeneratorTests
 
     [TestCase("")]
     [TestCase("    ")]
-    public static void Generate_GivenEmptyOrWhitespaceBaseNamespace_ThrowsArgumentException(string baseNamespace)
+    public static void Generate_GivenEmptyOrWhitespaceBaseNamespaceAndSchemaWithoutNamespace_ThrowsArgumentException(string baseNamespace)
+    {
+        var fixedGenerator = new AvroFixedGenerator();
+
+        var schema = Schema.Parse("""
+{
+    "type": "fixed",
+    "name": "MD5",
+    "doc": "An MD5 hash.",
+    "size": 16,
+    "foo": "bar"
+}
+""") as FixedSchema;
+
+        Assert.That(() => fixedGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
+    }
+
+    [TestCase("")]
+    [TestCase("    ")]
+    public static void Generate_GivenEmptyOrWhitespaceBaseNamespaceAndSchemaWithNamespace_UsesTheSchemaNamespace(string baseNamespace)
     {
         var fixedGenerator = new AvroFixedGenerator();
 
@@ -52,7 +71,9 @@ internal static class AvroFixedGeneratorTests
 }
 """) as FixedSchema;
 
-        Assert.That(() => fixedGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
+        var result = fixedGenerator.Generate(schema, baseNamespace);
+
+        Assert.That(result, Does.Contain("namespace org.apache.avro.test"));
     }
 
     [Test]

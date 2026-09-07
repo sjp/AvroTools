@@ -873,4 +873,95 @@ namespace TestNamespace
             Assert.That(moneyFileContents, Does.Contain("public static uint FixedSize { get; } = 8;"));
         }
     }
+
+    [Test]
+    public async Task ExecuteAsync_GivenNoNamespaceAndFullyNamespacedInput_GeneratesCode()
+    {
+        const string input = """
+{
+  "type": "record",
+  "name": "TestRecord",
+  "namespace": "TestNamespace",
+  "fields": [ { "name": "FirstName", "type": "string" } ]
+}
+""";
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", sourceDir.FullName], default);
+        var resultFilePath = Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestRecord.cs");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(resultFilePath), Is.True);
+        }
+
+        var resultFileContents = await File.ReadAllTextAsync(resultFilePath);
+
+        Assert.That(resultFileContents, Does.Contain("namespace TestNamespace"));
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenNoNamespaceAndFullyNamespacedProtocol_GeneratesCode()
+    {
+        const string input = """
+{
+  "protocol": "TestProtocol",
+  "namespace": "TestNamespace",
+  "types": [],
+  "messages": { "ping": { "request": [], "response": "null" } }
+}
+""";
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", sourceDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenNoNamespaceAndTypeWithoutNamespace_ReturnsError()
+    {
+        const string input = SimpleTestSchema;
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", sourceDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")), Is.False);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenNoNamespaceAndProtocolWithoutNamespace_ReturnsError()
+    {
+        const string input = SimpleTestProtocol;
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", sourceDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")), Is.False);
+        }
+    }
 }

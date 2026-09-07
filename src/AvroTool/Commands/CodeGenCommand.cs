@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -27,7 +27,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         public string[] InputFiles { get; set; } = [];
 
         [CommandOption("-n|--namespace")]
-        [Description("A base namespace to use for generated files. Only used when a defined namespace is not present.")]
+        [Description("A base namespace to use for generated files. Only used, and only required, when a type to be generated does not declare a namespace of its own.")]
         public string? Namespace { get; set; }
 
         [CommandOption("--stdin")]
@@ -165,6 +165,25 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             var namedTypes = schemas
                 .SelectMany(s => s.GetNamedTypes())
                 .ToList();
+
+            if (string.IsNullOrWhiteSpace(settings.BaseNamespace))
+            {
+                var generatesProtocol = protocol != null && protocol.Messages.Count > 0;
+
+                var missingNamespaces = namedTypes
+                    .Where(static t => string.IsNullOrWhiteSpace(t.Namespace))
+                    .Select(static t => t.Name)
+                    .ToList();
+                if (generatesProtocol && string.IsNullOrWhiteSpace(protocol!.Namespace))
+                    missingNamespaces.Insert(0, protocol.Name);
+
+                if (missingNamespaces.Count > 0)
+                {
+                    var names = string.Join(", ", missingNamespaces.Distinct(StringComparer.Ordinal));
+                    _console.MarkupLineInterpolated($"[red]Unable to generate C# files from '{source}': no namespace is declared by {names}. Provide a base namespace with --namespace.[/]");
+                    return false;
+                }
+            }
 
             // Reserve every output this input could produce so collisions with other inputs
             // (and pre-existing files without --overwrite) are reported before anything is written.

@@ -22,13 +22,13 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
     /// <param name="options">Ignored. Enum types have no properties for output style options to affect.</param>
     /// <returns>A string representing a C# file containing an enum definition.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace and <paramref name="schema"/> does not declare a namespace.</exception>
     public string Generate(EnumSchema schema, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
-        ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);
+        ArgumentNullException.ThrowIfNull(baseNamespace);
 
-        var ns = schema.Namespace ?? baseNamespace;
+        var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, baseNamespace, schema.Fullname);
 
         var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
 

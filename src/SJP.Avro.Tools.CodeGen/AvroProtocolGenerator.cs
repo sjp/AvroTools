@@ -24,17 +24,19 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     /// <param name="options">Ignored. Protocols generate abstract methods rather than properties, so output style options have no effect.</param>
     /// <returns>A string representing a C# file containing a class definition. Empty when no messages are present in the protocol.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace and <paramref name="protocol"/> does not declare a namespace.</exception>
     public string Generate(Protocol protocol, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(protocol);
-        ArgumentException.ThrowIfNullOrWhiteSpace(baseNamespace);
+        ArgumentNullException.ThrowIfNull(baseNamespace);
 
         // no messages to generate
         if (protocol.Messages.Count == 0)
             return string.Empty;
 
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(protocol.Namespace ?? baseNamespace));
+        var ns = SyntaxUtilities.ResolveNamespace(protocol.Namespace, baseNamespace, protocol.Name);
+
+        var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
 
         var protocolField = AvroSchemaUtilities.CreateProtocolDefinition(protocol.ToString());
         var protocolProperty = AvroSchemaUtilities.CreateProtocolProperty();

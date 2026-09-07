@@ -182,7 +182,11 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 ```
 
 > The base namespace is supplied with `--namespace` (`-n`); it is only used for
-> types that do not declare their own namespace.
+> types that do not declare their own namespace. Input whose every type — and
+> whose protocol, when one is generated — declares a namespace needs no
+> `--namespace` at all. Omitting it for input that does contain a namespace-less
+> type is reported up front, naming the types that need one, and that input is
+> skipped.
 
 Avro records and protocols are generated as C# `record`s, with unconditional
 nullable (`T?`) annotations for optional (`["null", ...]`) fields. Avro `fixed`
@@ -376,7 +380,7 @@ disk.
 - **Reading from standard input:** pass `--stdin` to read the IDL, protocol or
   schema from standard input instead of a file. The `IDL_FILES`/`INPUT_FILES`
   argument is then omitted. For `codegen`, supply the base namespace with
-  `--namespace` (`-n`).
+  `--namespace` (`-n`) unless the input is fully namespaced.
 - **Writing to standard output:** the `idl` command accepts `--stdout` (`-s`) to
   write the generated JSON to standard output instead of a file.
 - **Clean pipelines:** all human-facing status messages (the green

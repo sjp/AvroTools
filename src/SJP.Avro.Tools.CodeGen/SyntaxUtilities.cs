@@ -86,6 +86,30 @@ internal static class SyntaxUtilities
     private static readonly SyntaxToken XmlNewline = XmlTextNewLine(Environment.NewLine);
 
     /// <summary>
+    /// Determines the namespace to declare generated code in. An Avro type's own namespace is
+    /// preferred; the base namespace is a fallback for a type that declares none, and is only
+    /// required in that case.
+    /// </summary>
+    /// <param name="declaredNamespace">The namespace declared by an Avro schema or protocol, if any.</param>
+    /// <param name="baseNamespace">The base namespace to fall back to.</param>
+    /// <param name="typeName">The name of the type being generated, used to explain a missing namespace.</param>
+    /// <returns>The namespace to declare the generated type in.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="baseNamespace"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace and <paramref name="declaredNamespace"/> is absent.</exception>
+    public static string ResolveNamespace(string? declaredNamespace, string baseNamespace, string typeName)
+    {
+        ArgumentNullException.ThrowIfNull(baseNamespace);
+
+        if (!string.IsNullOrWhiteSpace(declaredNamespace))
+            return declaredNamespace;
+
+        if (string.IsNullOrWhiteSpace(baseNamespace))
+            throw new ArgumentException($"A base namespace is required because '{typeName}' does not declare one.", nameof(baseNamespace));
+
+        return baseNamespace;
+    }
+
+    /// <summary>
     /// Creates an identifier token for a name taken from an Avro schema. Avro names admit every C#
     /// keyword, so a name that is one is emitted with a verbatim <c>@</c> prefix (<c>@class</c>).
     /// The prefix is purely lexical: the declared member still carries the Avro name.
