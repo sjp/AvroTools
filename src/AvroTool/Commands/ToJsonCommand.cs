@@ -45,7 +45,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (settings.FromStandardInput)
-            return ValidationResult.Success();
+            return InputValidation.ValidateStandardInputAlone(settings.AvroFile, "An Avro object container file");
 
         if (string.IsNullOrWhiteSpace(settings.AvroFile))
             return ValidationResult.Error("An Avro object container file must be provided.");

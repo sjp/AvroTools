@@ -286,6 +286,18 @@ record PairVolume {
     }
 
     [Test]
+    public async Task Validate_WithStandardInputAndPositionalInput_ReturnsError()
+    {
+        var result = await _app.RunAsync(["--stdin", "a/b/c.avdl"], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("IDL files may not be given together with --stdin."));
+        }
+    }
+
+    [Test]
     public async Task Validate_WithMissingInputFile_ReturnsError()
     {
         var result = await _app.RunAsync([string.Empty], TestContext.CurrentContext.CancellationToken);

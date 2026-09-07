@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Spectre.Console;
@@ -12,6 +13,26 @@ namespace AvroTool;
 internal static class InputValidation
 {
     private static readonly char[] WildcardChars = ['*', '?', '['];
+
+    /// <summary>
+    /// Validates that standard input is the only input: a run that also names files has asked
+    /// for two different documents, and answering about either one silently would hide the
+    /// mistake.
+    /// </summary>
+    /// <param name="tokens">The positional input arguments.</param>
+    /// <param name="description">How the positional input is named in the error, as the start of
+    /// a sentence (e.g. <c>"A schema file"</c>).</param>
+    public static ValidationResult ValidateStandardInputAlone(IReadOnlyList<string> tokens, string description)
+    {
+        if (tokens.Any(t => !string.IsNullOrWhiteSpace(t)))
+            return ValidationResult.Error($"{description} may not be given together with --stdin.");
+
+        return ValidationResult.Success();
+    }
+
+    /// <inheritdoc cref="ValidateStandardInputAlone(IReadOnlyList{string}, string)" />
+    public static ValidationResult ValidateStandardInputAlone(string token, string description) =>
+        ValidateStandardInputAlone([token], description);
 
     /// <summary>
     /// Validates the raw input tokens. <paramref name="noun"/> is woven into the

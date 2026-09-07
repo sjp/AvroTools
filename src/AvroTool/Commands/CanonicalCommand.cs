@@ -45,7 +45,7 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (settings.FromStandardInput)
-            return ValidationResult.Success();
+            return InputValidation.ValidateStandardInputAlone(settings.SchemaFile, "A schema file");
 
         if (string.IsNullOrWhiteSpace(settings.SchemaFile))
             return ValidationResult.Error("A schema file must be provided.");

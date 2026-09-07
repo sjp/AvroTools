@@ -520,8 +520,9 @@ rather than only reading and writing files on disk.
 
 - **Reading from standard input:** pass `--stdin` to read the IDL, protocol or
   schema from standard input instead of a file. The `IDL_FILES`/`INPUT_FILES`
-  argument is then omitted. For `codegen`, supply the base namespace with
-  `--namespace` (`-n`) unless the input is fully namespaced.
+  argument is then omitted; naming files as well is rejected rather than one of
+  the two inputs being silently ignored. For `codegen`, supply the base
+  namespace with `--namespace` (`-n`) unless the input is fully namespaced.
 - **Two-schema commands:** `compat` and `diff` take more than one schema, so
   only one of them may come from standard input. `--stdin-as` picks which, as a
   1-based position among the schemas (default `1`); the positional arguments

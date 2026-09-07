@@ -71,7 +71,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (settings.FromStandardInput)
-            return ValidationResult.Success();
+            return InputValidation.ValidateStandardInputAlone(settings.IdlFiles, "IDL files");
 
         return InputValidation.Validate(settings.IdlFiles, "IDL");
     }

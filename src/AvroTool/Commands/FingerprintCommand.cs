@@ -88,7 +88,7 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
             return ValidationResult.Error("The 'long' format is only valid for the crc-64-avro algorithm.");
 
         if (settings.FromStandardInput)
-            return ValidationResult.Success();
+            return InputValidation.ValidateStandardInputAlone(settings.SchemaFile, "A schema file");
 
         if (string.IsNullOrWhiteSpace(settings.SchemaFile))
             return ValidationResult.Error("A schema file must be provided.");

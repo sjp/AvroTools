@@ -93,12 +93,11 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
-        if (!settings.FromStandardInput)
-        {
-            var inputResult = InputValidation.Validate(settings.InputFiles, "input");
-            if (!inputResult.Successful)
-                return inputResult;
-        }
+        var inputResult = settings.FromStandardInput
+            ? InputValidation.ValidateStandardInputAlone(settings.InputFiles, "Input files")
+            : InputValidation.Validate(settings.InputFiles, "input");
+        if (!inputResult.Successful)
+            return inputResult;
 
         if (!string.IsNullOrWhiteSpace(settings.BaseNamespace) && !CsharpValidation.IsValidCsharpNamespace(settings.BaseNamespace))
             return ValidationResult.Error($"The value '{settings.BaseNamespace}' is not a valid C# namespace.");
