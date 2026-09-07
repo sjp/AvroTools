@@ -53,9 +53,9 @@ internal class CanonicalCommandTests
     public async Task ExecuteAsync_GivenSchemaFile_WritesCanonicalFormToStdout()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "Person.avsc"));
-        await File.WriteAllTextAsync(sourceFile.FullName, SchemaJson);
+        await File.WriteAllTextAsync(sourceFile.FullName, SchemaJson, TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -69,7 +69,7 @@ internal class CanonicalCommandTests
     {
         _streams.StandardInputText = SchemaJson;
 
-        var result = await _app.RunAsync(["--stdin"], default);
+        var result = await _app.RunAsync(["--stdin"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -82,9 +82,9 @@ internal class CanonicalCommandTests
     public async Task ExecuteAsync_GivenProtocol_WritesOneCanonicalFormPerType()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "P.avpr"));
-        await File.WriteAllTextAsync(sourceFile.FullName, ProtocolJson);
+        await File.WriteAllTextAsync(sourceFile.FullName, ProtocolJson, TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], TestContext.CurrentContext.CancellationToken);
 
         var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
         using (Assert.EnterMultipleScope())
@@ -99,7 +99,7 @@ internal class CanonicalCommandTests
     [Test]
     public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var result = await _app.RunAsync([string.Empty], default);
+        var result = await _app.RunAsync([string.Empty], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -113,7 +113,7 @@ internal class CanonicalCommandTests
     {
         const string schemaFile = "a/b/c.avsc";
 
-        var result = await _app.RunAsync([schemaFile], default);
+        var result = await _app.RunAsync([schemaFile], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {

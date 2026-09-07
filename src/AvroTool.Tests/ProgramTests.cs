@@ -43,7 +43,7 @@ internal sealed class ProgramTests
             config.AddCommand<ThrowingCommand>("throwing");
         });
 
-        var exitCode = await app.RunAsync(args, CancellationToken.None);
+        var exitCode = await app.RunAsync(args, TestContext.CurrentContext.CancellationToken);
         return (exitCode, console.Output);
     }
 

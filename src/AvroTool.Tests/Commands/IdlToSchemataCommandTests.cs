@@ -171,11 +171,11 @@ record PairVolume {
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input, TestContext.CurrentContext.CancellationToken);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
-        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"), TestContext.CurrentContext.CancellationToken);
 
         var expectedResultFileContents = _parseResult.Match(
             p => JsonNode.Parse(p.ToString()).ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
@@ -196,10 +196,10 @@ record PairVolume {
         _parseResult = IdlParseResult.Schema(AvroSchema.Parse(MultiRecordSchema));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_multi_record_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input, TestContext.CurrentContext.CancellationToken);
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
 
         var schemaCount = sourceDir.GetFiles("*.avsc");
 
@@ -216,14 +216,14 @@ record PairVolume {
         const string input = "%";
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input, TestContext.CurrentContext.CancellationToken);
 
         _idlTranslator
             .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }
@@ -234,13 +234,13 @@ record PairVolume {
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input, TestContext.CurrentContext.CancellationToken);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }
@@ -251,13 +251,13 @@ record PairVolume {
         const string input = SimpleTestIdl;
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input, TestContext.CurrentContext.CancellationToken);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
-        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Zero);
     }
@@ -271,13 +271,13 @@ record PairVolume {
         Directory.SetCurrentDirectory(_tempDir.DirectoryPath);
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, input);
+        await File.WriteAllTextAsync(sourceFile.FullName, input, TestContext.CurrentContext.CancellationToken);
 
         // copy to ensure it already exists
         File.Copy(sourceFile.FullName, Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"));
 
         // expect an error in overwriting if in the same dir
-        var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], TestContext.CurrentContext.CancellationToken);
 
         // restore dir
         Directory.SetCurrentDirectory(originalDir);
@@ -288,7 +288,7 @@ record PairVolume {
     [Test]
     public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var result = await _app.RunAsync([string.Empty], default);
+        var result = await _app.RunAsync([string.Empty], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -302,7 +302,7 @@ record PairVolume {
     {
         const string IdlFile = "a/b/c.avdl";
 
-        var result = await _app.RunAsync([IdlFile], default);
+        var result = await _app.RunAsync([IdlFile], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -315,9 +315,9 @@ record PairVolume {
     public async Task Validate_WithValidParameters_ReturnsSuccess()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.Output, Is.Empty);
     }
@@ -337,9 +337,9 @@ record PairVolume {
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
 
-        var result = await app.RunAsync([sourceFile.FullName, "--output-dir", _tempDir.DirectoryPath], default);
+        var result = await app.RunAsync([sourceFile.FullName, "--output-dir", _tempDir.DirectoryPath], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -354,10 +354,10 @@ record PairVolume {
     public async Task ExecuteAsync_GivenOutputDirectoryThatDoesNotExist_CreatesItAndWritesOutput()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
-        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
 
         var outputDir = Path.Combine(_tempDir.DirectoryPath, "does", "not", "exist");
-        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", outputDir], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", outputDir], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {

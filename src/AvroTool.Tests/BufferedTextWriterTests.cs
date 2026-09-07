@@ -56,7 +56,7 @@ internal class BufferedTextWriterTests
         await using (var writer = new BufferedTextWriter(inner, bufferSize: 16))
         {
             for (var i = 0; i < lineCount; i++)
-                await writer.WriteLineAsync(i.ToString(CultureInfo.InvariantCulture).AsMemory(), default);
+                await writer.WriteLineAsync(i.ToString(CultureInfo.InvariantCulture).AsMemory(), TestContext.CurrentContext.CancellationToken);
         }
 
         var lines = inner.ToString().TrimEnd().ReplaceLineEndings("\n").Split('\n');

@@ -67,7 +67,7 @@ internal class ToJsonCommandTests
 
         var avroFile = CreateAvroFile(alice, bob);
 
-        var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], TestContext.CurrentContext.CancellationToken);
 
         var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
         using (Assert.EnterMultipleScope())
@@ -87,9 +87,9 @@ internal class ToJsonCommandTests
         alice.Add("name", "Alice");
         alice.Add("nickname", "Ally");
 
-        _streams.StandardInputBytes = await File.ReadAllBytesAsync(CreateAvroFile(alice));
+        _streams.StandardInputBytes = await File.ReadAllBytesAsync(CreateAvroFile(alice), TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync(["--stdin"], default);
+        var result = await _app.RunAsync(["--stdin"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -108,7 +108,7 @@ internal class ToJsonCommandTests
 
         var avroFile = CreateAvroFile(alice);
 
-        var result = await _app.RunAsync([avroFile, "--pretty"], default);
+        var result = await _app.RunAsync([avroFile, "--pretty"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -135,7 +135,7 @@ internal class ToJsonCommandTests
 
         var avroFile = CreateAvroFile(records);
 
-        var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], TestContext.CurrentContext.CancellationToken);
 
         var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
         using (Assert.EnterMultipleScope())
@@ -152,7 +152,7 @@ internal class ToJsonCommandTests
     {
         var avroFile = CreateAvroFile();
 
-        var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -164,7 +164,7 @@ internal class ToJsonCommandTests
     [Test]
     public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var result = await _app.RunAsync([string.Empty], default);
+        var result = await _app.RunAsync([string.Empty], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -178,7 +178,7 @@ internal class ToJsonCommandTests
     {
         const string avroFile = "a/b/c.avro";
 
-        var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -191,9 +191,9 @@ internal class ToJsonCommandTests
     public async Task ExecuteAsync_GivenNonAvroFile_ReturnsError()
     {
         var path = Path.Combine(_tempDir.DirectoryPath, "not-avro.avro");
-        await File.WriteAllTextAsync(path, "not an avro file");
+        await File.WriteAllTextAsync(path, "not an avro file", TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync([path], default);
+        var result = await _app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }

@@ -69,7 +69,7 @@ internal class NumericLiteralTests
     {
         var idl = $"protocol P {{ record R {{ double v = {literal}; }} }}";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl));
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain(literal).And.Contain("no JSON representation"));
     }
@@ -105,7 +105,7 @@ internal class NumericLiteralTests
     {
         const string idl = "protocol P { fixed F(99999999999); }";
 
-        var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl));
+        var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("32-bit integer"));
     }
@@ -115,7 +115,7 @@ internal class NumericLiteralTests
     {
         const string idl = "protocol P { record R { long v = 99999999999999999999; } }";
 
-        var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl));
+        var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("64-bit integer"));
     }
@@ -130,7 +130,7 @@ internal class NumericLiteralTests
 
     private async Task<Protocol> TranslateProtocol(string idl)
     {
-        var result = await _translator.Translate(idl);
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
         return result.Match(p => p, _ => throw new InvalidOperationException("Expected a protocol."));
     }

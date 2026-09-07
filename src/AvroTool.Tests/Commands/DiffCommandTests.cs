@@ -65,7 +65,7 @@ internal class DiffCommandTests
 
     private async Task<(int ExitCode, string Stdout)> RunAsync(params string[] args)
     {
-        var result = await _app.RunAsync(args, default);
+        var result = await _app.RunAsync(args, TestContext.CurrentContext.CancellationToken);
         return (result.ExitCode, _streams.OutputText.Trim());
     }
 
@@ -224,7 +224,7 @@ internal class DiffCommandTests
     {
         var b = WriteSchema("b.avsc", V1);
 
-        var result = await _app.RunAsync(["does/not/exist.avsc", b], default);
+        var result = await _app.RunAsync(["does/not/exist.avsc", b], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -238,7 +238,7 @@ internal class DiffCommandTests
     {
         var a = WriteSchema("a.avsc", V1);
 
-        var result = await _app.RunAsync([a, "does/not/exist.avsc"], default);
+        var result = await _app.RunAsync([a, "does/not/exist.avsc"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -297,7 +297,7 @@ internal class DiffCommandTests
         var a = WriteSchema("a.avsc", V1);
         var b = WriteSchema("b.avsc", V2);
 
-        var result = await _app.RunAsync(["--stdin", a, b], default);
+        var result = await _app.RunAsync(["--stdin", a, b], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -309,7 +309,7 @@ internal class DiffCommandTests
     [Test]
     public async Task Validate_GivenStandardInputAndNoPositionalArguments_ReturnsError()
     {
-        var result = await _app.RunAsync(["--stdin"], default);
+        var result = await _app.RunAsync(["--stdin"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -324,7 +324,7 @@ internal class DiffCommandTests
         var a = WriteSchema("a.avsc", V1);
         var b = WriteSchema("b.avsc", V2);
 
-        var result = await _app.RunAsync(["--stdin-as", "2", a, b], default);
+        var result = await _app.RunAsync(["--stdin-as", "2", a, b], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -338,7 +338,7 @@ internal class DiffCommandTests
     {
         var a = WriteSchema("a.avsc", V1);
 
-        var result = await _app.RunAsync(["--stdin", "--stdin-as", "3", a], default);
+        var result = await _app.RunAsync(["--stdin", "--stdin-as", "3", a], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {

@@ -58,10 +58,10 @@ internal class FingerprintCommandTests
     private async Task<(int ExitCode, string Stdout)> RunAsync(params string[] args)
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "Person.avsc"));
-        await File.WriteAllTextAsync(sourceFile.FullName, SchemaJson);
+        await File.WriteAllTextAsync(sourceFile.FullName, SchemaJson, TestContext.CurrentContext.CancellationToken);
 
         string[] fullArgs = [sourceFile.FullName, .. args];
-        var result = await _app.RunAsync(fullArgs, default);
+        var result = await _app.RunAsync(fullArgs, TestContext.CurrentContext.CancellationToken);
         return (result.ExitCode, _streams.OutputText.Trim());
     }
 
@@ -129,9 +129,9 @@ internal class FingerprintCommandTests
     public async Task ExecuteAsync_GivenProtocol_WritesLabelledFingerprintPerType()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "P.avpr"));
-        await File.WriteAllTextAsync(sourceFile.FullName, ProtocolJson);
+        await File.WriteAllTextAsync(sourceFile.FullName, ProtocolJson, TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], TestContext.CurrentContext.CancellationToken);
 
         var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
         using (Assert.EnterMultipleScope())
@@ -146,7 +146,7 @@ internal class FingerprintCommandTests
     [Test]
     public async Task Validate_GivenLongFormatWithNonCrcAlgorithm_ReturnsError()
     {
-        var result = await _app.RunAsync(["schema.avsc", "-a", "md5", "-f", "long"], default);
+        var result = await _app.RunAsync(["schema.avsc", "-a", "md5", "-f", "long"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -158,7 +158,7 @@ internal class FingerprintCommandTests
     [Test]
     public async Task Validate_GivenUnknownAlgorithm_ReturnsError()
     {
-        var result = await _app.RunAsync(["schema.avsc", "-a", "nope"], default);
+        var result = await _app.RunAsync(["schema.avsc", "-a", "nope"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -170,7 +170,7 @@ internal class FingerprintCommandTests
     [Test]
     public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var result = await _app.RunAsync([string.Empty], default);
+        var result = await _app.RunAsync([string.Empty], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {

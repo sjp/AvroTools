@@ -164,8 +164,8 @@ internal class ImportedProtocolNamespaceTests
 
     private async Task<Protocol> TranslateProtocol(string filePath)
     {
-        var content = await File.ReadAllTextAsync(filePath);
-        var result = await _translator.Translate(content, Path.GetDirectoryName(filePath), default);
+        var content = await File.ReadAllTextAsync(filePath, TestContext.CurrentContext.CancellationToken);
+        var result = await _translator.Translate(content, Path.GetDirectoryName(filePath), TestContext.CurrentContext.CancellationToken);
 
         return result.Match(p => p, _ => throw new InvalidOperationException("Expected a protocol."));
     }

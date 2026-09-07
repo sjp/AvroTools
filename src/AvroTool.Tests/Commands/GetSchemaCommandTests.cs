@@ -61,7 +61,7 @@ internal class GetSchemaCommandTests
     {
         var avroFile = CreateAvroFile();
 
-        var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -73,9 +73,9 @@ internal class GetSchemaCommandTests
     [Test]
     public async Task ExecuteAsync_GivenStdin_WritesWriterSchemaToStdout()
     {
-        _streams.StandardInputBytes = await File.ReadAllBytesAsync(CreateAvroFile());
+        _streams.StandardInputBytes = await File.ReadAllBytesAsync(CreateAvroFile(), TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync(["--stdin"], default);
+        var result = await _app.RunAsync(["--stdin"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -89,7 +89,7 @@ internal class GetSchemaCommandTests
     {
         var avroFile = CreateAvroFile();
 
-        var result = await _app.RunAsync([avroFile, "--pretty"], default);
+        var result = await _app.RunAsync([avroFile, "--pretty"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -102,7 +102,7 @@ internal class GetSchemaCommandTests
     [Test]
     public async Task Validate_WithMissingInputFile_ReturnsError()
     {
-        var result = await _app.RunAsync([string.Empty], default);
+        var result = await _app.RunAsync([string.Empty], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -116,7 +116,7 @@ internal class GetSchemaCommandTests
     {
         const string avroFile = "a/b/c.avro";
 
-        var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -129,9 +129,9 @@ internal class GetSchemaCommandTests
     public async Task ExecuteAsync_GivenNonAvroFile_ReturnsError()
     {
         var path = Path.Combine(_tempDir.DirectoryPath, "not-avro.avro");
-        await File.WriteAllTextAsync(path, "not an avro file");
+        await File.WriteAllTextAsync(path, "not an avro file", TestContext.CurrentContext.CancellationToken);
 
-        var result = await _app.RunAsync([path], default);
+        var result = await _app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }

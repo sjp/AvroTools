@@ -63,7 +63,7 @@ internal class CompatCommandTests
 
     private async Task<(int ExitCode, string Stdout)> RunAsync(params string[] args)
     {
-        var result = await _app.RunAsync(args, default);
+        var result = await _app.RunAsync(args, TestContext.CurrentContext.CancellationToken);
         return (result.ExitCode, _streams.OutputText.Trim());
     }
 
@@ -148,7 +148,7 @@ internal class CompatCommandTests
         var reader = WriteSchema("v2.avsc", V2);
         var writer = WriteSchema("v1.avsc", V1);
 
-        var result = await _app.RunAsync(["--mode", "sideways", reader, writer], default);
+        var result = await _app.RunAsync(["--mode", "sideways", reader, writer], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -162,7 +162,7 @@ internal class CompatCommandTests
     {
         var reader = WriteSchema("v2.avsc", V2);
 
-        var result = await _app.RunAsync([reader], default);
+        var result = await _app.RunAsync([reader], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -178,7 +178,7 @@ internal class CompatCommandTests
         var b = WriteSchema("v2.avsc", V2);
         var c = WriteSchema("v3.avsc", V3);
 
-        var result = await _app.RunAsync([a, b, c], default);
+        var result = await _app.RunAsync([a, b, c], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -192,7 +192,7 @@ internal class CompatCommandTests
     {
         var reader = WriteSchema("v2.avsc", V2);
 
-        var result = await _app.RunAsync([reader, "does/not/exist.avsc"], default);
+        var result = await _app.RunAsync([reader, "does/not/exist.avsc"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -283,7 +283,7 @@ internal class CompatCommandTests
         var reader = WriteSchema("v2.avsc", V2);
         var writer = WriteSchema("v1.avsc", V1);
 
-        var result = await _app.RunAsync(["--stdin", reader, writer], default);
+        var result = await _app.RunAsync(["--stdin", reader, writer], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -295,7 +295,7 @@ internal class CompatCommandTests
     [Test]
     public async Task Validate_GivenStandardInputAndNoPositionalArguments_ReturnsError()
     {
-        var result = await _app.RunAsync(["--stdin"], default);
+        var result = await _app.RunAsync(["--stdin"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -310,7 +310,7 @@ internal class CompatCommandTests
         var reader = WriteSchema("v2.avsc", V2);
         var writer = WriteSchema("v1.avsc", V1);
 
-        var result = await _app.RunAsync(["--stdin-as", "2", reader, writer], default);
+        var result = await _app.RunAsync(["--stdin-as", "2", reader, writer], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -324,7 +324,7 @@ internal class CompatCommandTests
     {
         var writer = WriteSchema("v1.avsc", V1);
 
-        var result = await _app.RunAsync(["--stdin", "--stdin-as", "3", writer], default);
+        var result = await _app.RunAsync(["--stdin", "--stdin-as", "3", writer], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {

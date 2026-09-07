@@ -87,8 +87,8 @@ internal class StringLiteralEscapeTests
         tempDir.WriteFile("inner.avdl", @"@namespace(""nested"") protocol Inner { record InnerRecord { string x; } }");
         var main = tempDir.WriteFile("main.avdl", @"protocol Main { import idl ""\u0069nner.avdl""; record Outer { nested.InnerRecord i; } }");
 
-        var content = await File.ReadAllTextAsync(main);
-        var result = await _translator.Translate(content, Path.GetDirectoryName(main), default);
+        var content = await File.ReadAllTextAsync(main, TestContext.CurrentContext.CancellationToken);
+        var result = await _translator.Translate(content, Path.GetDirectoryName(main), TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.Match(p => p.Types.Select(t => t.Fullname).ToList(), s => [s.Fullname]), Does.Contain("nested.InnerRecord"));
     }
@@ -103,7 +103,7 @@ internal class StringLiteralEscapeTests
 
     private async Task<Protocol> TranslateProtocol(string idl)
     {
-        var result = await _translator.Translate(idl);
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
         return result.Match(p => p, _ => throw new InvalidOperationException("Expected a protocol."));
     }

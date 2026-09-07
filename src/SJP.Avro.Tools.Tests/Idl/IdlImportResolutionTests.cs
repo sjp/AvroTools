@@ -82,7 +82,7 @@ internal class IdlImportResolutionTests
         _tempDir.WriteFile(Path.Combine("sub", "inner.avdl"), "@namespace(\"nested\") protocol Inner { record InnerRecord { string x; } }");
         const string idl = "protocol Main { import idl \"inner.avdl\"; record Outer { nested.InnerRecord i; } }";
 
-        var result = await _translator.Translate(idl, Path.Combine(_tempDir.DirectoryPath, "sub"), default);
+        var result = await _translator.Translate(idl, Path.Combine(_tempDir.DirectoryPath, "sub"), TestContext.CurrentContext.CancellationToken);
 
         Assert.That(TypeNames(result), Is.EqualTo(new[] { "nested.InnerRecord", "Outer" }));
     }
@@ -101,7 +101,7 @@ internal class IdlImportResolutionTests
     private Task<IdlParseResult> Translate(string filePath)
     {
         var content = File.ReadAllText(filePath);
-        return _translator.Translate(content, Path.GetDirectoryName(filePath), default);
+        return _translator.Translate(content, Path.GetDirectoryName(filePath), TestContext.CurrentContext.CancellationToken);
     }
 
     private static IEnumerable<string> TypeNames(IdlParseResult result) =>

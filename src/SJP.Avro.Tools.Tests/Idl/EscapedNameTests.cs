@@ -77,7 +77,7 @@ internal class EscapedNameTests
 
     private async Task<JObject> TranslateToJson(string idl)
     {
-        var result = await _translator.Translate(idl);
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
         var protocol = result.Match(p => p, _ => throw new InvalidOperationException("Expected a protocol."));
 
         return JObject.Parse(protocol.ToString());

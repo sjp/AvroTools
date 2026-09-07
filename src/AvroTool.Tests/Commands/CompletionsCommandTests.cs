@@ -39,7 +39,7 @@ internal class CompletionsCommandTests
     [Test]
     public async Task ExecuteAsync_GivenKnownShell_WritesScriptToStdout()
     {
-        var result = await _app.RunAsync(["bash"], default);
+        var result = await _app.RunAsync(["bash"], TestContext.CurrentContext.CancellationToken);
 
         using (Assert.EnterMultipleScope())
         {
@@ -51,7 +51,7 @@ internal class CompletionsCommandTests
     [Test]
     public async Task ExecuteAsync_GivenUnknownShell_ReturnsError()
     {
-        var result = await _app.RunAsync(["nonsense"], default);
+        var result = await _app.RunAsync(["nonsense"], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
     }

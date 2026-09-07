@@ -45,10 +45,10 @@ internal class IdlToAvroTranslatorTests
 
         await using var outputFileReadStream = outputFile.CreateReadStream();
         using var outputReader = new StreamReader(outputFileReadStream);
-        var outputContents = await outputReader.ReadToEndAsync();
+        var outputContents = await outputReader.ReadToEndAsync(TestContext.CurrentContext.CancellationToken);
 
         await using var inputFileReadStream = inputFile.CreateReadStream();
-        var parseResult = await _translator.Translate(inputFileReadStream);
+        var parseResult = await _translator.Translate(inputFileReadStream, TestContext.CurrentContext.CancellationToken);
         var jsonText = parseResult.Match(p => p.ToString(), s => s.ToString());
 
         var patcher = new JsonDiffPatch();
@@ -62,7 +62,7 @@ internal class IdlToAvroTranslatorTests
     {
         const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl));
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("Syntax error at line 1:54"));
     }
@@ -73,7 +73,7 @@ internal class IdlToAvroTranslatorTests
         const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(idl));
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(stream));
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(stream, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("Syntax error at line 1:54"));
     }
