@@ -67,4 +67,19 @@ internal class BufferedTextWriterTests
             Assert.That(lines[^1], Is.EqualTo((lineCount - 1).ToString(CultureInfo.InvariantCulture)));
         }
     }
+
+    [Test]
+    public async Task WriteLineAsync_GivenALineAtLeastAsLongAsTheBuffer_ForwardsItInOneWriteRatherThanTruncatingAtTheBufferBoundary()
+    {
+        var inner = new StringWriter();
+        await using var writer = new BufferedTextWriter(inner, bufferSize: 8);
+
+        // A line this long takes the buffer's pass-through path in the fixed implementation,
+        // which forwards it to the inner writer whole. Falling back to the base class's
+        // rent-and-loop-per-character path instead drains only a buffer's worth at a time,
+        // leaving the tail of the line short of the inner writer until a later write or flush.
+        await writer.WriteLineAsync("abcdefghij".AsMemory(), TestContext.CurrentContext.CancellationToken);
+
+        Assert.That(inner.ToString(), Is.EqualTo("abcdefghij"));
+    }
 }

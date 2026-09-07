@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Avro;
+using Avro.File;
 using Avro.Generic;
 using AvroTool.Commands;
 using Moq;
@@ -230,5 +231,43 @@ internal class ToJsonCommandTests
         var result = await _app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenFileThatFailsToDecodeMidStream_WritesTheRecordsDecodedBeforeTheFailure()
+    {
+        var schema = Schema;
+        var alice = new GenericRecord(schema);
+        alice.Add("name", "Alice");
+        alice.Add("nickname", null);
+        var bob = new GenericRecord(schema);
+        bob.Add("name", "Bob");
+        bob.Add("nickname", null);
+
+        var path = Path.Combine(_tempDir.DirectoryPath, "Truncated.avro");
+        long endOfFirstBlock;
+        using (var writer = DataFileWriter<GenericRecord>.OpenWriter(new GenericDatumWriter<GenericRecord>(schema), path, Codec.CreateCodec(Codec.Type.Null)))
+        {
+            // A sync marker forces Alice into her own block, so truncating the file after it
+            // leaves a complete first record followed by a second block with no data in it.
+            writer.Append(alice);
+            endOfFirstBlock = writer.Sync();
+            writer.Append(bob);
+            writer.Flush();
+        }
+
+        // Cutting the file off partway through the second block, rather than exactly at its
+        // start, leaves a block header promising data that is not there, which is what turns
+        // a merely empty tail into an actual decode failure.
+        using (var truncate = new FileStream(path, FileMode.Open, FileAccess.Write))
+            truncate.SetLength(endOfFirstBlock + ((truncate.Length - endOfFirstBlock) / 2));
+
+        var result = await _app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(_streams.OutputText.Trim(), Is.EqualTo("""{"name":"Alice","nickname":null}"""));
+        }
     }
 }

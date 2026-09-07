@@ -83,6 +83,27 @@ internal sealed class BufferedTextWriter : TextWriter
 
     /// <inheritdoc />
     /// <remarks>
+    /// The base implementation loops <see cref="Write(char)"/> one character at a time, which
+    /// costs a virtual call per character for every caller that still writes through a
+    /// <c>char[]</c> — including the base class's own <see cref="WriteLine(ReadOnlySpan{char})"/>.
+    /// </remarks>
+    public override void Write(char[] buffer, int index, int count) => Write(buffer.AsSpan(index, count));
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The base implementation rents an array to copy the span into before writing it, purely
+    /// to hand it to <see cref="Write(char[], int, int)"/>. <see cref="Write(ReadOnlySpan{char})"/>
+    /// already buffers a span directly, so writing through it and appending the line ending
+    /// avoids that rent-and-copy entirely.
+    /// </remarks>
+    public override void WriteLine(ReadOnlySpan<char> buffer)
+    {
+        Write(buffer);
+        WriteLine();
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
     /// Buffering is a memory copy, so the asynchronous overloads complete synchronously rather
     /// than queueing work — the base class implementations would start a task per call.
     /// </remarks>
@@ -102,6 +123,28 @@ internal sealed class BufferedTextWriter : TextWriter
             return Task.FromCanceled(cancellationToken);
 
         WriteLine(buffer.Span);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// See <see cref="WriteAsync(ReadOnlyMemory{char}, CancellationToken)"/>: this completes
+    /// synchronously rather than through the base class's thread-pool hop.
+    /// </remarks>
+    public override Task WriteAsync(string? value)
+    {
+        Write(value);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// See <see cref="WriteAsync(ReadOnlyMemory{char}, CancellationToken)"/>: this completes
+    /// synchronously rather than through the base class's thread-pool hop.
+    /// </remarks>
+    public override Task WriteLineAsync(string? value)
+    {
+        WriteLine(value);
         return Task.CompletedTask;
     }
 

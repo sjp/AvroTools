@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32.SafeHandles;
 
 namespace AvroTool;
 
@@ -69,7 +70,7 @@ internal sealed class ConsoleStandardStreams : IStandardStreams, IDisposable
     /// Creates the standard streams of the running process.
     /// </summary>
     public ConsoleStandardStreams()
-        : this(Console.OpenStandardInput, Console.OpenStandardOutput)
+        : this(Console.OpenStandardInput, OpenStandardOutput)
     {
     }
 
@@ -89,6 +90,23 @@ internal sealed class ConsoleStandardStreams : IStandardStreams, IDisposable
         // validation failure — never touches standard output at all.
         _output = new Lazy<StreamWriter>(() => new StreamWriter(openStandardOutput(), Utf8NoBom) { AutoFlush = false });
     }
+
+    /// <summary>
+    /// Opens the process's standard output as a stream that surfaces a reader closing the pipe
+    /// (e.g. the far end of <c>| head</c> exiting) as an <see cref="IOException"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Console.OpenStandardOutput()"/> ignores a broken pipe on Unix instead of
+    /// throwing, so a write after the reader has gone away silently succeeds and a command
+    /// streaming output has no way to notice and stop early. A <see cref="FileStream"/> opened
+    /// directly over file descriptor 1 has no such special case and fails the write like any
+    /// other stream would. On Windows a broken pipe already surfaces as an
+    /// <see cref="IOException"/> from the console stream, so that stream is used as-is.
+    /// </remarks>
+    private static Stream OpenStandardOutput() =>
+        OperatingSystem.IsWindows()
+            ? Console.OpenStandardOutput()
+            : new FileStream(new SafeFileHandle((IntPtr)1, ownsHandle: false), FileAccess.Write);
 
     /// <inheritdoc />
     /// <remarks>
@@ -115,6 +133,13 @@ internal sealed class ConsoleStandardStreams : IStandardStreams, IDisposable
     /// <summary>
     /// Flushes anything a command has written to standard output.
     /// </summary>
+    /// <remarks>
+    /// A reader that closed the pipe (e.g. <c>| head</c>) can still be the one holding standard
+    /// output's last buffered bytes at this point, so the final flush can fail the same way a
+    /// write during the command itself would. That carries no information a command has not
+    /// already had the chance to act on, so it is swallowed here rather than crashing the
+    /// process on the way out.
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed)
@@ -123,6 +148,14 @@ internal sealed class ConsoleStandardStreams : IStandardStreams, IDisposable
         _disposed = true;
 
         if (_output.IsValueCreated)
-            _output.Value.Dispose();
+        {
+            try
+            {
+                _output.Value.Dispose();
+            }
+            catch (IOException)
+            {
+            }
+        }
     }
 }

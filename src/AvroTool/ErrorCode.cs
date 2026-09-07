@@ -30,4 +30,11 @@ internal static class ErrorCode
     /// terminated. SIGINT is signal 2.
     /// </remarks>
     public static int Interrupted { get; } = 130;
+
+    /// <summary>The reader of the command's output closed the pipe before every record was written.</summary>
+    /// <remarks>
+    /// 128 + the signal number, matching the exit code a shell reports for a process a signal
+    /// terminated. SIGPIPE is signal 13.
+    /// </remarks>
+    public static int BrokenPipe { get; } = 141;
 }

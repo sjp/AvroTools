@@ -83,7 +83,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
             // A container file can hold millions of records, and standard output flushes on every
             // write, so records are buffered and forwarded in blocks. Disposal flushes whatever is
             // left, including when decoding fails part way through.
-            using var output = new BufferedTextWriter(_streams.Output);
+            var output = new BufferedTextWriter(_streams.Output);
 
             try
             {
@@ -94,7 +94,16 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
                     if (settings.Pretty)
                         json = JsonFormatting.Indent(json);
 
-                    await output.WriteLineAsync(json.AsMemory(), cancellationToken);
+                    try
+                    {
+                        await output.WriteLineAsync(json.AsMemory(), cancellationToken);
+                    }
+                    catch (IOException)
+                    {
+                        // The reader has closed its end of the pipe (e.g. `| head`). Nothing
+                        // further can be written, so stop decoding records nobody will read.
+                        return ErrorCode.BrokenPipe;
+                    }
                 }
             }
             catch (Exception ex)
@@ -102,6 +111,19 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
                 _console.MarkupLineInterpolated($"[red]Failed to decode records from '{source}'.[/]");
                 _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
                 return ErrorCode.Error;
+            }
+            finally
+            {
+                // A reader that closed the pipe partway through may also cause the final flush
+                // to fail; that failure carries no information beyond what the write attempts
+                // above already reported, so it is not allowed to override this method's result.
+                try
+                {
+                    output.Dispose();
+                }
+                catch (IOException)
+                {
+                }
             }
 
             return ErrorCode.Success;
