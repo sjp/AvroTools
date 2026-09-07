@@ -75,6 +75,20 @@ internal class CompatCommandTests
         }
     }
 
+    private async Task<(int ExitCode, string Stdout)> RunWithStandardInputAsync(string standardInput, params string[] args)
+    {
+        var originalIn = System.Console.In;
+        System.Console.SetIn(new StringReader(standardInput));
+        try
+        {
+            return await RunAsync(args);
+        }
+        finally
+        {
+            System.Console.SetIn(originalIn);
+        }
+    }
+
     [Test]
     public async Task ExecuteAsync_GivenBackwardCompatibleSchemas_ReturnsSuccess()
     {
@@ -212,5 +226,126 @@ internal class CompatCommandTests
         var (exitCode, _) = await RunAsync(protocol, writer);
 
         Assert.That(exitCode, Is.Not.Zero);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStandardInputAsReader_ChecksStandardInputAgainstTheFile()
+    {
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var (exitCode, stdout) = await RunWithStandardInputAsync(V2, "--json", "--stdin", writer);
+
+        using var document = JsonDocument.Parse(stdout);
+        var check = document.RootElement.GetProperty("checks")[0];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero);
+            Assert.That(check.GetProperty("reader").GetString(), Is.EqualTo("<stdin>"));
+            Assert.That(check.GetProperty("writer").GetString(), Is.EqualTo(writer));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStandardInputAsWriter_ChecksTheFileAgainstStandardInput()
+    {
+        var reader = WriteSchema("v2.avsc", V2);
+
+        var (exitCode, stdout) = await RunWithStandardInputAsync(V1, "--json", "--stdin", "--stdin-as", "2", reader);
+
+        using var document = JsonDocument.Parse(stdout);
+        var check = document.RootElement.GetProperty("checks")[0];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero);
+            Assert.That(check.GetProperty("reader").GetString(), Is.EqualTo(reader));
+            Assert.That(check.GetProperty("writer").GetString(), Is.EqualTo("<stdin>"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStandardInputAsIncompatibleReader_ReturnsError()
+    {
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var (exitCode, _) = await RunWithStandardInputAsync(V3, "--stdin", writer);
+
+        Assert.That(exitCode, Is.Not.Zero);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStandardInputInATransitiveChain_ChecksEveryPriorVersion()
+    {
+        var priorGood = WriteSchema("v2.avsc", V2);
+        var priorBad = WriteSchema("v1.avsc", V1);
+
+        var (exitCode, stdout) = await RunWithStandardInputAsync(V3, "--json", "--stdin", "--mode", "backward-transitive", priorGood, priorBad);
+
+        using var document = JsonDocument.Parse(stdout);
+        var checks = document.RootElement.GetProperty("checks");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(checks.GetArrayLength(), Is.EqualTo(2));
+            Assert.That(checks[0].GetProperty("reader").GetString(), Is.EqualTo("<stdin>"));
+        }
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputAndTheFullPositionalCount_ReturnsError()
+    {
+        var reader = WriteSchema("v2.avsc", V2);
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var result = await _app.RunAsync(["--stdin", reader, writer], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("compares exactly two schemas"));
+        }
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputAndNoPositionalArguments_ReturnsError()
+    {
+        var result = await _app.RunAsync(["--stdin"], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("At least two schema files must be provided."));
+        }
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputPositionWithoutStandardInput_ReturnsError()
+    {
+        var reader = WriteSchema("v2.avsc", V2);
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var result = await _app.RunAsync(["--stdin-as", "2", reader, writer], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("--stdin-as may only be used together with --stdin."));
+        }
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputPositionOutOfRange_ReturnsError()
+    {
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var result = await _app.RunAsync(["--stdin", "--stdin-as", "3", writer], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("--stdin-as must be a position between 1 and 2, not 3."));
+        }
     }
 }

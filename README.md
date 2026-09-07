@@ -62,9 +62,8 @@ COMMANDS:
     completions <SHELL>           Generates a shell completion script (bash, zsh, fish, powershell)
 ```
 
-Each of the `idl`, `idl2schemata`, `codegen`, `getschema` and `tojson` commands
-can read its input from standard input instead of a file (see
-[Standard input and output](#standard-input-and-output)).
+Every schema-consuming command can read an input from standard input instead of
+a file (see [Standard input and output](#standard-input-and-output)).
 
 ### Examples
 
@@ -302,6 +301,19 @@ incompatibilities (kind, location and message) instead of the summary above.
 Exit code `0` means compatible, so `compat` slots directly into CI as a
 pre-merge gate.
 
+One of the schemas may come from standard input, which avoids a temporary file
+when the other version lives in version control rather than on disk:
+
+```sh
+# Check that the working tree's schema can still read data written with main's
+git show main:schema.avsc | avrotool compat --stdin --stdin-as 2 schema.avsc
+```
+
+`--stdin-as` gives the 1-based position that standard input occupies among the
+schemas, defaulting to `1` — the reader, or the candidate in the `-transitive`
+modes. The remaining positional arguments fill the other positions in order, so
+one fewer of them is given.
+
 #### Schema diff
 
 `avrotool diff <SCHEMA_A> <SCHEMA_B>` prints a semantic, field-level diff
@@ -346,7 +358,13 @@ also works as a CI "did the schema change?" gate.
 
 Like `compat`, each of `<SCHEMA_A>` and `<SCHEMA_B>` must resolve to a single
 schema — a protocol with more than one named type is rejected with a clear
-error.
+error. `diff` also accepts `--stdin` with the same `--stdin-as 1|2` positioning
+as `compat`:
+
+```sh
+# Show what the working tree changed relative to main
+git show main:schema.avsc | avrotool diff --stdin schema.avsc
+```
 
 #### Inspecting Avro data files
 
@@ -403,14 +421,18 @@ directory. The same file reached by two different spellings (`ids.avdl` and
 
 ### Standard input and output
 
-The `idl`, `idl2schemata`, `codegen`, `getschema` and `tojson` commands can
-participate in shell pipelines rather than only reading and writing files on
-disk.
+The `idl`, `idl2schemata`, `codegen`, `canonical`, `fingerprint`, `compat`,
+`diff`, `getschema` and `tojson` commands can participate in shell pipelines
+rather than only reading and writing files on disk.
 
 - **Reading from standard input:** pass `--stdin` to read the IDL, protocol or
   schema from standard input instead of a file. The `IDL_FILES`/`INPUT_FILES`
   argument is then omitted. For `codegen`, supply the base namespace with
   `--namespace` (`-n`) unless the input is fully namespaced.
+- **Two-schema commands:** `compat` and `diff` take more than one schema, so
+  only one of them may come from standard input. `--stdin-as` picks which, as a
+  1-based position among the schemas (default `1`); the positional arguments
+  fill the rest in order. Output identifies that schema as `<stdin>`.
 - **Writing to standard output:** the `idl` command accepts `--stdout` (`-s`) to
   write the generated JSON to standard output instead of a file.
 - **Clean pipelines:** all human-facing status messages (the green
@@ -424,6 +446,9 @@ cat sample.avdl | avrotool idl --stdin --stdout
 # Chain commands together: IDL -> protocol JSON -> generated C#
 cat sample.avdl | avrotool idl --stdin --stdout \
   | avrotool codegen --stdin --namespace Test.Code.Namespace --output-dir ./generated
+
+# Gate a pull request on the schema still being readable by the version on main
+git show main:schema.avsc | avrotool compat --stdin --stdin-as 2 schema.avsc
 ```
 
 > Note: a bare `-` is a common convention for "read from standard input", but the

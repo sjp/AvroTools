@@ -91,7 +91,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         {
             var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
             var baseDirectory = InputSource.ImportBaseDirectory(true, null);
-            var ok = await ProcessAsync(content, "<stdin>", baseDirectory, settings, outputDir, collector, cancellationToken);
+            var ok = await ProcessAsync(content, InputSource.StandardInputName, baseDirectory, settings, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
         }
 

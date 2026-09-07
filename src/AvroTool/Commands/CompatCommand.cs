@@ -17,9 +17,18 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
-        [CommandArgument(0, "<SCHEMAS>")]
-        [Description("Two schema files (reader then writer), or, for the *-transitive modes, a candidate followed by the earlier versions to check it against. Each may be an IDL, protocol or schema file.")]
+        [CommandArgument(0, "[SCHEMAS]")]
+        [Description("Two schema files (reader then writer), or, for the *-transitive modes, a candidate followed by the earlier versions to check it against. Each may be an IDL, protocol or schema file. Omit whichever schema --stdin supplies.")]
         public string[] Schemas { get; set; } = [];
+
+        [CommandOption("--stdin")]
+        [Description("Read one of the schemas from standard input instead of a file. One fewer positional argument is then given.")]
+        [DefaultValue(false)]
+        public bool FromStandardInput { get; set; }
+
+        [CommandOption("--stdin-as")]
+        [Description("Which schema standard input supplies, as a 1-based position among the schemas. Defaults to 1, the reader (or, in the *-transitive modes, the candidate).")]
+        public int? StandardInputPosition { get; set; }
 
         [CommandOption("-m|--mode")]
         [Description("Compatibility mode: backward (default), forward, full, backward-transitive, forward-transitive or full-transitive.")]
@@ -73,11 +82,24 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         if (!Modes.TryGetValue(NamingConventions.NormaliseOption(settings.Mode), out var mode))
             return ValidationResult.Error($"Unknown mode '{settings.Mode}'. Supported: {string.Join(", ", SupportedModes)}.");
 
-        if (settings.Schemas.Length < 2)
+        if (!settings.FromStandardInput && settings.StandardInputPosition != null)
+            return ValidationResult.Error("--stdin-as may only be used together with --stdin.");
+
+        // Standard input contributes one schema, so it counts towards the total the mode requires.
+        var total = settings.Schemas.Length + (settings.FromStandardInput ? 1 : 0);
+
+        if (total < 2)
             return ValidationResult.Error("At least two schema files must be provided.");
 
-        if (!IsTransitive(mode) && settings.Schemas.Length != 2)
+        if (!IsTransitive(mode) && total != 2)
             return ValidationResult.Error($"The '{settings.Mode}' mode compares exactly two schemas. Use a '*-transitive' mode to check a candidate against a chain of versions.");
+
+        if (settings.FromStandardInput)
+        {
+            var position = settings.StandardInputPosition ?? 1;
+            if (position < 1 || position > total)
+                return ValidationResult.Error($"--stdin-as must be a position between 1 and {total}, not {position}.");
+        }
 
         foreach (var schemaFile in settings.Schemas)
         {
@@ -95,8 +117,10 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
     {
         var mode = Modes[NamingConventions.NormaliseOption(settings.Mode)];
 
-        var sources = new List<SchemaSource>(settings.Schemas.Length);
-        foreach (var schemaFile in settings.Schemas)
+        var inputs = ResolveInputPaths(settings);
+
+        var sources = new List<SchemaSource>(inputs.Count);
+        foreach (var schemaFile in inputs)
         {
             var source = await AvroInputResolver.ResolveSingleSchemaAsync(schemaFile, _idlTranslator, "compat", _console, cancellationToken);
             if (source == null)
@@ -125,6 +149,21 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
             WriteHuman(compatible, checks);
 
         return compatible ? ErrorCode.Success : ErrorCode.Error;
+    }
+
+    /// <summary>
+    /// The schemas to compare, in order, where <c>null</c> means standard input. The positional
+    /// arguments keep their relative order; standard input is inserted at the requested position.
+    /// </summary>
+    private static IReadOnlyList<string?> ResolveInputPaths(Settings settings)
+    {
+        var inputs = new List<string?>(settings.Schemas.Length + 1);
+        inputs.AddRange(settings.Schemas);
+
+        if (settings.FromStandardInput)
+            inputs.Insert((settings.StandardInputPosition ?? 1) - 1, null);
+
+        return inputs;
     }
 
     /// <summary>

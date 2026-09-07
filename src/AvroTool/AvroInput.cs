@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,38 +72,41 @@ internal static class AvroInputResolver
     }
 
     /// <summary>
-    /// Reads a file and resolves it to the single named schema the caller requires, reporting
-    /// any failure to the console.
+    /// Reads a file, or standard input, and resolves it to the single named schema the caller
+    /// requires, reporting any failure to the console.
     /// </summary>
-    /// <param name="schemaFile">The path of the file to read.</param>
+    /// <param name="schemaFile">The path of the file to read, or <c>null</c> to read standard input.</param>
     /// <param name="translator">The IDL translator to fall back to.</param>
     /// <param name="commandName">The command name to use when reporting an unusable input.</param>
     /// <param name="console">The console to write failures to.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The resolved schema, or <c>null</c> when the input could not be used.</returns>
     public static async Task<SchemaSource?> ResolveSingleSchemaAsync(
-        string schemaFile,
+        string? schemaFile,
         IIdlToAvroTranslator translator,
         string commandName,
         IAnsiConsole console,
         CancellationToken cancellationToken)
     {
-        var content = await File.ReadAllTextAsync(schemaFile, cancellationToken);
-        var baseDirectory = InputSource.ImportBaseDirectory(false, schemaFile);
+        var fromStandardInput = schemaFile == null;
+        var displayName = fromStandardInput ? InputSource.StandardInputName : schemaFile!;
+
+        var content = await InputSource.ReadAllTextAsync(fromStandardInput, schemaFile, cancellationToken);
+        var baseDirectory = InputSource.ImportBaseDirectory(fromStandardInput, schemaFile);
         var input = await ResolveAsync(content, translator, baseDirectory, cancellationToken);
         if (input == null)
         {
-            console.MarkupLineInterpolated($"[red]Input '{schemaFile}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
+            console.MarkupLineInterpolated($"[red]Input '{displayName}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
             return null;
         }
 
         if (input.Schemas.Count != 1)
         {
-            console.MarkupLineInterpolated($"[red]Input '{schemaFile}' resolves to {input.Schemas.Count} named types; {commandName} expects a single schema per input.[/]");
+            console.MarkupLineInterpolated($"[red]Input '{displayName}' resolves to {input.Schemas.Count} named types; {commandName} expects a single schema per input.[/]");
             return null;
         }
 
-        return new SchemaSource(schemaFile, input.Schemas[0]);
+        return new SchemaSource(displayName, input.Schemas[0]);
     }
 
     private static bool TryParseProtocol(string content, out AvroProtocol protocol)
@@ -139,6 +141,6 @@ internal static class AvroInputResolver
 /// <summary>
 /// A single schema, paired with the input path it was resolved from.
 /// </summary>
-/// <param name="Source">The path the schema was read from.</param>
+/// <param name="Source">The path the schema was read from, or <c>&lt;stdin&gt;</c> for standard input.</param>
 /// <param name="Schema">The resolved schema.</param>
 internal sealed record SchemaSource(string Source, AvroSchema Schema);

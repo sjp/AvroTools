@@ -85,7 +85,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         {
             var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
             var baseDirectory = InputSource.ImportBaseDirectory(true, null);
-            var ok = await ProcessAsync(content, "<stdin>", baseDirectory, outputDir, collector, cancellationToken);
+            var ok = await ProcessAsync(content, InputSource.StandardInputName, baseDirectory, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
         }
 

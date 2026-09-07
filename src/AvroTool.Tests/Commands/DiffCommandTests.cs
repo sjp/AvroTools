@@ -77,6 +77,20 @@ internal class DiffCommandTests
         }
     }
 
+    private async Task<(int ExitCode, string Stdout)> RunWithStandardInputAsync(string standardInput, params string[] args)
+    {
+        var originalIn = System.Console.In;
+        System.Console.SetIn(new StringReader(standardInput));
+        try
+        {
+            return await RunAsync(args);
+        }
+        finally
+        {
+            System.Console.SetIn(originalIn);
+        }
+    }
+
     [Test]
     public async Task ExecuteAsync_GivenIdenticalSchemas_ReturnsSuccess()
     {
@@ -246,6 +260,106 @@ internal class DiffCommandTests
         {
             Assert.That(result.ExitCode, Is.Not.Zero);
             Assert.That(result.Output, Does.Contain("A schema file could not be found at: does/not/exist.avsc"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStandardInputAsSchemaA_ComparesStandardInputAgainstTheFile()
+    {
+        var b = WriteSchema("b.avsc", V2);
+
+        var (exitCode, stdout) = await RunWithStandardInputAsync(V1, "--json", "--stdin", b);
+
+        using var document = JsonDocument.Parse(stdout);
+        var change = document.RootElement.GetProperty("changes")[0];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("FIELD_ADDED"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStandardInputAsSchemaB_ComparesTheFileAgainstStandardInput()
+    {
+        var a = WriteSchema("a.avsc", V1);
+
+        var (exitCode, stdout) = await RunWithStandardInputAsync(V2, "--json", "--stdin", "--stdin-as", "2", a);
+
+        using var document = JsonDocument.Parse(stdout);
+        var change = document.RootElement.GetProperty("changes")[0];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("FIELD_ADDED"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStandardInputMatchingTheFile_ReportsNoChanges()
+    {
+        var a = WriteSchema("a.avsc", V1);
+
+        var (exitCode, _) = await RunWithStandardInputAsync(V1, "--stdin", "--stdin-as", "2", a);
+
+        Assert.That(exitCode, Is.Zero);
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputAndBothPositionalArguments_ReturnsError()
+    {
+        var a = WriteSchema("a.avsc", V1);
+        var b = WriteSchema("b.avsc", V2);
+
+        var result = await _app.RunAsync(["--stdin", a, b], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("Only one schema may be given as a file"));
+        }
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputAndNoPositionalArguments_ReturnsError()
+    {
+        var result = await _app.RunAsync(["--stdin"], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("must be provided"));
+        }
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputPositionWithoutStandardInput_ReturnsError()
+    {
+        var a = WriteSchema("a.avsc", V1);
+        var b = WriteSchema("b.avsc", V2);
+
+        var result = await _app.RunAsync(["--stdin-as", "2", a, b], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("--stdin-as may only be used together with --stdin."));
+        }
+    }
+
+    [Test]
+    public async Task Validate_GivenStandardInputPositionOutOfRange_ReturnsError()
+    {
+        var a = WriteSchema("a.avsc", V1);
+
+        var result = await _app.RunAsync(["--stdin", "--stdin-as", "3", a], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("--stdin-as must be 1 (SCHEMA_A) or 2 (SCHEMA_B), not 3."));
         }
     }
 }

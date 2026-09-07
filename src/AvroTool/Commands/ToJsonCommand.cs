@@ -55,7 +55,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var source = settings.FromStandardInput ? "<stdin>" : settings.AvroFile;
+        var source = settings.FromStandardInput ? InputSource.StandardInputName : settings.AvroFile;
 
         using var stream = InputSource.OpenRead(settings.FromStandardInput, settings.AvroFile);
 

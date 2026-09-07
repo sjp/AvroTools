@@ -17,6 +17,11 @@ namespace AvroTool;
 internal static class InputSource
 {
     /// <summary>
+    /// The name used to identify standard input in messages and machine-readable output.
+    /// </summary>
+    public const string StandardInputName = "<stdin>";
+
+    /// <summary>
     /// Reads all textual content from standard input, or from the given file path.
     /// </summary>
     /// <param name="useStandardInput">When <c>true</c>, read from standard input and ignore <paramref name="path"/>.</param>
