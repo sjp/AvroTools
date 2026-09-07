@@ -459,8 +459,10 @@ Details:
 - **Output naming** continues to derive from each schema/protocol's own name and
   the `--output-dir`, so many inputs can safely share one output directory. The
   existing `--overwrite` semantics are respected per file.
-- **Duplicate outputs** — two inputs that would generate the same output file are
-  detected and reported rather than silently racing.
+- **Duplicate outputs** — two outputs that would be written to the same file are
+  detected and reported rather than silently racing, whether they come from two
+  inputs or from a single one (for example, a protocol and a type of the same
+  name).
 - **Per-file reporting** — a failure in one input does not abort the rest; the
   exit code is non-zero if *any* input failed. Pass `--fail-fast` to stop on the
   first failure instead.

@@ -165,14 +165,19 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
         try
         {
+            // A protocol's declared types may each reach the same nested type, so the
+            // same named type can be seen more than once.
             var namedTypes = schemas
                 .SelectMany(s => s.GetNamedTypes())
+                .DistinctBy(static t => t.Fullname, StringComparer.Ordinal)
                 .ToList();
+
+            var generatesProtocol = protocol != null && protocol.Messages.Count > 0;
+            if (protocol != null && !generatesProtocol)
+                _console.MarkupLineInterpolated($"[yellow]Skipping protocol message generation. Protocol '{protocol.Name}' has no messages[/]");
 
             if (string.IsNullOrWhiteSpace(settings.BaseNamespace))
             {
-                var generatesProtocol = protocol != null && protocol.Messages.Count > 0;
-
                 var missingNamespaces = namedTypes
                     .Where(static t => string.IsNullOrWhiteSpace(t.Namespace))
                     .Select(static t => t.Name)
@@ -188,12 +193,12 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 }
             }
 
-            // Reserve every output this input could produce so collisions with other inputs
-            // (and pre-existing files without --overwrite) are reported before anything is written.
-            var reservations = new List<string>();
-            if (protocol != null)
-                reservations.Add(Path.Combine(outputDir.FullName, protocol.Name + ".cs"));
-            reservations.AddRange(namedTypes.Select(s => Path.Combine(outputDir.FullName, s.Fullname + ".cs")));
+            // Reserve every output this input will produce so collisions within it and with other
+            // inputs (and pre-existing files without --overwrite) are reported before anything is written.
+            var reservations = new List<OutputReservation>();
+            if (generatesProtocol)
+                reservations.Add(new OutputReservation(Path.Combine(outputDir.FullName, protocol!.Name + ".cs"), $"protocol '{protocol.Name}'"));
+            reservations.AddRange(namedTypes.Select(s => new OutputReservation(Path.Combine(outputDir.FullName, s.Fullname + ".cs"), $"type '{s.Fullname}'")));
 
             var reserveError = collector.Reserve(reservations, source);
             if (reserveError != null)
@@ -202,21 +207,14 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 return false;
             }
 
-            if (protocol != null)
+            if (generatesProtocol)
             {
-                if (protocol.Messages.Count == 0)
-                {
-                    _console.MarkupLineInterpolated($"[yellow]Skipping protocol message generation. Protocol '{protocol.Name}' has no messages[/]");
-                }
-                else
-                {
-                    var outputFilePath = Path.Combine(outputDir.FullName, protocol.Name + ".cs");
-                    var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
-                    var protocolOutput = protocolGenerator.Generate(protocol, settings.BaseNamespace, codeGenOptions);
+                var outputFilePath = Path.Combine(outputDir.FullName, protocol!.Name + ".cs");
+                var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
+                var protocolOutput = protocolGenerator.Generate(protocol, settings.BaseNamespace, codeGenOptions);
 
-                    await OutputCollector.WriteAsync(outputFilePath, protocolOutput, cancellationToken);
-                    _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
-                }
+                await OutputCollector.WriteAsync(outputFilePath, protocolOutput, cancellationToken);
+                _console.MarkupLineInterpolated($"[green]Generated {outputFilePath}[/]");
             }
 
             foreach (var namedType in namedTypes)

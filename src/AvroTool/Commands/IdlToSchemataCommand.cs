@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -142,15 +142,18 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                 p => p.Types,
                 s => [s]);
 
+            // A protocol's declared types may each reach the same nested type, so the
+            // same named type can be seen more than once.
             var namedTypes = schemas
                 .SelectMany(s => s.GetNamedTypes())
+                .DistinctBy(static t => t.Fullname, StringComparer.Ordinal)
                 .ToList();
 
-            var filenames = namedTypes
-                .Select(s => Path.Combine(outputDir.FullName, s.Fullname + ".avsc"))
+            var reservations = namedTypes
+                .Select(s => new OutputReservation(Path.Combine(outputDir.FullName, s.Fullname + ".avsc"), $"type '{s.Fullname}'"))
                 .ToList();
 
-            var reserveError = collector.Reserve(filenames, source);
+            var reserveError = collector.Reserve(reservations, source);
             if (reserveError != null)
             {
                 _console.MarkupLineInterpolated($"[red]Unable to generate schema files from '{source}': {reserveError}[/]");

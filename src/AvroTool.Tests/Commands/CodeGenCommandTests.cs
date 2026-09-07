@@ -37,6 +37,10 @@ internal class CodeGenCommandTests
 
     private const string SimpleTestSchema = @"{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""},{""name"":""LastName"",""type"":""string""}]}";
 
+    private const string ProtocolSharingNameWithRecord = @"{""protocol"":""TestProtocol"",""types"":[{""type"":""record"",""name"":""TestProtocol"",""fields"":[{""name"":""FirstName"",""type"":""string""}]}],""messages"":{""ping"":{""request"":[],""response"":""null""}}}";
+
+    private const string ProtocolWithoutMessages = @"{""protocol"":""TestProtocol"",""types"":[{""type"":""record"",""name"":""TestRecord"",""fields"":[{""name"":""FirstName"",""type"":""string""}]}],""messages"":{}}";
+
     private const string MultiRecordSchema = """
 {
   "type": "record",
@@ -979,6 +983,47 @@ namespace TestNamespace
         {
             Assert.That(result.ExitCode, Is.Not.Zero);
             Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")), Is.False);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenProtocolAndTypeSharingAnOutputPath_ReturnsErrorAndWritesNothing()
+    {
+        const string input = ProtocolSharingNameWithRecord;
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")), Is.False);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenProtocolWithoutMessagesAndExistingProtocolOutput_GeneratesTypesWithoutOverwrite()
+    {
+        const string input = ProtocolWithoutMessages;
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avpr"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        // a file matching the protocol's name that must be left untouched
+        var protocolFilePath = Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs");
+        await File.WriteAllTextAsync(protocolFilePath, "// not generated");
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", sourceDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")), Is.True);
+            Assert.That(await File.ReadAllTextAsync(protocolFilePath), Is.EqualTo("// not generated"));
         }
     }
 }

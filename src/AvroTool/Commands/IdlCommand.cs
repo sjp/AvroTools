@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -160,12 +160,11 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
                 return true;
             }
 
-            var outputFileName = parseResult.Result.Match(
-                p => p.Name + ".avpr",
-                s => s.Name + ".avsc");
-            var outputPath = Path.Combine(outputDir.FullName, outputFileName);
+            var outputName = parseResult.Result.Match(p => p.Name, s => s.Name);
+            var outputExtension = parseResult.Result.Match(_ => ".avpr", _ => ".avsc");
+            var outputPath = Path.Combine(outputDir.FullName, outputName + outputExtension);
 
-            var reserveError = collector.Reserve([outputPath], source);
+            var reserveError = collector.Reserve([new OutputReservation(outputPath, $"{avroOutputType} '{outputName}'")], source);
             if (reserveError != null)
             {
                 _console.MarkupLineInterpolated($"[red]The output file path '{outputPath}' cannot be used: {reserveError}[/]");
