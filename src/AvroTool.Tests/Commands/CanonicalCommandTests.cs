@@ -84,6 +84,28 @@ internal class CanonicalCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenUnreadableFile_ReportsItAndReturnsError()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        registrar.RegisterInstance(typeof(CanonicalCommand), new CanonicalCommand(new StatusConsole(console), _streams, _idlTranslator.Object));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<CanonicalCommand>();
+
+        using var unreadable = new UnreadableFile(Path.Combine(_tempDir.DirectoryPath, "Person.avsc"));
+
+        var result = await app.RunAsync([unreadable.Path], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain($"Unable to read '{unreadable.Path}'"));
+            Assert.That(_streams.OutputText, Is.Empty);
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenProtocol_WritesOneCanonicalFormPerType()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "P.avpr"));

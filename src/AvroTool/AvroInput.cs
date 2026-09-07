@@ -124,7 +124,10 @@ internal static class AvroInputResolver
         var fromStandardInput = schemaFile == null;
         var displayName = fromStandardInput ? InputSource.StandardInputName : schemaFile!;
 
-        var content = await streams.ReadAllTextAsync(fromStandardInput, schemaFile, cancellationToken);
+        var content = await InputReader.TryReadAllTextAsync(streams, fromStandardInput, schemaFile, displayName, console, cancellationToken);
+        if (content == null)
+            return null;
+
         var baseDirectory = InputSource.ImportBaseDirectory(fromStandardInput, schemaFile);
         var resolution = await ResolveAsync(content, translator, baseDirectory, cancellationToken);
         if (resolution.Input == null)

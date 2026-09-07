@@ -458,6 +458,56 @@ internal class IdlCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenUnreadableInputAlongsideValidOne_ReportsItAndCompilesTheOther()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(new StatusConsole(console), _streams, _idlTranslator.Object));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<IdlCommand>();
+
+        var good = Path.Combine(_tempDir.DirectoryPath, "good.avdl");
+        await File.WriteAllTextAsync(good, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
+
+        using var unreadable = new UnreadableFile(Path.Combine(_tempDir.DirectoryPath, "locked.avdl"));
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        var result = await app.RunAsync([unreadable.Path, good, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain($"Unable to read '{unreadable.Path}'"));
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "TestProtocol.avpr")), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenFailFastAndUnreadableFirstInput_DoesNotProcessRest()
+    {
+        var good = Path.Combine(_tempDir.DirectoryPath, "2_good.avdl");
+        await File.WriteAllTextAsync(good, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
+
+        using var unreadable = new UnreadableFile(Path.Combine(_tempDir.DirectoryPath, "1_locked.avdl"));
+
+        var outputDir = new DirectoryInfo(Path.Combine(_tempDir.DirectoryPath, "out"));
+        outputDir.Create();
+
+        // Ordinal ordering within the directory means the unreadable file comes first.
+        var glob = Path.Combine(_tempDir.DirectoryPath, "*.avdl");
+        var result = await _app.RunAsync([glob, "--fail-fast", "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "TestProtocol.avpr")), Is.False);
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenInputWithUntokenisableCharacter_ReportsPositionAndReturnsError()
     {
         var console = new TestConsole().Width(200);

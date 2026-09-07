@@ -59,7 +59,9 @@ internal sealed class GetSchemaCommand : AsyncCommand<GetSchemaCommand.Settings>
     {
         var source = settings.FromStandardInput ? InputSource.StandardInputName : settings.AvroFile;
 
-        using var stream = _streams.OpenRead(settings.FromStandardInput, settings.AvroFile);
+        using var stream = InputReader.TryOpenRead(_streams, settings.FromStandardInput, settings.AvroFile, source, _console);
+        if (stream == null)
+            return ErrorCode.Error;
 
         IFileReader<GenericRecord> reader;
         try

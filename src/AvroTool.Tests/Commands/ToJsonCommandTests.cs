@@ -9,6 +9,7 @@ using NUnit.Framework;
 using Spectre.Console;
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 
 namespace AvroTool.Tests.Commands;
 
@@ -184,6 +185,27 @@ internal class ToJsonCommandTests
         {
             Assert.That(result.ExitCode, Is.Not.Zero);
             Assert.That(result.Output, Does.Contain($"An Avro object container file could not be found at: {avroFile}"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenUnreadableFile_ReportsItAndReturnsError()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        registrar.RegisterInstance(typeof(ToJsonCommand), new ToJsonCommand(new StatusConsole(console), _streams));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<ToJsonCommand>();
+
+        using var unreadable = new UnreadableFile(Path.Combine(_tempDir.DirectoryPath, "People.avro"));
+
+        var result = await app.RunAsync([unreadable.Path], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain($"Unable to read '{unreadable.Path}'"));
         }
     }
 

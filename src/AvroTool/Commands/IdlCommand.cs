@@ -93,7 +93,10 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
         if (settings.FromStandardInput)
         {
-            var content = await _streams.ReadAllTextAsync(true, null, cancellationToken);
+            var content = await InputReader.TryReadAllTextAsync(_streams, true, null, InputSource.StandardInputName, _console, cancellationToken);
+            if (content == null)
+                return ErrorCode.Error;
+
             var baseDirectory = InputSource.ImportBaseDirectory(true, null);
             var ok = await ProcessAsync(content, InputSource.StandardInputName, baseDirectory, settings, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
@@ -118,9 +121,15 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         var anyFailed = expansion.UnmatchedTokens.Count > 0;
         foreach (var file in expansion.Files)
         {
-            var content = await File.ReadAllTextAsync(file, cancellationToken);
-            var baseDirectory = InputSource.ImportBaseDirectory(false, file);
-            var ok = await ProcessAsync(content, file, baseDirectory, settings, outputDir, collector, cancellationToken);
+            var content = await InputReader.TryReadAllTextAsync(_streams, false, file, file, _console, cancellationToken);
+
+            var ok = false;
+            if (content != null)
+            {
+                var baseDirectory = InputSource.ImportBaseDirectory(false, file);
+                ok = await ProcessAsync(content, file, baseDirectory, settings, outputDir, collector, cancellationToken);
+            }
+
             if (!ok)
             {
                 anyFailed = true;
