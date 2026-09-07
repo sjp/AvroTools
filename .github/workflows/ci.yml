@@ -32,10 +32,23 @@ jobs:
       working-directory: src
 
     - name: Test
-      run: dotnet test --no-restore --verbosity normal --collect "XPlat Code Coverage"
+      run: dotnet test --configuration Release --no-build --verbosity normal --collect "XPlat Code Coverage"
       working-directory: src
 
     - name: Coverage
       uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+
+    - name: Pack
+      run: dotnet pack --configuration Release --no-build
+      working-directory: src
+
+    - name: Upload packages
+      uses: actions/upload-artifact@v7
+      with:
+        name: packages
+        path: |
+          src/**/*.nupkg
+          src/**/*.snupkg
+        if-no-files-found: error

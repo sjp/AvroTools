@@ -19,6 +19,11 @@ internal class IdlToAvroTranslatorTests
     private const string BaseInputNamespace = "SJP.Avro.Tools.Tests.Idl.Data.Input";
     private const string BaseOutputNamespace = "SJP.Avro.Tools.Tests.Idl.Data.Output";
 
+    private const string InputResourcePrefix = "Idl.Data.Input.";
+    private const string OutputResourcePrefix = "Idl.Data.Output.";
+
+    private static readonly string[] OutputExtensions = [".avpr", ".avsc"];
+
     private static readonly IFileProvider InputFileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), BaseInputNamespace);
     private static readonly IFileProvider OutputFileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), BaseOutputNamespace);
 
@@ -35,6 +40,8 @@ internal class IdlToAvroTranslatorTests
     {
         var inputFile = InputFileProvider.GetFileInfo(idlSampleResourceName);
         var outputFile = OutputFileProvider.GetFileInfo(avroSampleResourceOutput);
+
+        Assert.That(outputFile.Exists, Is.True, $"No expected output was found for the input '{idlSampleResourceName}', looked for '{avroSampleResourceOutput}'.");
 
         await using var outputFileReadStream = outputFile.CreateReadStream();
         using var outputReader = new StreamReader(outputFileReadStream);
@@ -73,28 +80,19 @@ internal class IdlToAvroTranslatorTests
 
     private static IEnumerable<object[]> IdlInputOutputFilenames()
     {
-        var inputNames = EmbeddedResource.GetEmbeddedResourceNames()
-            .Where(n => n.EndsWith(".avdl"))
-            .Order()
-            .ToList();
+        var resourceNames = EmbeddedResource.GetEmbeddedResourceNames().ToHashSet(StringComparer.Ordinal);
 
-        var protocolOutputFileNames = inputNames
-            .Select(n => n.Replace(".avdl", ".avpr"))
-            .ToHashSet();
-        var schemaOutputFileNames = inputNames
-            .Select(n => n.Replace(".avdl", ".avsc"))
-            .ToHashSet();
-
-        var outputNames = EmbeddedResource.GetEmbeddedResourceNames()
-            .Where(n => n.Contains(".Output.") && (protocolOutputFileNames.Contains(n.Replace(".Output.", ".Input.")) || schemaOutputFileNames.Contains(n.Replace(".Output.", ".Input."))))
-            .Order()
-            .ToList();
-
-        return inputNames
-            .Zip(outputNames, (a, b) => new object[]
+        return resourceNames
+            .Where(n => n.StartsWith(InputResourcePrefix, StringComparison.Ordinal) && n.EndsWith(".avdl", StringComparison.Ordinal))
+            .Select(n => n[InputResourcePrefix.Length..])
+            .Order(StringComparer.Ordinal)
+            .Select(inputName =>
             {
-                a.Replace("Idl.Data.Input.", string.Empty),
-                b.Replace("Idl.Data.Output.", string.Empty)
+                var candidateOutputNames = Array.ConvertAll(OutputExtensions, ext => Path.ChangeExtension(inputName, ext));
+                var outputName = Array.Find(candidateOutputNames, name => resourceNames.Contains(OutputResourcePrefix + name))
+                    ?? candidateOutputNames[0];
+
+                return new object[] { inputName, outputName };
             })
             .ToList();
     }
