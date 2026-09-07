@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +29,14 @@ internal sealed class ProgramTests
             throw new InvalidDataException("something went wrong inside the tool");
     }
 
+    private sealed class CancelledCommand : Command<CancelledCommand.Settings>
+    {
+        public sealed class Settings : CommandSettings;
+
+        protected override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
+            throw new OperationCanceledException();
+    }
+
     private static async Task<(int ExitCode, string Output, string ErrorOutput)> RunAsync(params string[] args)
     {
         var helpConsole = new TestConsole().Width(200);
@@ -36,6 +45,7 @@ internal sealed class ProgramTests
         var services = new ServiceCollection();
         Program.RegisterServices(services, new StatusConsole(statusConsole), new OutputConsole(new TestConsole()), new TestStandardStreams());
         services.AddTransient<ThrowingCommand>();
+        services.AddTransient<CancelledCommand>();
 
         using var registrar = new DependencyInjectionRegistrar(services);
         var app = new CommandApp(registrar);
@@ -43,6 +53,7 @@ internal sealed class ProgramTests
         {
             Program.Configure(config, helpConsole, new StatusConsole(statusConsole), args);
             config.AddCommand<ThrowingCommand>("throwing");
+            config.AddCommand<CancelledCommand>("cancelled");
         });
 
         var exitCode = await app.RunAsync(args, TestContext.CurrentContext.CancellationToken);
@@ -187,6 +198,19 @@ internal sealed class ProgramTests
         {
             Assert.That(exitCode, Is.EqualTo(ErrorCode.Error));
             Assert.That(errorOutput, Does.Contain("something went wrong inside the tool"));
+        }
+    }
+
+    [Test]
+    public async Task RunAsync_GivenCommandThatIsCancelled_ExitsWithTheInterruptedCodeAndNoMessage()
+    {
+        var (exitCode, output, errorOutput) = await RunAsync("cancelled");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Interrupted));
+            Assert.That(output, Is.Empty);
+            Assert.That(errorOutput, Is.Empty);
         }
     }
 

@@ -23,4 +23,11 @@ internal static class ErrorCode
 
     /// <summary>A comparison command could not reach an answer at all.</summary>
     public static int ComparisonError { get; } = 2;
+
+    /// <summary>The command was interrupted (e.g. by Ctrl+C) before it could finish.</summary>
+    /// <remarks>
+    /// 128 + the signal number, matching the exit code a shell reports for a process a signal
+    /// terminated. SIGINT is signal 2.
+    /// </remarks>
+    public static int Interrupted { get; } = 130;
 }

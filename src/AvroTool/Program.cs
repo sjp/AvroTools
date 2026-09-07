@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SJP.Avro.Tools.CodeGen;
@@ -43,7 +44,17 @@ internal static class Program
         var app = new CommandApp(registrar);
         app.Configure(config => Configure(config, helpConsole, statusConsole, args));
 
-        return await app.RunAsync(args).ConfigureAwait(false);
+        // A command is given the chance to unwind through its own cleanup — such as deleting a
+        // half-written temporary file — rather than the runtime tearing the process down mid-write,
+        // which is what the default SIGINT handling would otherwise do.
+        using var cancellation = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            cancellation.Cancel();
+        };
+
+        return await app.RunAsync(args, cancellation.Token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -183,6 +194,12 @@ internal static class Program
 
         config.SetExceptionHandler((ex, _) =>
         {
+            // The user interrupted the command (e.g. Ctrl+C) rather than the command failing,
+            // so it is reported with the exit code a shell uses for a signal-terminated process
+            // and without the message or stack trace a genuine failure would get.
+            if (ex is OperationCanceledException)
+                return ErrorCode.Interrupted;
+
             switch (ex)
             {
                 case CommandAppException { Pretty: { } pretty }:
