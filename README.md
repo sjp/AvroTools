@@ -474,8 +474,11 @@ Details:
 ### Shell completions
 
 `avrotool completions <shell>` writes a completion script for the given shell
-(`bash`, `zsh`, `fish` or `powershell`) to standard output. Redirect it to a
-location your shell loads completions from:
+(`bash`, `zsh`, `fish` or `powershell`) to standard output. The scripts cover
+every command and option, complete file arguments as paths, `--output-dir` as a
+directory, and offer the accepted values for `--mode`, `--algorithm`, `--format`
+and the `completions` shell argument. Redirect the script to a location your
+shell loads completions from:
 
 ```sh
 # bash

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
@@ -35,9 +36,12 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
         public string Format { get; set; } = "hex";
     }
 
+    /// <summary>The canonical spellings of the fingerprint algorithms the command accepts.</summary>
+    public static readonly IReadOnlyList<string> SupportedAlgorithms = ["crc-64-avro", "md5", "sha-256"];
+
     // The algorithm names understood by Apache.Avro's SchemaNormalization, keyed by a normalised
     // (lower-case, hyphen-stripped) form of the user-supplied value.
-    private static readonly System.Collections.Generic.Dictionary<string, string> Algorithms = new()
+    private static readonly Dictionary<string, string> Algorithms = new()
     {
         ["crc64avro"] = "CRC-64-AVRO",
         ["crc64"] = "CRC-64-AVRO",
@@ -49,6 +53,9 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
     private const string HexFormat = "hex";
     private const string Base64Format = "base64";
     private const string LongFormat = "long";
+
+    /// <summary>The output formats the command accepts.</summary>
+    public static readonly IReadOnlyList<string> SupportedFormats = [HexFormat, Base64Format, LongFormat];
 
     private readonly IAnsiConsole _console;
     private readonly IIdlToAvroTranslator _idlTranslator;
@@ -67,11 +74,11 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (!Algorithms.ContainsKey(Normalise(settings.Algorithm)))
-            return ValidationResult.Error($"Unknown algorithm '{settings.Algorithm}'. Supported: crc-64-avro, md5, sha-256.");
+            return ValidationResult.Error($"Unknown algorithm '{settings.Algorithm}'. Supported: {string.Join(", ", SupportedAlgorithms)}.");
 
         var format = Normalise(settings.Format);
         if (format is not (HexFormat or Base64Format or LongFormat))
-            return ValidationResult.Error($"Unknown format '{settings.Format}'. Supported: hex, base64, long.");
+            return ValidationResult.Error($"Unknown format '{settings.Format}'. Supported: {string.Join(", ", SupportedFormats)}.");
 
         if (format == LongFormat && Algorithms[Normalise(settings.Algorithm)] != "CRC-64-AVRO")
             return ValidationResult.Error("The 'long' format is only valid for the crc-64-avro algorithm.");

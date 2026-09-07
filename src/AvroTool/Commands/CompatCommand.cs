@@ -34,6 +34,17 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         public bool Json { get; set; }
     }
 
+    /// <summary>The canonical spellings of the compatibility modes the command accepts.</summary>
+    public static readonly IReadOnlyList<string> SupportedModes =
+    [
+        "backward",
+        "forward",
+        "full",
+        "backward-transitive",
+        "forward-transitive",
+        "full-transitive",
+    ];
+
     // Accepts hyphen- or underscore-separated spellings, case-insensitively.
     private static readonly Dictionary<string, CompatibilityMode> Modes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -62,7 +73,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
     protected override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (!Modes.TryGetValue(Normalise(settings.Mode), out var mode))
-            return ValidationResult.Error($"Unknown mode '{settings.Mode}'. Supported: backward, forward, full, backward-transitive, forward-transitive, full-transitive.");
+            return ValidationResult.Error($"Unknown mode '{settings.Mode}'. Supported: {string.Join(", ", SupportedModes)}.");
 
         if (settings.Schemas.Length < 2)
             return ValidationResult.Error("At least two schema files must be provided.");
