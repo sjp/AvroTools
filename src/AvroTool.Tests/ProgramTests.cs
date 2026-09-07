@@ -113,6 +113,45 @@ internal sealed class ProgramTests
     }
 
     [Test]
+    public async Task RunAsync_GivenUnknownOptionOnSingleInputCommand_ReportsOptionAndFails()
+    {
+        var (exitCode, errorOutput) = await RunAsync("idl", "--bogus", "sample.avdl");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Error));
+            Assert.That(errorOutput, Does.Contain("Unknown option 'bogus'."));
+            Assert.That(errorOutput, Does.Not.Match(StackFramePattern));
+        }
+    }
+
+    [Test]
+    public async Task RunAsync_GivenUnknownOptionOnMultiInputCommand_ReportsOptionAndFails()
+    {
+        var (exitCode, errorOutput) = await RunAsync("codegen", "sample.avsc", "--requird");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Error));
+            Assert.That(errorOutput, Does.Contain("Unknown option 'requird'."));
+            Assert.That(errorOutput, Does.Not.Match(StackFramePattern));
+        }
+    }
+
+    [Test]
+    public async Task RunAsync_GivenUnknownOptionOnTwoSchemaCommand_ReportsOptionAndFails()
+    {
+        var (exitCode, errorOutput) = await RunAsync("compat", "reader.avsc", "writer.avsc", "--mdoe", "forward");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Error));
+            Assert.That(errorOutput, Does.Contain("Unknown option 'mdoe'."));
+            Assert.That(errorOutput, Does.Not.Match(StackFramePattern));
+        }
+    }
+
+    [Test]
     public async Task RunAsync_GivenTooManyArguments_ReportsMessageWithoutStackTrace()
     {
         var (exitCode, errorOutput) = await RunAsync("canonical", "first.avsc", "second.avsc");

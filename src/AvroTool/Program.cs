@@ -61,6 +61,11 @@ internal static class Program
         config.SetApplicationName("avrotool");
         config.SetApplicationVersion(GetVersion());
 
+        // Reject options that no command declares. Left lenient, a mistyped flag is
+        // accepted in silence and swallows the argument that follows it, so a command
+        // quietly does something other than what was asked for.
+        config.UseStrictParsing();
+
         // Spectre special-cases the console it injects into commands and uses for
         // its own diagnostics, so configure it explicitly (DI registration alone
         // is not honoured) to keep standard output a clean payload channel.
