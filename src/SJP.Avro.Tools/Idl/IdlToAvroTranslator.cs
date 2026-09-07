@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -769,11 +769,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     private static JToken TranslateJsonLiteral(IdlParser.JsonLiteralContext context)
     {
         if (context.StringLiteral() != null)
-        {
-            var text = context.StringLiteral().GetText();
-            // trims quotes
-            return text[1..^1];
-        }
+            return IdlStringLiteral.Unescape(context.StringLiteral().GetText());
 
         if (context.IntegerLiteral() != null)
             return long.Parse(context.IntegerLiteral().GetText());
@@ -798,16 +794,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var obj = new JObject();
         foreach (var pair in context._jsonPairs)
         {
-            var key = pair.name.Text;
-
-            // trim quotes
-            const char QuoteChar = '"';
-            if (key.StartsWith(QuoteChar) && key.EndsWith(QuoteChar))
-            {
-                key = key
-                    .TrimStart(QuoteChar)
-                    .TrimEnd(QuoteChar);
-            }
+            var key = IdlStringLiteral.Unescape(pair.name.Text);
             obj[key] = TranslateJsonValue(pair.value);
         }
         return obj;
@@ -830,16 +817,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         CancellationToken cancellationToken)
     {
         var importType = import.importType.Text;
-        var location = import.location.Text;
-
-        // trim quotes
-        const char QuoteChar = '"';
-        if (location.StartsWith(QuoteChar) && location.EndsWith(QuoteChar))
-        {
-            location = location
-                .TrimStart(QuoteChar)
-                .TrimEnd(QuoteChar);
-        }
+        var location = IdlStringLiteral.Unescape(import.location.Text);
 
         var importPath = ResolveImportPath(location, parsingContext.BaseDirectory);
 
