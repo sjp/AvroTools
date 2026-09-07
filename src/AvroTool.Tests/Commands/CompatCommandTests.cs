@@ -7,6 +7,7 @@ using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli.Testing;
+using Spectre.Console.Testing;
 using Spectre.Console.Rendering;
 
 namespace AvroTool.Tests.Commands;
@@ -27,6 +28,7 @@ internal class CompatCommandTests
     private TemporaryDirectory _tempDir;
     private TestStandardStreams _streams;
     private Mock<IStatusConsole> _console;
+    private TestConsole _output;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
     [SetUp]
@@ -39,9 +41,10 @@ internal class CompatCommandTests
 
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _streams = new TestStandardStreams();
+        _output = new TestConsole().Width(200);
 
         var registrar = new FakeTypeRegistrar();
-        var command = new CompatCommand(_console.Object, _streams, _idlTranslator.Object);
+        var command = new CompatCommand(_console.Object, new OutputConsole(_output), _streams, _idlTranslator.Object);
         registrar.RegisterInstance(typeof(CompatCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -52,6 +55,7 @@ internal class CompatCommandTests
     public void TearDown()
     {
         _tempDir?.Dispose();
+        _output?.Dispose();
     }
 
     private string WriteSchema(string name, string content)
@@ -85,14 +89,14 @@ internal class CompatCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenBackwardIncompatibleSchemas_ReturnsError()
+    public async Task ExecuteAsync_GivenBackwardIncompatibleSchemas_ReturnsDifference()
     {
         var reader = WriteSchema("v3.avsc", V3);
         var writer = WriteSchema("v1.avsc", V1);
 
         var (exitCode, _) = await RunAsync(reader, writer);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
     }
 
     [Test]
@@ -121,7 +125,7 @@ internal class CompatCommandTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
             Assert.That(root.GetProperty("mode").GetString(), Is.EqualTo("backward"));
             Assert.That(root.GetProperty("compatible").GetBoolean(), Is.False);
             Assert.That(incompatibility.GetProperty("type").GetString(), Is.EqualTo("READER_FIELD_MISSING_DEFAULT_VALUE"));
@@ -139,7 +143,7 @@ internal class CompatCommandTests
         // never wrote that field; the transitive chain must fail even though only some priors break.
         var (exitCode, _) = await RunAsync("--mode", "backward-transitive", candidate, priorGood, priorBad);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
     }
 
     [Test]
@@ -209,7 +213,7 @@ internal class CompatCommandTests
 
         var (exitCode, _) = await RunAsync(protocol, writer);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.ComparisonError));
     }
 
     [Test]
@@ -249,13 +253,13 @@ internal class CompatCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenStandardInputAsIncompatibleReader_ReturnsError()
+    public async Task ExecuteAsync_GivenStandardInputAsIncompatibleReader_ReturnsDifference()
     {
         var writer = WriteSchema("v1.avsc", V1);
 
         var (exitCode, _) = await RunWithStandardInputAsync(V3, "--stdin", writer);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
     }
 
     [Test]
@@ -271,7 +275,7 @@ internal class CompatCommandTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
             Assert.That(checks.GetArrayLength(), Is.EqualTo(2));
             Assert.That(checks[0].GetProperty("reader").GetString(), Is.EqualTo("<stdin>"));
         }
@@ -330,6 +334,40 @@ internal class CompatCommandTests
         {
             Assert.That(result.ExitCode, Is.Not.Zero);
             Assert.That(result.Output, Does.Contain("--stdin-as must be a position between 1 and 2, not 3."));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenNoJsonFlag_WritesReportToStandardOutput()
+    {
+        var reader = WriteSchema("v3.avsc", V3);
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var (exitCode, _) = await RunAsync(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
+            Assert.That(_output.Output, Does.Contain("INCOMPATIBLE (backward)"));
+            Assert.That(_output.Output, Does.Contain("Schemas are not compatible."));
+        }
+
+        // The report is the answer that was asked for, so none of it belongs on standard error.
+        _console.Verify(c => c.Write(It.IsAny<IRenderable>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenCompatibleSchemas_WritesReportToStandardOutput()
+    {
+        var reader = WriteSchema("v2.avsc", V2);
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var (exitCode, _) = await RunAsync(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Success));
+            Assert.That(_output.Output, Does.Contain("Schemas are compatible."));
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -28,6 +29,7 @@ internal static class Program
         // tool clean to use in shell pipelines. Help and version are payloads in
         // their own right, so they go to standard output as every other tool does.
         var statusConsole = CreateStatusConsole(Console.Error);
+        var outputConsole = CreateOutputConsole(Console.Out);
         var helpConsole = CreateHelpConsole(Console.Out);
 
         // Declared before the registrar so that standard output is flushed after everything
@@ -35,11 +37,11 @@ internal static class Program
         using var streams = new ConsoleStandardStreams();
 
         var services = new ServiceCollection();
-        RegisterServices(services, statusConsole, streams);
+        RegisterServices(services, statusConsole, outputConsole, streams);
         using var registrar = new DependencyInjectionRegistrar(services);
 
         var app = new CommandApp(registrar);
-        app.Configure(config => Configure(config, helpConsole, statusConsole));
+        app.Configure(config => Configure(config, helpConsole, statusConsole, args));
 
         return await app.RunAsync(args).ConfigureAwait(false);
     }
@@ -70,7 +72,24 @@ internal static class Program
     /// </summary>
     /// <param name="writer">The writer the console renders to.</param>
     /// <returns>A console that renders to <paramref name="writer"/>.</returns>
-    public static IStatusConsole CreateStatusConsole(TextWriter writer)
+    public static IStatusConsole CreateStatusConsole(TextWriter writer) =>
+        new StatusConsole(CreateMessageConsole(writer));
+
+    /// <summary>
+    /// Creates the console that a command's human-readable payload is written to.
+    /// </summary>
+    /// <param name="writer">The writer the console renders to.</param>
+    /// <returns>A console that renders to <paramref name="writer"/>.</returns>
+    public static IOutputConsole CreateOutputConsole(TextWriter writer) =>
+        new OutputConsole(CreateMessageConsole(writer));
+
+    /// <summary>
+    /// Creates a console for messages that are read a line at a time rather than laid out as a
+    /// document.
+    /// </summary>
+    /// <param name="writer">The writer the console renders to.</param>
+    /// <returns>A console that renders to <paramref name="writer"/>.</returns>
+    private static IAnsiConsole CreateMessageConsole(TextWriter writer)
     {
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
@@ -86,7 +105,7 @@ internal static class Program
         if (!console.Profile.Out.IsTerminal)
             console.Profile.Width = UnwrappedWidth;
 
-        return new StatusConsole(console);
+        return console;
     }
 
     /// <summary>
@@ -111,10 +130,12 @@ internal static class Program
     /// </summary>
     /// <param name="services">The collection to register into.</param>
     /// <param name="statusConsole">The console status and diagnostic messages are written to.</param>
+    /// <param name="outputConsole">The console human-readable payloads are written to.</param>
     /// <param name="streams">The streams command payloads are read from and written to.</param>
-    public static void RegisterServices(IServiceCollection services, IStatusConsole statusConsole, IStandardStreams streams)
+    public static void RegisterServices(IServiceCollection services, IStatusConsole statusConsole, IOutputConsole outputConsole, IStandardStreams streams)
     {
         services.AddSingleton(statusConsole);
+        services.AddSingleton(outputConsole);
         services.AddSingleton(streams);
         services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
         services.AddTransient<IIdlFileReader, PhysicalIdlFileReader>();
@@ -130,7 +151,8 @@ internal static class Program
     /// <param name="config">The configurator to apply the configuration to.</param>
     /// <param name="helpConsole">The console help and version output are written to.</param>
     /// <param name="statusConsole">The console errors are written to.</param>
-    public static void Configure(IConfigurator config, IAnsiConsole helpConsole, IStatusConsole statusConsole)
+    /// <param name="args">The command line being run, which decides the exit code a failure reports.</param>
+    public static void Configure(IConfigurator config, IAnsiConsole helpConsole, IStatusConsole statusConsole, IReadOnlyList<string> args)
     {
         config.SetApplicationName("avrotool");
         config.SetApplicationVersion(GetVersion());
@@ -154,7 +176,11 @@ internal static class Program
         // A command line that cannot be parsed, an argument that cannot be converted and a
         // failed validation are all user errors, so they are reported as the message alone
         // and exit non-zero. A stack trace only helps with a fault in the tool itself, so it
-        // is kept for exceptions that are not raised by the command-line framework.
+        // is kept for exceptions that are not raised by the command-line framework. The code
+        // comes from the command that was asked for, because for a comparison command a
+        // failure has to be distinguishable from a negative answer.
+        var failureCode = CommandCatalogue.FailureCodeFor(args);
+
         config.SetExceptionHandler((ex, _) =>
         {
             switch (ex)
@@ -170,7 +196,7 @@ internal static class Program
                     break;
             }
 
-            return ErrorCode.Error;
+            return failureCode;
         });
     }
 

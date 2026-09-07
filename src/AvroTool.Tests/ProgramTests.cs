@@ -34,14 +34,14 @@ internal sealed class ProgramTests
         var statusConsole = new TestConsole().Width(200);
 
         var services = new ServiceCollection();
-        Program.RegisterServices(services, new StatusConsole(statusConsole), new TestStandardStreams());
+        Program.RegisterServices(services, new StatusConsole(statusConsole), new OutputConsole(new TestConsole()), new TestStandardStreams());
         services.AddTransient<ThrowingCommand>();
 
         using var registrar = new DependencyInjectionRegistrar(services);
         var app = new CommandApp(registrar);
         app.Configure(config =>
         {
-            Program.Configure(config, helpConsole, new StatusConsole(statusConsole));
+            Program.Configure(config, helpConsole, new StatusConsole(statusConsole), args);
             config.AddCommand<ThrowingCommand>("throwing");
         });
 
@@ -159,7 +159,7 @@ internal sealed class ProgramTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.EqualTo(ErrorCode.Error));
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.ComparisonError));
             Assert.That(errorOutput, Does.Contain("Unknown option 'mdoe'."));
             Assert.That(errorOutput, Does.Not.Match(StackFramePattern));
         }
@@ -243,6 +243,32 @@ internal sealed class ProgramTests
         {
             Assert.That(exitCode, Is.EqualTo(ErrorCode.Error));
             Assert.That(output, Is.Empty);
+        }
+    }
+
+    [Test]
+    public async Task RunAsync_GivenCompatWithUnknownMode_ExitsWithACodeDistinctFromANegativeResult()
+    {
+        var (exitCode, _, errorOutput) = await RunAsync("compat", "v2.avsc", "v1.avsc", "--mode", "sideways");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.ComparisonError));
+            Assert.That(exitCode, Is.Not.EqualTo(ErrorCode.Difference));
+            Assert.That(errorOutput, Does.Contain("Unknown mode 'sideways'"));
+        }
+    }
+
+    [Test]
+    public async Task RunAsync_GivenDiffWithSchemaThatDoesNotExist_ExitsWithACodeDistinctFromANegativeResult()
+    {
+        var (exitCode, _, errorOutput) = await RunAsync("diff", "does_not_exist.avsc", "also_missing.avsc");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.ComparisonError));
+            Assert.That(exitCode, Is.Not.EqualTo(ErrorCode.Difference));
+            Assert.That(errorOutput, Does.Contain("A schema file could not be found at: does_not_exist.avsc"));
         }
     }
 }

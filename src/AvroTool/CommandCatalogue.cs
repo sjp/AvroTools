@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AvroTool.Commands;
 using Spectre.Console.Cli;
 
@@ -17,12 +18,14 @@ internal sealed class CommandDefinition
         string description,
         Type settingsType,
         Func<IConfigurator, ICommandConfigurator> register,
-        IReadOnlyDictionary<string, IReadOnlyList<string>>? optionValues = null)
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? optionValues = null,
+        int? failureCode = null)
     {
         Name = name;
         Description = description;
         SettingsType = settingsType;
         OptionValues = optionValues ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        FailureCode = failureCode ?? ErrorCode.Error;
         _register = register;
     }
 
@@ -40,6 +43,14 @@ internal sealed class CommandDefinition
     /// option's long name (without leading dashes).
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> OptionValues { get; }
+
+    /// <summary>
+    /// The exit code reported when the command cannot be run at all: an unparseable command
+    /// line, a failed validation, or a fault inside the tool. A command that answers a question
+    /// through its exit code reserves the usual failure code for the negative answer and reports
+    /// a failure separately.
+    /// </summary>
+    public int FailureCode { get; }
 
     /// <summary>Registers the command with a Spectre.Console.Cli configurator.</summary>
     public ICommandConfigurator Register(IConfigurator config) => _register(config);
@@ -69,10 +80,12 @@ internal static class CommandCatalogue
             optionValues: new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
             {
                 ["mode"] = CompatCommand.SupportedModes,
-            }),
+            },
+            failureCode: ErrorCode.ComparisonError),
         Define<DiffCommand, DiffCommand.Settings>(
             "diff",
-            "Prints a semantic diff between two Avro schemas."),
+            "Prints a semantic diff between two Avro schemas.",
+            failureCode: ErrorCode.ComparisonError),
         Define<CanonicalCommand, CanonicalCommand.Settings>(
             "canonical",
             "Prints the Parsing Canonical Form of an Avro IDL, protocol or schema."),
@@ -96,11 +109,31 @@ internal static class CommandCatalogue
             example: ["completions", "bash"]),
     ];
 
+    /// <summary>
+    /// The exit code reported when the command line in <paramref name="args"/> cannot be run,
+    /// whether it failed to parse, failed validation, or faulted part-way through.
+    /// </summary>
+    /// <param name="args">The command line being run. Its first argument names the command.</param>
+    /// <returns>The exit code the named command reports a failure with.</returns>
+    /// <remarks>
+    /// A failure is reported before there is a parsed command line to consult, so the command is
+    /// identified from the raw arguments. A line that names no command at all — one asking for
+    /// help or the version, or one too malformed to have got that far — takes the general code.
+    /// </remarks>
+    public static int FailureCodeFor(IReadOnlyList<string> args)
+    {
+        var name = args.Count > 0 ? args[0] : null;
+        var command = Commands.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+
+        return command?.FailureCode ?? ErrorCode.Error;
+    }
+
     private static CommandDefinition Define<TCommand, TSettings>(
         string name,
         string description,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? optionValues = null,
-        string[]? example = null)
+        string[]? example = null,
+        int? failureCode = null)
         where TCommand : class, ICommand<TSettings>
         where TSettings : CommandSettings
     {
@@ -116,6 +149,7 @@ internal static class CommandCatalogue
 
                 return command;
             },
-            optionValues);
+            optionValues,
+            failureCode);
     }
 }

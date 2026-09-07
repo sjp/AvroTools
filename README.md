@@ -391,8 +391,14 @@ The default mode is `backward`; `--mode` also accepts `forward`, `full`, and
 their `-transitive` variants, which take a candidate schema followed by every
 earlier version to check it against. `--json` emits a machine-readable list of
 incompatibilities (kind, location and message) instead of the summary above.
-Exit code `0` means compatible, so `compat` slots directly into CI as a
-pre-merge gate.
+Both forms of the report go to standard output, so either can be redirected to
+a file or piped onwards.
+
+`compat` slots directly into CI as a pre-merge gate: it exits `0` when the
+schemas are compatible, `1` when they are not, and `2` when it could not reach
+an answer at all — a missing file, a schema that will not parse, an unknown
+`--mode`. A gate can therefore fail a build for a broken schema without also
+passing an unreadable one off as a breakage.
 
 One of the schemas may come from standard input, which avoids a temporary file
 when the other version lives in version control rather than on disk:
@@ -446,8 +452,19 @@ count too: adding, removing or replacing a `logicalType`, or changing a
 decimal's `precision` or `scale`, is reported even though the underlying
 representation is unchanged, because it changes how the data is interpreted.
 Pass `--verbose` to also report `doc`/`aliases` metadata changes that don't
-affect the schema's shape. Exit code `0` means the schemas are identical, so `diff`
-also works as a CI "did the schema change?" gate.
+affect the schema's shape.
+
+As with `git diff`, the diff itself is the payload, so both forms of it go to
+standard output and can be redirected or piped:
+
+```sh
+avrotool diff v1.avsc v2.avsc > changes.txt
+```
+
+The exit codes follow `diff(1)` too, which makes `diff` a CI "did the schema
+change?" gate: `0` when the schemas are identical, `1` when they differ, and `2`
+when the comparison could not be made — a missing file, or a schema that will
+not parse.
 
 Like `compat`, each of `<SCHEMA_A>` and `<SCHEMA_B>` must resolve to a single
 schema — a protocol with more than one named type is rejected with a clear
@@ -528,7 +545,9 @@ rather than only reading and writing files on disk.
   1-based position among the schemas (default `1`); the positional arguments
   fill the rest in order. Output identifies that schema as `<stdin>`.
 - **Writing to standard output:** the `idl` command accepts `--stdout` (`-s`) to
-  write the generated JSON to standard output instead of a file.
+  write the generated JSON to standard output instead of a file. The reports
+  from `compat` and `diff` are payloads in the same sense, so they go there too,
+  in both their human-readable and `--json` forms.
 - **Clean pipelines:** all human-facing status messages (the green
   `Generated ...` lines and any errors) are written to **standard error**, so
   standard output carries only the payload. An unusable command line — an
@@ -536,6 +555,10 @@ rather than only reading and writing files on disk.
   non-existent input — is reported there as a single message, and the tool
   exits with code `1`. `--help` and `--version` are what was asked for rather
   than status, so they go to **standard output** and can be piped or redirected.
+- **Exit codes:** `0` on success and `1` on failure, except for `compat` and
+  `diff`, which answer a yes/no question about two schemas and follow the
+  `diff(1)` convention instead: `0` for compatible/identical, `1` for
+  incompatible/different, and `2` for a run that could not reach an answer.
 
 ```sh
 # Compile IDL piped in, and print the JSON protocol to stdout

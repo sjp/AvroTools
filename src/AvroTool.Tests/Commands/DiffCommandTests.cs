@@ -7,6 +7,7 @@ using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli.Testing;
+using Spectre.Console.Testing;
 using Spectre.Console.Rendering;
 
 namespace AvroTool.Tests.Commands;
@@ -29,6 +30,7 @@ internal class DiffCommandTests
     private TemporaryDirectory _tempDir;
     private TestStandardStreams _streams;
     private Mock<IStatusConsole> _console;
+    private TestConsole _output;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
     [SetUp]
@@ -41,9 +43,10 @@ internal class DiffCommandTests
 
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _streams = new TestStandardStreams();
+        _output = new TestConsole().Width(200);
 
         var registrar = new FakeTypeRegistrar();
-        var command = new DiffCommand(_console.Object, _streams, _idlTranslator.Object);
+        var command = new DiffCommand(_console.Object, new OutputConsole(_output), _streams, _idlTranslator.Object);
         registrar.RegisterInstance(typeof(DiffCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -54,6 +57,7 @@ internal class DiffCommandTests
     public void TearDown()
     {
         _tempDir?.Dispose();
+        _output?.Dispose();
     }
 
     private string WriteSchema(string name, string content)
@@ -87,14 +91,14 @@ internal class DiffCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenChangedSchemas_ReturnsError()
+    public async Task ExecuteAsync_GivenChangedSchemas_ReturnsDifference()
     {
         var a = WriteSchema("a.avsc", V1);
         var b = WriteSchema("b.avsc", V2);
 
         var (exitCode, _) = await RunAsync(a, b);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
     }
 
     [Test]
@@ -111,7 +115,7 @@ internal class DiffCommandTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
             Assert.That(root.GetProperty("identical").GetBoolean(), Is.False);
             Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("FIELD_ADDED"));
             Assert.That(change.GetProperty("location").GetString(), Is.EqualTo("/fields/email"));
@@ -131,7 +135,7 @@ internal class DiffCommandTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
             Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("LOGICAL_TYPE_CHANGED"));
             Assert.That(change.GetProperty("location").GetString(), Is.EqualTo("/fields/id/type/logicalType"));
             Assert.That(change.GetProperty("newValue").GetString(), Is.EqualTo("date"));
@@ -170,7 +174,7 @@ internal class DiffCommandTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
             Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("METADATA_CHANGED"));
         }
     }
@@ -194,7 +198,7 @@ internal class DiffCommandTests
 
         var (exitCode, _) = await RunAsync(protocol, b);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.ComparisonError));
     }
 
     [Test]
@@ -205,7 +209,7 @@ internal class DiffCommandTests
 
         var (exitCode, _) = await RunAsync(a, protocol);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.ComparisonError));
     }
 
     [Test]
@@ -216,7 +220,7 @@ internal class DiffCommandTests
 
         var (exitCode, _) = await RunAsync(a, b);
 
-        Assert.That(exitCode, Is.Not.Zero);
+        Assert.That(exitCode, Is.EqualTo(ErrorCode.ComparisonError));
     }
 
     [Test]
@@ -259,7 +263,7 @@ internal class DiffCommandTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
             Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("FIELD_ADDED"));
         }
     }
@@ -276,7 +280,7 @@ internal class DiffCommandTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
             Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("FIELD_ADDED"));
         }
     }
@@ -344,6 +348,40 @@ internal class DiffCommandTests
         {
             Assert.That(result.ExitCode, Is.Not.Zero);
             Assert.That(result.Output, Does.Contain("--stdin-as must be 1 (SCHEMA_A) or 2 (SCHEMA_B), not 3."));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenNoJsonFlag_WritesReportToStandardOutput()
+    {
+        var a = WriteSchema("a.avsc", V1);
+        var b = WriteSchema("b.avsc", V2);
+
+        var (exitCode, _) = await RunAsync(a, b);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Difference));
+            Assert.That(_output.Output, Does.Contain("FIELD_ADDED at /fields/email"));
+            Assert.That(_output.Output, Does.Contain("Schemas differ (1 change(s))."));
+        }
+
+        // The diff is the payload, as it is for git diff, so none of it belongs on standard error.
+        _console.Verify(c => c.Write(It.IsAny<IRenderable>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenIdenticalSchemas_WritesReportToStandardOutput()
+    {
+        var a = WriteSchema("a.avsc", V1);
+        var b = WriteSchema("b.avsc", V1);
+
+        var (exitCode, _) = await RunAsync(a, b);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(ErrorCode.Success));
+            Assert.That(_output.Output, Does.Contain("Schemas are identical."));
         }
     }
 }

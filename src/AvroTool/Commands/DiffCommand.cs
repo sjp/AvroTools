@@ -45,19 +45,23 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
     }
 
     private readonly IStatusConsole _console;
+    private readonly IOutputConsole _output;
     private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public DiffCommand(
         IStatusConsole console,
+        IOutputConsole output,
         IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _output = output;
         _streams = streams;
         _idlTranslator = idlTranslator;
     }
@@ -108,11 +112,11 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
 
         var before = await AvroInputResolver.ResolveSingleSchemaAsync(pathA, _streams, _idlTranslator, "diff", _console, cancellationToken);
         if (before == null)
-            return ErrorCode.Error;
+            return ErrorCode.ComparisonError;
 
         var after = await AvroInputResolver.ResolveSingleSchemaAsync(pathB, _streams, _idlTranslator, "diff", _console, cancellationToken);
         if (after == null)
-            return ErrorCode.Error;
+            return ErrorCode.ComparisonError;
 
         SchemaDiffResult result;
         try
@@ -123,7 +127,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         {
             _console.MarkupLine("[red]Failed to compute schema diff.[/]");
             _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
-            return ErrorCode.Error;
+            return ErrorCode.ComparisonError;
         }
 
         if (settings.Json)
@@ -131,7 +135,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         else
             WriteHuman(result);
 
-        return result.IsIdentical ? ErrorCode.Success : ErrorCode.Error;
+        return result.IsIdentical ? ErrorCode.Success : ErrorCode.Difference;
     }
 
     /// <summary>
@@ -148,19 +152,25 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
             : (settings.SchemaA, null);
     }
 
+    /// <summary>
+    /// Writes the diff itself. As with <c>git diff</c>, the diff is the payload rather than a
+    /// remark about the run, so it goes to standard output where a redirect or a pipeline can
+    /// pick it up, alongside the <c>--json</c> form of the same information.
+    /// </summary>
+    /// <param name="result">The changes to report.</param>
     private void WriteHuman(SchemaDiffResult result)
     {
         foreach (var change in result.Changes)
         {
             var kind = NamingConventions.ToUpperSnake(change.Kind);
             var color = ChangeColor(change.Kind);
-            _console.MarkupLineInterpolated($"[{color}]{kind}[/] at {change.Location}: {change.Message}");
+            _output.MarkupLineInterpolated($"[{color}]{kind}[/] at {change.Location}: {change.Message}");
         }
 
         if (result.IsIdentical)
-            _console.MarkupLine("[green]Schemas are identical.[/]");
+            _output.MarkupLine("[green]Schemas are identical.[/]");
         else
-            _console.MarkupLineInterpolated($"[red]Schemas differ ({result.Changes.Count} change(s)).[/]");
+            _output.MarkupLineInterpolated($"[red]Schemas differ ({result.Changes.Count} change(s)).[/]");
     }
 
     private static string ChangeColor(ChangeKind kind)

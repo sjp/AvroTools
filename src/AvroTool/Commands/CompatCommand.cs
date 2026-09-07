@@ -64,19 +64,23 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
     };
 
     private readonly IStatusConsole _console;
+    private readonly IOutputConsole _output;
     private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public CompatCommand(
         IStatusConsole console,
+        IOutputConsole output,
         IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _output = output;
         _streams = streams;
         _idlTranslator = idlTranslator;
     }
@@ -128,7 +132,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         {
             var source = await AvroInputResolver.ResolveSingleSchemaAsync(schemaFile, _streams, _idlTranslator, "compat", _console, cancellationToken);
             if (source == null)
-                return ErrorCode.Error;
+                return ErrorCode.ComparisonError;
 
             sources.Add(source);
         }
@@ -142,7 +146,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         {
             _console.MarkupLine("[red]Failed to compute schema compatibility.[/]");
             _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
-            return ErrorCode.Error;
+            return ErrorCode.ComparisonError;
         }
 
         var compatible = checks.All(c => c.Result.IsCompatible);
@@ -152,7 +156,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         else
             WriteHuman(compatible, checks);
 
-        return compatible ? ErrorCode.Success : ErrorCode.Error;
+        return compatible ? ErrorCode.Success : ErrorCode.Difference;
     }
 
     /// <summary>
@@ -204,26 +208,33 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         return checks;
     }
 
+    /// <summary>
+    /// Writes the report of every check that was run. It is the answer the user asked for, so it
+    /// goes to standard output where a redirect or a pipeline can pick it up, alongside the
+    /// <c>--json</c> form of the same information.
+    /// </summary>
+    /// <param name="compatible">Whether every check passed.</param>
+    /// <param name="checks">The checks that were run.</param>
     private void WriteHuman(bool compatible, IReadOnlyList<CompatibilityCheck> checks)
     {
         foreach (var check in checks)
         {
             if (check.Result.IsCompatible)
             {
-                _console.MarkupLineInterpolated($"[green]COMPATIBLE[/] ({check.Direction}) reader '{check.Reader.Source}' can read writer '{check.Writer.Source}'");
+                _output.MarkupLineInterpolated($"[green]COMPATIBLE[/] ({check.Direction}) reader '{check.Reader.Source}' can read writer '{check.Writer.Source}'");
             }
             else
             {
-                _console.MarkupLineInterpolated($"[red]INCOMPATIBLE[/] ({check.Direction}) reader '{check.Reader.Source}' cannot read writer '{check.Writer.Source}'");
+                _output.MarkupLineInterpolated($"[red]INCOMPATIBLE[/] ({check.Direction}) reader '{check.Reader.Source}' cannot read writer '{check.Writer.Source}'");
                 foreach (var incompatibility in check.Result.Incompatibilities)
-                    _console.MarkupLineInterpolated($"    [yellow]{NamingConventions.ToUpperSnake(incompatibility.Type)}[/] at {incompatibility.Location}: {incompatibility.Message}");
+                    _output.MarkupLineInterpolated($"    [yellow]{NamingConventions.ToUpperSnake(incompatibility.Type)}[/] at {incompatibility.Location}: {incompatibility.Message}");
             }
         }
 
         if (compatible)
-            _console.MarkupLine("[green]Schemas are compatible.[/]");
+            _output.MarkupLine("[green]Schemas are compatible.[/]");
         else
-            _console.MarkupLine("[red]Schemas are not compatible.[/]");
+            _output.MarkupLine("[red]Schemas are not compatible.[/]");
     }
 
     private async Task WriteJsonAsync(string mode, bool compatible, IReadOnlyList<CompatibilityCheck> checks, CancellationToken cancellationToken)
