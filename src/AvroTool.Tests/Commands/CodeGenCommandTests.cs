@@ -793,6 +793,23 @@ namespace TestNamespace
     }
 
     [Test]
+    public async Task Validate_WithKeywordNamespaceSegment_ReturnsError()
+    {
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+
+        const string CodeNamespace = "class.int";
+
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", CodeNamespace], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain($"The value '{CodeNamespace}' is not a valid C# namespace."));
+        }
+    }
+
+    [Test]
     public async Task Validate_WithValidParameters_ReturnsSuccess()
     {
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));

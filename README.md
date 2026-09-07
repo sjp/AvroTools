@@ -186,7 +186,9 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 > whose protocol, when one is generated — declares a namespace needs no
 > `--namespace` at all. Omitting it for input that does contain a namespace-less
 > type is reported up front, naming the types that need one, and that input is
-> skipped.
+> skipped. Each dot-separated part of the namespace must be a valid C#
+> identifier; a part that is a C# keyword has to be escaped, as in
+> `--namespace @class.Models`.
 
 Avro records and protocols are generated as C# `record`s, with unconditional
 nullable (`T?`) annotations for optional (`["null", ...]`) fields. Avro `fixed`
