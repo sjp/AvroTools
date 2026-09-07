@@ -84,16 +84,23 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
         var baseType = isError ? nameof(SpecificException) : nameof(ISpecificRecord);
 
-        var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), schema.Name)
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+        TypeDeclarationSyntax generatedType = isError
+            ? ClassDeclaration(schema.Name)
+            : RecordDeclaration(Token(SyntaxKind.RecordKeyword), schema.Name);
+
+        generatedType = generatedType
+            .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+            .WithMembers(List(members));
+
+        // The base list and brace tokens widen the static type, hence the cast back.
+        generatedType = (TypeDeclarationSyntax)generatedType
             .AddBaseListTypes(SimpleBaseType(IdentifierName(baseType)))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
-            .WithMembers(List(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
         if (schema.Documentation != null)
         {
-            generatedRecord = generatedRecord
+            generatedType = generatedType
                 .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
         }
 
@@ -103,7 +110,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                 SingletonList<MemberDeclarationSyntax>(
                     namespaceDeclaration
                         .WithMembers(
-                            SingletonList<MemberDeclarationSyntax>(generatedRecord))));
+                            SingletonList<MemberDeclarationSyntax>(generatedType))));
 
         using var workspace = new AdhocWorkspace();
         return Formatter.Format(document, workspace).ToFullString();

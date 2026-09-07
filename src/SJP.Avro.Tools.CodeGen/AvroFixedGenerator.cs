@@ -63,7 +63,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
                 ctor
         };
 
-        var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), schema.Name)
+        var generatedClass = ClassDeclaration(schema.Name)
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
             .AddBaseListTypes(SimpleBaseType(IdentifierName(nameof(SpecificFixed))))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
@@ -72,7 +72,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
 
         if (schema.Documentation != null)
         {
-            generatedRecord = generatedRecord
+            generatedClass = generatedClass
                 .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
         }
 
@@ -82,7 +82,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
                 SingletonList<MemberDeclarationSyntax>(
                     namespaceDeclaration
                         .WithMembers(
-                            SingletonList<MemberDeclarationSyntax>(generatedRecord))));
+                            SingletonList<MemberDeclarationSyntax>(generatedClass))));
 
         using var workspace = new AdhocWorkspace();
         return Formatter.Format(document, workspace).ToFullString();

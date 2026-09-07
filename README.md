@@ -184,9 +184,13 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 > The base namespace is supplied with `--namespace` (`-n`); it is only used for
 > types that do not declare their own namespace.
 
-Generated types are already `record`s with unconditional nullable (`T?`)
-annotations for optional (`["null", ...]`) fields. Two further output styles
-are opt-in via flags on `codegen`:
+Avro records and protocols are generated as C# `record`s, with unconditional
+nullable (`T?`) annotations for optional (`["null", ...]`) fields. Avro `fixed`
+and `error` types are generated as `class`es instead: they derive from the
+`SpecificFixed` and `SpecificException` base classes in `Apache.Avro`, and a C#
+record may only inherit from `object` or another record. Avro enums are
+generated as C# `enum`s. Two further output styles are opt-in via flags on
+`codegen`:
 
 | Option | Effect |
 |--------|--------|

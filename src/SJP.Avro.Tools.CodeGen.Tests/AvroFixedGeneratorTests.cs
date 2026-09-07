@@ -85,7 +85,7 @@ namespace org.apache.avro.test
     /// <summary>
     /// An MD5 hash.
     /// </summary>
-    public record MD5 : SpecificFixed
+    public class MD5 : SpecificFixed
     {
         private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.test\",\"size\":16,\"foo\":\"bar\"}");
 
@@ -128,7 +128,7 @@ using AvroSchema = Avro.Schema;
 
 namespace {{TestNamespace}}
 {
-    public record MD5 : SpecificFixed
+    public class MD5 : SpecificFixed
     {
         private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"size\":16,\"foo\":\"bar\"}");
 

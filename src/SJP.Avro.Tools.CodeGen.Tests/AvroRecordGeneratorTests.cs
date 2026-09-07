@@ -355,7 +355,7 @@ using AvroSchema = Avro.Schema;
 
 namespace avro.examples.baseball
 {
-    public record Player : SpecificException
+    public class Player : SpecificException
     {
         private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"error\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
 

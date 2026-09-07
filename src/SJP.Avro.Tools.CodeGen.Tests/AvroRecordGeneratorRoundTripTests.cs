@@ -1,11 +1,6 @@
 using System;
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using Avro;
 using Avro.Specific;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using NUnit.Framework;
 
 namespace SJP.Avro.Tools.CodeGen.Tests;
@@ -43,7 +38,7 @@ internal static class AvroRecordGeneratorRoundTripTests
 """);
 
         var source = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(RequiredProperties: required, InitOnlyProperties: initOnly));
-        var generatedType = CompileAndGetType(source, $"{TestNamespace}.RoundTripWidget_{required}_{initOnly}");
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.RoundTripWidget_{required}_{initOnly}");
 
         // Mirrors Avro's own deserialization pattern (Avro.Specific.ObjectCreator uses
         // Activator.CreateInstance, not `new T()`, so `required` members impose no runtime cost here).
@@ -81,7 +76,7 @@ internal static class AvroRecordGeneratorRoundTripTests
 """);
 
         var source = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(InitOnlyProperties: true));
-        var generatedType = CompileAndGetType(source, $"{TestNamespace}.CollidingWidget");
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.CollidingWidget");
 
         var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
         instance.Put(0, "hello");
@@ -94,30 +89,5 @@ internal static class AvroRecordGeneratorRoundTripTests
             Assert.That(instance.Get(1), Is.EqualTo(1));
             Assert.That(instance.Get(2), Is.EqualTo(2));
         }
-    }
-
-    private static Type CompileAndGetType(string source, string fullTypeName)
-    {
-        var syntaxTree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest));
-
-        var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
-            .ToList();
-
-        var compilation = CSharpCompilation.Create(
-            "RoundTripAssembly_" + Guid.NewGuid().ToString("N"),
-            [syntaxTree],
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
-        using var assemblyStream = new MemoryStream();
-        var emitResult = compilation.Emit(assemblyStream);
-
-        Assert.That(emitResult.Success, Is.True, () => string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString())));
-
-        assemblyStream.Seek(0, SeekOrigin.Begin);
-        var assembly = Assembly.Load(assemblyStream.ToArray());
-        return assembly.GetType(fullTypeName)!;
     }
 }
