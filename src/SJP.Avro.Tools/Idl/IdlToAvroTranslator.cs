@@ -203,18 +203,6 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         foreach (var import in body._imports)
             await ProcessImport(import, importedTypes, importedMessages, parsingContext, cancellationToken);
 
-        // cache all named schemas for forward reference resolution
-        foreach (var namedSchema in body._namedSchemas)
-        {
-            var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
-            var name = GetSchemaName(schemaJson, parsingContext);
-            if (!string.IsNullOrEmpty(name))
-                parsingContext.NamedSchemas[name] = schemaJson;
-        }
-
-        // now lets check for forward references
-        parsingContext.TrackForwardReferences = true;
-
         foreach (var importedType in importedTypes)
         {
             var name = GetSchemaName(importedType, parsingContext);
@@ -224,32 +212,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
         var types = new List<JObject>();
         types.AddRange(importedTypes); // add imported types first
-
-        foreach (var namedSchema in body._namedSchemas)
-        {
-            var localNameName = GetNamedSchemaName(namedSchema);
-
-            var schemaProperties = namedSchema.fixedDeclaration()?._schemaProperties
-                ?? namedSchema.enumDeclaration()?._schemaProperties
-                ?? namedSchema.recordDeclaration()?._schemaProperties;
-            var schemaProps = schemaProperties != null ? TranslateProperties(schemaProperties) : [];
-            var explicitNamespace = schemaProps.TryGetValue("namespace", out var ns)
-                ? ns.ToString()
-                : null;
-
-            var schemaNamespace = explicitNamespace ?? parsingContext.DefaultNamespace;
-            var fullName = !string.IsNullOrEmpty(schemaNamespace)
-                ? $"{schemaNamespace}.{localNameName}"
-                : localNameName;
-
-            if (!string.IsNullOrEmpty(fullName))
-                parsingContext.ProcessedSchemas.Add(fullName);
-
-            var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
-            // only add if it wasn't inlined as a forward reference elsewhere
-            if (!string.IsNullOrEmpty(fullName) && !parsingContext.InlinedForwardRefs.Contains(fullName))
-                types.Add(schemaJson);
-        }
+        types.AddRange(TranslateNamedSchemas(body._namedSchemas, parsingContext));
 
         var messages = new JObject();
 
@@ -288,6 +251,66 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         }
 
         return protocolJson;
+    }
+
+    /// <summary>
+    /// Translates a set of named schema declarations into the types of a protocol. Declarations may
+    /// refer to each other in any order: a type named before it is declared is inlined at the point
+    /// of first use, so that every type in the returned list is defined before it is referred to.
+    /// </summary>
+    private List<JObject> TranslateNamedSchemas(IList<IdlParser.NamedSchemaDeclarationContext> namedSchemas, IdlParsingContext parsingContext)
+    {
+        // cache all named schemas for forward reference resolution
+        foreach (var namedSchema in namedSchemas)
+        {
+            var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
+            var name = GetSchemaName(schemaJson, parsingContext);
+            if (!string.IsNullOrEmpty(name))
+                parsingContext.NamedSchemas[name] = schemaJson;
+        }
+
+        // now lets check for forward references
+        parsingContext.TrackForwardReferences = true;
+
+        var types = new List<JObject>();
+
+        foreach (var namedSchema in namedSchemas)
+        {
+            var fullName = GetDeclaredSchemaFullName(namedSchema, parsingContext);
+
+            if (!string.IsNullOrEmpty(fullName))
+                parsingContext.ProcessedSchemas.Add(fullName);
+
+            var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
+            // only add if it wasn't inlined as a forward reference elsewhere
+            if (!string.IsNullOrEmpty(fullName) && !parsingContext.InlinedForwardRefs.Contains(fullName))
+                types.Add(schemaJson);
+        }
+
+        return types;
+    }
+
+    /// <summary>
+    /// The fully qualified name a declaration will carry, taking its namespace from an explicit
+    /// property when present and from the enclosing document otherwise.
+    /// </summary>
+    private string GetDeclaredSchemaFullName(IdlParser.NamedSchemaDeclarationContext context, IdlParsingContext parsingContext)
+    {
+        var localName = GetNamedSchemaName(context);
+
+        var schemaProperties = context.fixedDeclaration()?._schemaProperties
+            ?? context.enumDeclaration()?._schemaProperties
+            ?? context.recordDeclaration()?._schemaProperties;
+        var schemaProps = schemaProperties != null ? TranslateProperties(schemaProperties) : [];
+        var explicitNamespace = schemaProps.TryGetValue("namespace", out var ns)
+            ? ns.ToString()
+            : null;
+
+        var schemaNamespace = explicitNamespace ?? parsingContext.DefaultNamespace;
+
+        return !string.IsNullOrEmpty(schemaNamespace)
+            ? $"{schemaNamespace}.{localName}"
+            : localName;
     }
 
     private JObject TranslateNamedSchema(IdlParser.NamedSchemaDeclarationContext context, IdlParsingContext parsingContext)
@@ -914,10 +937,10 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             {
                 nestedContext.DefaultNamespace = parseTree.@namespace?.@namespace?.GetText();
 
-                foreach (var namedSchema in parseTree._namedSchemas)
+                // the imported file's types resolve references among themselves, so that they may be
+                // declared in any order, just as those of a protocol are
+                foreach (var schemaJson in TranslateNamedSchemas(parseTree._namedSchemas, nestedContext))
                 {
-                    var schemaJson = TranslateNamedSchema(namedSchema, nestedContext);
-
                     if (!string.IsNullOrEmpty(nestedContext.DefaultNamespace) && !schemaJson.ContainsKey("namespace"))
                     {
                         schemaJson["namespace"] = nestedContext.DefaultNamespace;
