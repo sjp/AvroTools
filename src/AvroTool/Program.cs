@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SJP.Avro.Tools.CodeGen;
@@ -25,43 +24,79 @@ internal static class Program
         });
 
         var services = new ServiceCollection();
-        services.AddSingleton<IAnsiConsole>(errorConsole);
-        services.AddSingleton<IStandardStreams, ConsoleStandardStreams>();
-        services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
-        services.AddTransient<IIdlFileReader, PhysicalIdlFileReader>();
-        services.AddTransient<IIdlToAvroTranslator, IdlToAvroTranslator>();
+        RegisterServices(services, errorConsole, new ConsoleStandardStreams());
         using var registrar = new DependencyInjectionRegistrar(services);
 
         var app = new CommandApp(registrar);
-
-        app.Configure(config =>
-        {
-            config.SetApplicationName("avrotool");
-            config.SetApplicationVersion(GetVersion());
-
-            // Spectre special-cases the console it injects into commands and uses for
-            // its own diagnostics, so configure it explicitly (DI registration alone
-            // is not honoured) to keep standard output a clean payload channel.
-            config.ConfigureConsole(errorConsole);
-
-            foreach (var command in CommandCatalogue.Commands)
-                command.Register(config);
-
-            config.PropagateExceptions();
-            config.ValidateExamples();
-            config.SetExceptionHandler((ex, _) =>
-            {
-                errorConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
-            });
-        });
+        app.Configure(config => Configure(config, errorConsole));
 
         return app.RunAsync(args);
     }
 
+    /// <summary>
+    /// Registers the services the commands take as dependencies.
+    /// </summary>
+    /// <param name="services">The collection to register into.</param>
+    /// <param name="errorConsole">The console status and diagnostic messages are written to.</param>
+    /// <param name="streams">The streams command payloads are read from and written to.</param>
+    public static void RegisterServices(IServiceCollection services, IAnsiConsole errorConsole, IStandardStreams streams)
+    {
+        services.AddSingleton(errorConsole);
+        services.AddSingleton(streams);
+        services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
+        services.AddTransient<IIdlFileReader, PhysicalIdlFileReader>();
+        services.AddTransient<IIdlToAvroTranslator, IdlToAvroTranslator>();
+    }
+
+    /// <summary>
+    /// Applies the command-line application's configuration: the commands it exposes, the
+    /// console its own output goes to, and how a failure is reported. Separate from
+    /// <see cref="Main"/> so that the configuration the released tool runs with is the one
+    /// under test.
+    /// </summary>
+    /// <param name="config">The configurator to apply the configuration to.</param>
+    /// <param name="errorConsole">The console errors are written to.</param>
+    public static void Configure(IConfigurator config, IAnsiConsole errorConsole)
+    {
+        config.SetApplicationName("avrotool");
+        config.SetApplicationVersion(GetVersion());
+
+        // Spectre special-cases the console it injects into commands and uses for
+        // its own diagnostics, so configure it explicitly (DI registration alone
+        // is not honoured) to keep standard output a clean payload channel.
+        config.ConfigureConsole(errorConsole);
+
+        foreach (var command in CommandCatalogue.Commands)
+            command.Register(config);
+
+        config.ValidateExamples();
+
+        // A command line that cannot be parsed, an argument that cannot be converted and a
+        // failed validation are all user errors, so they are reported as the message alone
+        // and exit non-zero. A stack trace only helps with a fault in the tool itself, so it
+        // is kept for exceptions that are not raised by the command-line framework.
+        config.SetExceptionHandler((ex, _) =>
+        {
+            switch (ex)
+            {
+                case CommandAppException { Pretty: { } pretty }:
+                    errorConsole.Write(pretty);
+                    break;
+                case CommandAppException:
+                    errorConsole.MarkupLine($"[red]{Markup.Escape(ex.Message)}[/]");
+                    break;
+                default:
+                    errorConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
+                    break;
+            }
+
+            return ErrorCode.Error;
+        });
+    }
+
     private static string GetVersion()
     {
-        var assembly = Assembly.GetEntryAssembly()!;
-        var assemblyVersion = assembly.GetName().Version!;
+        var assemblyVersion = typeof(Program).Assembly.GetName().Version!;
         return $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}";
     }
 }

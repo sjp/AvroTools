@@ -530,7 +530,10 @@ rather than only reading and writing files on disk.
   write the generated JSON to standard output instead of a file.
 - **Clean pipelines:** all human-facing status messages (the green
   `Generated ...` lines and any errors) are written to **standard error**, so
-  standard output carries only the payload.
+  standard output carries only the payload. An unusable command line — an
+  unknown command, an argument that cannot be converted, a missing or
+  non-existent input — is reported there as a single message, and the tool
+  exits with code `1`.
 
 ```sh
 # Compile IDL piped in, and print the JSON protocol to stdout
