@@ -137,28 +137,22 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         OutputCollector collector,
         CancellationToken cancellationToken)
     {
-        IdlFileParseResult parseResult;
+        IdlParseResult parsed;
         try
         {
-            var result = await _idlTranslator.Translate(idlContent, baseDirectory, cancellationToken);
-            parseResult = IdlFileParseResult.Ok(result);
+            parsed = await _idlTranslator.Translate(idlContent, baseDirectory, cancellationToken);
         }
         catch (Exception ex)
         {
-            parseResult = IdlFileParseResult.Error(ex);
-        }
-
-        if (!parseResult.Success)
-        {
-            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document '{source}': {parseResult.Exception.Message}[/]");
+            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document '{source}': {ex.Message}[/]");
             return false;
         }
 
-        var avroOutputType = parseResult.Result.Match(_ => "protocol", _ => "schema");
+        var avroOutputType = parsed.Match(_ => "protocol", _ => "schema");
 
         try
         {
-            var output = parseResult.Result.Match(
+            var output = parsed.Match(
                 p => p.ToString(),
                 s => s.ToString());
 
@@ -170,8 +164,8 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
                 return true;
             }
 
-            var outputName = parseResult.Result.Match(p => p.Name, s => s.Name);
-            var outputExtension = parseResult.Result.Match(_ => ".avpr", _ => ".avsc");
+            var outputName = parsed.Match(p => p.Name, s => s.Name);
+            var outputExtension = parsed.Match(_ => ".avpr", _ => ".avsc");
             var outputPath = Path.Combine(outputDir.FullName, outputName + outputExtension);
 
             var reserveError = collector.Reserve([new OutputReservation(outputPath, $"{avroOutputType} '{outputName}'")], source);

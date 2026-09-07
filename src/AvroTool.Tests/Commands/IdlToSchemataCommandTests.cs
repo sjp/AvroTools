@@ -14,6 +14,7 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 using AvroSchema = Avro.Schema;
 
 namespace AvroTool.Tests.Commands;
@@ -315,6 +316,34 @@ record PairVolume {
         var result = await _app.RunAsync([sourceFile.FullName], default);
 
         Assert.That(result.Output, Is.Empty);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenUntranslatableInput_ReportsTheFailureAndWritesNoSchemas()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        registrar.RegisterInstance(typeof(IdlToSchemataCommand), new IdlToSchemataCommand(console, _idlTranslator.Object));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<IdlToSchemataCommand>();
+
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("something went wrong"));
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+
+        var result = await app.RunAsync([sourceFile.FullName, "--output-dir", _tempDir.DirectoryPath], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("Unable to parse IDL document"));
+            Assert.That(console.Output, Does.Contain("something went wrong"));
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc")), Is.False);
+        }
     }
 
     [Test]

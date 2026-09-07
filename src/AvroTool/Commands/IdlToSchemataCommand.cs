@@ -126,26 +126,20 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         OutputCollector collector,
         CancellationToken cancellationToken)
     {
-        IdlFileParseResult parseResult;
+        IdlParseResult parsed;
         try
         {
-            var result = await _idlTranslator.Translate(idlContent, baseDirectory, cancellationToken);
-            parseResult = IdlFileParseResult.Ok(result);
+            parsed = await _idlTranslator.Translate(idlContent, baseDirectory, cancellationToken);
         }
         catch (Exception ex)
         {
-            parseResult = IdlFileParseResult.Error(ex);
-        }
-
-        if (!parseResult.Success)
-        {
-            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document '{source}': {parseResult.Exception.Message}[/]");
+            _console.MarkupLineInterpolated($"[red]Unable to parse IDL document '{source}': {ex.Message}[/]");
             return false;
         }
 
         try
         {
-            var schemas = parseResult.Result.Match(
+            var schemas = parsed.Match(
                 p => p.Types,
                 s => [s]);
 
