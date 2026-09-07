@@ -50,6 +50,28 @@ internal class IdlCommandTests
 }
 """;
 
+    private const string UnicodeTestProtocolJson = """
+{
+  "protocol": "TestProtocol",
+  "doc": "Café <b>bold</b> & more, it's 1+1",
+  "types": [
+    {
+      "type": "record",
+      "name": "TestRecord",
+      "doc": "日本語 & <markup>",
+      "fields": [
+        {
+          "name": "FirstName",
+          "type": "string",
+          "default": "é<>&"
+        }
+      ]
+    }
+  ],
+  "messages": {}
+}
+""";
+
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
     private TestStandardStreams _streams;
@@ -107,6 +129,28 @@ internal class IdlCommandTests
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(resultFileContents, Is.EqualTo(SimpleTestProtocolJson).IgnoreLineEndingFormat);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenNonAsciiAndHtmlSensitiveText_WritesThemLiterally()
+    {
+        _parseResult = IdlParseResult.Protocol(AvroProtocol.Parse(UnicodeTestProtocolJson));
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
+
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", _tempDir.DirectoryPath], TestContext.CurrentContext.CancellationToken);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr"), TestContext.CurrentContext.CancellationToken);
+
+        // compared as text rather than parsed JSON, because the point is how the characters are written
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(resultFileContents, Does.Contain("Café <b>bold</b> & more, it's 1+1"));
+            Assert.That(resultFileContents, Does.Contain("日本語 & <markup>"));
+            Assert.That(resultFileContents, Does.Contain("\"default\": \"é<>&\""));
+            Assert.That(resultFileContents, Does.Not.Contain("\\u"));
         }
     }
 
