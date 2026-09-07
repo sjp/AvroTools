@@ -38,6 +38,18 @@ public enum ChangeKind
     /// <summary>A <c>fixed</c> type's declared size changed.</summary>
     FixedSizeChanged,
 
+    /// <summary>
+    /// A <c>logicalType</c> annotation was added, removed, or replaced by a different one. The
+    /// underlying representation may well be unchanged, but the interpretation of the data is not.
+    /// </summary>
+    LogicalTypeChanged,
+
+    /// <summary>
+    /// An attribute qualifying a logical type changed while the logical type itself stayed the
+    /// same, i.e. a decimal's <c>precision</c> or <c>scale</c>.
+    /// </summary>
+    LogicalTypeAttributeChanged,
+
     /// <summary>A union gained a branch.</summary>
     UnionBranchAdded,
 

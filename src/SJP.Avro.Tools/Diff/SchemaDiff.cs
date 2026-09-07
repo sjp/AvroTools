@@ -68,9 +68,23 @@ public static class SchemaDiff
         /// </summary>
         private List<SchemaChange> CalculateRelative(Schema before, Schema after)
         {
-            before = Unwrap(before);
-            after = Unwrap(after);
+            var structural = CalculateStructuralRelative(Unwrap(before), Unwrap(after));
 
+            // Logical types are compared outside the memoised structural walk, which is keyed on
+            // the unwrapped pair: the same base schemas can be reached carrying different (or no)
+            // logical annotations, so a logical difference must never be baked into a cache entry
+            // shared with a pair that doesn't have it.
+            var logical = new List<SchemaChange>();
+            CompareLogicalTypes(logical, before, after, RelativeRoot);
+
+            return logical.Count == 0 ? structural : [.. structural, .. logical];
+        }
+
+        /// <summary>
+        /// Compares the structure of an already-unwrapped pair, memoised by pair identity.
+        /// </summary>
+        private List<SchemaChange> CalculateStructuralRelative(Schema before, Schema after)
+        {
             var pair = new SchemaPair(before, after);
             if (_memo.TryGetValue(pair, out var cached))
                 return cached;
@@ -297,11 +311,71 @@ public static class SchemaDiff
             }
         }
 
+        // Branches are matched on their underlying representation, so that a branch which gains or
+        // loses a logical type is still recognised as the same branch and diffed as a change to it.
         private static string BranchKey(Schema schema) =>
-            schema is NamedSchema named ? named.Fullname : schema.Tag.ToString();
+            Unwrap(schema) is NamedSchema named ? named.Fullname : Unwrap(schema).Tag.ToString();
 
         private static string DescribeBranch(Schema schema) =>
-            schema is NamedSchema named ? named.Fullname : schema.Tag.ToString().ToUpperInvariant();
+            Unwrap(schema) is NamedSchema named ? named.Fullname : Unwrap(schema).Tag.ToString().ToUpperInvariant();
+
+        /// <summary>
+        /// Reports a <c>logicalType</c> that was added, removed or replaced, and — when both sides
+        /// carry the same logical type — any change to the attributes qualifying it.
+        /// </summary>
+        private static void CompareLogicalTypes(List<SchemaChange> sink, Schema before, Schema after, string location)
+        {
+            var beforeName = (before as LogicalSchema)?.LogicalTypeName;
+            var afterName = (after as LogicalSchema)?.LogicalTypeName;
+
+            if (!string.Equals(beforeName, afterName, StringComparison.Ordinal))
+            {
+                var message = (beforeName, afterName) switch
+                {
+                    (null, not null) => $"logical type '{afterName}' added",
+                    (not null, null) => $"logical type '{beforeName}' removed",
+                    _ => $"logical type changed from '{beforeName}' to '{afterName}'",
+                };
+
+                sink.Add(new SchemaChange(
+                    ChangeKind.LogicalTypeChanged,
+                    Append(location, "logicalType"),
+                    message,
+                    oldValue: beforeName,
+                    newValue: afterName));
+                return;
+            }
+
+            if (beforeName == DecimalLogicalTypeName)
+                CompareDecimalAttributes(sink, (LogicalSchema)before, (LogicalSchema)after, location);
+        }
+
+        private static void CompareDecimalAttributes(List<SchemaChange> sink, LogicalSchema before, LogicalSchema after, string location)
+        {
+            CompareDecimalAttribute(sink, "precision", before.GetProperty("precision"), after.GetProperty("precision"), location);
+
+            // Avro makes scale optional and defaults it to zero, so an omitted scale and an
+            // explicit zero describe the same type and must not read as a change.
+            CompareDecimalAttribute(
+                sink,
+                "scale",
+                before.GetProperty("scale") ?? DefaultDecimalScale,
+                after.GetProperty("scale") ?? DefaultDecimalScale,
+                location);
+        }
+
+        private static void CompareDecimalAttribute(List<SchemaChange> sink, string name, string? before, string? after, string location)
+        {
+            if (string.Equals(before, after, StringComparison.Ordinal))
+                return;
+
+            sink.Add(new SchemaChange(
+                ChangeKind.LogicalTypeAttributeChanged,
+                Append(location, name),
+                $"decimal {name} changed from {before ?? "unset"} to {after ?? "unset"}",
+                oldValue: before,
+                newValue: after));
+        }
 
         /// <summary>
         /// Matches record fields across versions by name, then by alias (in either direction), and
@@ -399,9 +473,11 @@ public static class SchemaDiff
                 // type is the common, important case the spec calls out as "field type changed";
                 // reuse the same detection emitted by Calculate for nested structures (array items,
                 // union branches, etc.), but relabel it when it's this field's own immediate type
-                // rather than something changed deeper inside it. A change sitting at the pair's
-                // own root is exactly that case.
-                if (typeChanges.Count == 1 && typeChanges[0].Kind == ChangeKind.TypeKindChanged && typeChanges[0].Location.Length == 0)
+                // rather than something changed deeper inside it. Such a change short-circuits the
+                // structural walk, so it is always the first entry and sits at the pair's own root;
+                // anything after it is a logical type change on the same pair, reported as it is.
+                var rebasedTypeChanges = Rebase(typeChanges, typeLocation);
+                if (typeChanges.Count > 0 && typeChanges[0].Kind == ChangeKind.TypeKindChanged && typeChanges[0].Location.Length == 0)
                 {
                     var change = typeChanges[0];
                     sink.Add(new SchemaChange(
@@ -411,10 +487,11 @@ public static class SchemaDiff
                         change.OldValue,
                         change.NewValue,
                         change.IsValidPromotion));
+                    sink.AddRange(rebasedTypeChanges.Skip(1));
                 }
                 else
                 {
-                    sink.AddRange(Rebase(typeChanges, typeLocation));
+                    sink.AddRange(rebasedTypeChanges);
                 }
 
                 CompareFieldDefault(sink, matchedBefore, matchedAfter, fieldLocation);
@@ -525,6 +602,11 @@ public static class SchemaDiff
 
     private static Schema Unwrap(Schema schema) =>
         schema is LogicalSchema logical ? logical.BaseSchema : schema;
+
+    private const string DecimalLogicalTypeName = "decimal";
+
+    /// <summary>The scale Avro assumes for a decimal that doesn't declare one.</summary>
+    private const string DefaultDecimalScale = "0";
 
     // Named-type aliases are not surfaced publicly by Apache.Avro, so read the private backing
     // field. Cached, and defensively falls back to no aliases if the field ever moves.

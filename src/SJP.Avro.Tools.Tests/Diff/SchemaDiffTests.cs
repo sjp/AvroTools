@@ -265,6 +265,197 @@ internal static class SchemaDiffTests
     }
 
     [Test]
+    public static void Compare_GivenLogicalTypeAdded_ReportsLogicalTypeChanged()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"age","type":"int"}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"age","type":{"type":"int","logicalType":"date"}}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.LogicalTypeChanged));
+            Assert.That(change.Location, Is.EqualTo("/fields/age/type/logicalType"));
+            Assert.That(change.OldValue, Is.Null);
+            Assert.That(change.NewValue, Is.EqualTo("date"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenLogicalTypeRemoved_ReportsLogicalTypeChanged()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"age","type":{"type":"int","logicalType":"date"}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"age","type":"int"}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.LogicalTypeChanged));
+            Assert.That(change.Location, Is.EqualTo("/fields/age/type/logicalType"));
+            Assert.That(change.OldValue, Is.EqualTo("date"));
+            Assert.That(change.NewValue, Is.Null);
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenLogicalTypeReplaced_ReportsLogicalTypeChanged()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"at","type":{"type":"long","logicalType":"timestamp-millis"}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"at","type":{"type":"long","logicalType":"timestamp-micros"}}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.LogicalTypeChanged));
+            Assert.That(change.OldValue, Is.EqualTo("timestamp-millis"));
+            Assert.That(change.NewValue, Is.EqualTo("timestamp-micros"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenIdenticalLogicalTypes_IsIdentical()
+    {
+        const string schema = """{"type":"record","name":"R","fields":[{"name":"id","type":{"type":"string","logicalType":"uuid"}}]}""";
+
+        var result = Compare(schema, schema);
+
+        Assert.That(result.IsIdentical, Is.True);
+    }
+
+    [Test]
+    public static void Compare_GivenTopLevelLogicalTypeAdded_ReportsLogicalTypeChanged()
+    {
+        var result = Compare("\"int\"", """{"type":"int","logicalType":"date"}""");
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.LogicalTypeChanged));
+            Assert.That(change.Location, Is.EqualTo("/logicalType"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenDecimalPrecisionChanged_ReportsLogicalTypeAttributeChanged()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"amount","type":{"type":"bytes","logicalType":"decimal","precision":9,"scale":2}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"amount","type":{"type":"bytes","logicalType":"decimal","precision":12,"scale":2}}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.LogicalTypeAttributeChanged));
+            Assert.That(change.Location, Is.EqualTo("/fields/amount/type/precision"));
+            Assert.That(change.OldValue, Is.EqualTo("9"));
+            Assert.That(change.NewValue, Is.EqualTo("12"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenDecimalScaleChanged_ReportsLogicalTypeAttributeChanged()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"amount","type":{"type":"bytes","logicalType":"decimal","precision":9,"scale":2}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"amount","type":{"type":"bytes","logicalType":"decimal","precision":9,"scale":4}}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.LogicalTypeAttributeChanged));
+            Assert.That(change.Location, Is.EqualTo("/fields/amount/type/scale"));
+            Assert.That(change.OldValue, Is.EqualTo("2"));
+            Assert.That(change.NewValue, Is.EqualTo("4"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenOmittedAndExplicitZeroDecimalScale_IsIdentical()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"amount","type":{"type":"bytes","logicalType":"decimal","precision":9}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"amount","type":{"type":"bytes","logicalType":"decimal","precision":9,"scale":0}}]}""";
+
+        var result = Compare(before, after);
+
+        Assert.That(result.IsIdentical, Is.True);
+    }
+
+    [Test]
+    public static void Compare_GivenBaseTypeAndLogicalTypeBothChanged_ReportsBoth()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"id","type":"int"}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"id","type":{"type":"string","logicalType":"uuid"}}]}""";
+
+        var result = Compare(before, after);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Changes.Select(c => c.Kind), Is.EqualTo(new[]
+            {
+                ChangeKind.FieldTypeChanged,
+                ChangeKind.LogicalTypeChanged,
+            }));
+            Assert.That(result.Changes.Select(c => c.Location), Is.EqualTo(new[]
+            {
+                "/fields/id/type",
+                "/fields/id/type/logicalType",
+            }));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenUnionBranchGainingLogicalType_ReportsLogicalTypeChanged()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":["null","int"]}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":["null",{"type":"int","logicalType":"date"}]}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.LogicalTypeChanged));
+            Assert.That(change.NewValue, Is.EqualTo("date"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenSameBaseTypeReachedWithAndWithoutLogicalType_ReportsOnlyTheAnnotatedPosition()
+    {
+        const string before = """
+        {
+            "type": "record",
+            "name": "R",
+            "fields": [
+                { "name": "plain", "type": "int" },
+                { "name": "annotated", "type": "int" }
+            ]
+        }
+        """;
+        const string after = """
+        {
+            "type": "record",
+            "name": "R",
+            "fields": [
+                { "name": "plain", "type": "int" },
+                { "name": "annotated", "type": { "type": "int", "logicalType": "date" } }
+            ]
+        }
+        """;
+
+        var result = Compare(before, after);
+
+        Assert.That(result.Changes.Select(c => c.Location), Is.EqualTo(new[] { "/fields/annotated/type/logicalType" }));
+    }
+
+    [Test]
     public static void Compare_GivenUnionBranchAdded_ReportsUnionBranchAdded()
     {
         const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":["null","string"]}]}""";

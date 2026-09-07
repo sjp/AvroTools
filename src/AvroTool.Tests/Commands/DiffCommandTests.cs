@@ -20,6 +20,9 @@ internal class DiffCommandTests
     private const string V1WithDoc = """{"type":"record","name":"User","namespace":"ex","doc":"old","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}""";
     private const string V2WithDoc = """{"type":"record","name":"User","namespace":"ex","doc":"new","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}""";
 
+    private const string V1WithLogicalType = """{"type":"record","name":"User","namespace":"ex","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}""";
+    private const string V2WithLogicalType = """{"type":"record","name":"User","namespace":"ex","fields":[{"name":"id","type":{"type":"int","logicalType":"date"}},{"name":"name","type":"string"}]}""";
+
     private const string ProtocolJson = """{"protocol":"P","types":[{"type":"record","name":"A","fields":[{"name":"x","type":"string"}]},{"type":"enum","name":"Color","symbols":["RED","GREEN"]}],"messages":{}}""";
 
     private CommandAppTester _app;
@@ -114,6 +117,26 @@ internal class DiffCommandTests
             Assert.That(root.GetProperty("identical").GetBoolean(), Is.False);
             Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("FIELD_ADDED"));
             Assert.That(change.GetProperty("location").GetString(), Is.EqualTo("/fields/email"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenLogicalTypeChangeWithoutVerbose_ReportsChange()
+    {
+        var a = WriteSchema("a.avsc", V1WithLogicalType);
+        var b = WriteSchema("b.avsc", V2WithLogicalType);
+
+        var (exitCode, stdout) = await RunAsync("--json", a, b);
+
+        using var document = JsonDocument.Parse(stdout);
+        var change = document.RootElement.GetProperty("changes")[0];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Not.Zero);
+            Assert.That(change.GetProperty("kind").GetString(), Is.EqualTo("LOGICAL_TYPE_CHANGED"));
+            Assert.That(change.GetProperty("location").GetString(), Is.EqualTo("/fields/id/type/logicalType"));
+            Assert.That(change.GetProperty("newValue").GetString(), Is.EqualTo("date"));
         }
     }
 

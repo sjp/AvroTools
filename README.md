@@ -336,9 +336,12 @@ $ avrotool diff v1.avsc v2.avsc --json
 
 Reordering fields doesn't count as a change (it mirrors canonical-form
 thinking), but type changes, default changes, renames (detected via
-`aliases`), and enum/fixed/union shape changes are all reported. Pass
-`--verbose` to also report `doc`/`aliases` metadata changes that don't affect
-the schema's shape. Exit code `0` means the schemas are identical, so `diff`
+`aliases`), and enum/fixed/union shape changes are all reported. Logical types
+count too: adding, removing or replacing a `logicalType`, or changing a
+decimal's `precision` or `scale`, is reported even though the underlying
+representation is unchanged, because it changes how the data is interpreted.
+Pass `--verbose` to also report `doc`/`aliases` metadata changes that don't
+affect the schema's shape. Exit code `0` means the schemas are identical, so `diff`
 also works as a CI "did the schema change?" gate.
 
 Like `compat`, each of `<SCHEMA_A>` and `<SCHEMA_B>` must resolve to a single
