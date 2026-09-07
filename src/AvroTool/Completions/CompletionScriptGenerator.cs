@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -59,14 +60,14 @@ internal static class CompletionScriptGenerator
         public bool IsValues => Values.Count > 0;
     }
 
-    // An option, its flags, and what its value (if it takes one) completes to. The name labels
-    // the value in shells that show a label.
-    private sealed record OptionInfo(string Name, IReadOnlyList<string> Flags, bool TakesValue, Completion Value);
+    // An option, its flags, the description shells that show one display, and what its value
+    // (if it takes one) completes to. The name labels the value in shells that show a label.
+    private sealed record OptionInfo(string Name, IReadOnlyList<string> Flags, string Description, bool TakesValue, Completion Value);
 
     // A command's positional arguments and what they complete to.
     private sealed record ArgumentInfo(string Name, Completion Value);
 
-    private static readonly OptionInfo HelpOption = new("help", ["-h", "--help"], false, Completion.None);
+    private static readonly OptionInfo HelpOption = new("help", ["-h", "--help"], "Prints help information", false, Completion.None);
 
     private static IReadOnlyList<OptionInfo> Options(CommandDefinition command)
     {
@@ -87,8 +88,9 @@ internal static class CompletionScriptGenerator
                     : Completion.None;
 
                 var name = x.Attribute.LongNames.FirstOrDefault() ?? x.Attribute.ShortNames.FirstOrDefault() ?? "value";
+                var description = Describe(x.Property.GetCustomAttribute<DescriptionAttribute>()?.Description);
 
-                return new OptionInfo(name, flags, takesValue, value);
+                return new OptionInfo(name, flags, description, takesValue, value);
             })
             .ToList();
 
@@ -161,9 +163,41 @@ internal static class CompletionScriptGenerator
         return Nullable.GetUnderlyingType(type) ?? type;
     }
 
+    /// <summary>
+    /// Turns a help description into the form a completion menu shows: descriptions are written
+    /// as sentences for the help text, but a menu lists them beside the flag, where the trailing
+    /// full stop is noise.
+    /// </summary>
+    private static string Describe(string? description)
+    {
+        var trimmed = (description ?? string.Empty).Trim();
+
+        return trimmed.EndsWith('.') ? trimmed[..^1] : trimmed;
+    }
+
+    /// <summary>
+    /// Accumulates a script a line at a time, terminating every line with a fixed sequence
+    /// rather than the line ending of whichever platform generated it.
+    /// </summary>
+    /// <remarks>
+    /// bash, zsh and fish all treat a carriage return as part of the line, so a script written
+    /// with CRLF endings fails to run on any of them; their scripts are therefore always
+    /// LF-terminated. PowerShell accepts either, and keeps the platform's own line ending.
+    /// </remarks>
+    private sealed class ScriptBuilder(string newLine)
+    {
+        private readonly StringBuilder _builder = new();
+
+        public void AppendLine() => _builder.Append(newLine);
+
+        public void AppendLine(string line) => _builder.Append(line).Append(newLine);
+
+        public override string ToString() => _builder.ToString();
+    }
+
     private static string GenerateBash()
     {
-        var sb = new StringBuilder();
+        var sb = new ScriptBuilder("\n");
         sb.AppendLine($"# bash completion for {AppName}");
         sb.AppendLine($"_{AppName}_complete_spec() {{");
         sb.AppendLine("    local spec=\"$1\" cur=\"$2\"");
@@ -243,13 +277,13 @@ internal static class CompletionScriptGenerator
 
     private static string GenerateZsh()
     {
-        var sb = new StringBuilder();
+        var sb = new ScriptBuilder("\n");
         sb.AppendLine($"#compdef {AppName}");
         sb.AppendLine($"_{AppName}() {{");
         sb.AppendLine("    local -a commands");
         sb.AppendLine("    commands=(");
         foreach (var command in Commands)
-            sb.AppendLine($"        '{command.Name}:{ZshQuote(command.Description)}'");
+            sb.AppendLine($"        '{command.Name}:{ZshQuote(Describe(command.Description))}'");
         sb.AppendLine("    )");
         sb.AppendLine();
         sb.AppendLine("    _arguments -C \\");
@@ -265,7 +299,7 @@ internal static class CompletionScriptGenerator
         foreach (var command in Commands)
         {
             var specs = Options(command)
-                .SelectMany(o => o.Flags.Select(f => ZshOptionSpec(f, o)))
+                .Select(ZshOptionSpec)
                 .ToList();
 
             var argument = Arguments(command);
@@ -286,10 +320,27 @@ internal static class CompletionScriptGenerator
         return sb.ToString();
     }
 
-    private static string ZshOptionSpec(string flag, OptionInfo option)
-        => option.TakesValue
-            ? $"'{flag}:{ZshLabel(option.Value, option.Name)}:{ZshAction(option.Value)}'"
-            : $"'{flag}'";
+    /// <summary>
+    /// The <c>_arguments</c> specification for one option: its flags, its description, and,
+    /// where it takes one, the label and action for its value.
+    /// </summary>
+    /// <remarks>
+    /// An option with more than one spelling is emitted once per flag through brace expansion,
+    /// each copy prefixed with an exclusion list naming every spelling. Without that list zsh
+    /// treats the short and long forms as unrelated options and keeps offering one after the
+    /// other has already been given.
+    /// </remarks>
+    private static string ZshOptionSpec(OptionInfo option)
+    {
+        var body = $"[{ZshDescription(option.Description)}]";
+        if (option.TakesValue)
+            body += $":{ZshLabel(option.Value, option.Name)}:{ZshAction(option.Value)}";
+
+        if (option.Flags.Count == 1)
+            return $"'{option.Flags[0]}{body}'";
+
+        return $"'({string.Join(' ', option.Flags)})'{{{string.Join(',', option.Flags)}}}'{body}'";
+    }
 
     private static string ZshLabel(Completion completion, string name) => completion.Spec switch
     {
@@ -308,13 +359,22 @@ internal static class CompletionScriptGenerator
 
     private static string ZshQuote(string value) => value.Replace("'", @"'\''", StringComparison.Ordinal).Replace(":", @"\:", StringComparison.Ordinal);
 
+    // A description sits inside the '[...]' of an _arguments specification, which in turn sits
+    // inside single quotes: a bracket would end the description early, and a quote the spec.
+    private static string ZshDescription(string value)
+        => value
+            .Replace(@"\", @"\\", StringComparison.Ordinal)
+            .Replace("[", @"\[", StringComparison.Ordinal)
+            .Replace("]", @"\]", StringComparison.Ordinal)
+            .Replace("'", @"'\''", StringComparison.Ordinal);
+
     private static string GenerateFish()
     {
-        var sb = new StringBuilder();
+        var sb = new ScriptBuilder("\n");
         sb.AppendLine($"# fish completion for {AppName}");
         sb.AppendLine($"complete -c {AppName} -f");
         foreach (var command in Commands)
-            sb.AppendLine($"complete -c {AppName} -n '__fish_use_subcommand' -a '{command.Name}' -d '{FishQuote(command.Description)}'");
+            sb.AppendLine($"complete -c {AppName} -n '__fish_use_subcommand' -a '{command.Name}' -d '{FishQuote(Describe(command.Description))}'");
         sb.AppendLine();
         foreach (var command in Commands)
         {
@@ -334,13 +394,21 @@ internal static class CompletionScriptGenerator
                 {
                     var trimmed = flag.TrimStart('-');
                     var kind = flag.StartsWith("--", StringComparison.Ordinal) ? "-l" : "-s";
-                    sb.AppendLine($"complete -c {AppName} {condition} {kind} '{trimmed}'{FishValue(option)}");
+                    sb.AppendLine($"complete -c {AppName} {condition} {kind} '{trimmed}'{FishValue(option)} -d '{FishQuote(option.Description)}'");
                 }
             }
         }
         return sb.ToString();
     }
 
+    /// <summary>
+    /// The part of a fish <c>complete</c> line that describes an option's value.
+    /// </summary>
+    /// <remarks>
+    /// An option that completes to a fixed set of values, or to directories, uses <c>-x</c>
+    /// (required, and no file completion) rather than <c>-r</c>: with <c>-r</c> alone fish
+    /// offers every file in the directory alongside the values that are actually accepted.
+    /// </remarks>
     private static string FishValue(OptionInfo option)
     {
         if (!option.TakesValue)
@@ -349,9 +417,9 @@ internal static class CompletionScriptGenerator
         return option.Value.Spec switch
         {
             FileSpec => " -r -F",
-            DirectorySpec => " -r -a '(__fish_complete_directories)'",
+            DirectorySpec => " -x -a '(__fish_complete_directories)'",
             NoneSpec => " -r",
-            _ => $" -r -a '{option.Value.Spec}'",
+            _ => $" -x -a '{option.Value.Spec}'",
         };
     }
 
@@ -360,7 +428,7 @@ internal static class CompletionScriptGenerator
 
     private static string GeneratePowerShell()
     {
-        var sb = new StringBuilder();
+        var sb = new ScriptBuilder(Environment.NewLine);
         sb.AppendLine($"# PowerShell completion for {AppName}");
         sb.AppendLine($"Register-ArgumentCompleter -Native -CommandName {AppName} -ScriptBlock {{");
         sb.AppendLine("    param($wordToComplete, $commandAst, $cursorPosition)");

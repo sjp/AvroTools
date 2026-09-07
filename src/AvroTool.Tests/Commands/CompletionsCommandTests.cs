@@ -22,6 +22,15 @@ internal class CompletionsCommandTests
 
     private static IEnumerable<CompletionsCommand.ShellKind> Shells => Enum.GetValues<CompletionsCommand.ShellKind>();
 
+    // bash, zsh and fish all treat a carriage return as part of the line, so their scripts must
+    // be LF-terminated whatever platform generated them.
+    private static IEnumerable<CompletionsCommand.ShellKind> PosixShells =>
+    [
+        CompletionsCommand.ShellKind.Bash,
+        CompletionsCommand.ShellKind.Zsh,
+        CompletionsCommand.ShellKind.Fish,
+    ];
+
     [SetUp]
     public void Setup()
     {
@@ -109,9 +118,42 @@ internal class CompletionsCommandTests
         {
             foreach (var command in CommandCatalogue.Commands)
             {
-                foreach (var longName in LongOptionNames(command.SettingsType))
-                    Assert.That(script, Does.Contain(longName), $"'--{longName}' of '{command.Name}' is missing from the {shell} script.");
+                foreach (var flag in OptionFlags(command.SettingsType))
+                    Assert.That(script, Does.Contain(FlagToken(shell, flag)), $"'{flag}' of '{command.Name}' is missing from the {shell} script.");
             }
+        }
+    }
+
+    [Test]
+    public void Generate_GivenPosixShell_UsesLineFeedsOnly([ValueSource(nameof(PosixShells))] CompletionsCommand.ShellKind shell)
+    {
+        var script = CompletionScriptGenerator.Generate(shell);
+
+        Assert.That(script, Does.Not.Contain("\r"));
+    }
+
+    [Test]
+    public void Generate_GivenZsh_DescribesOptionsAndGroupsTheirSpellings()
+    {
+        var script = CompletionScriptGenerator.Generate(CompletionsCommand.ShellKind.Zsh);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(script, Does.Contain("'(-a --algorithm)'{-a,--algorithm}'[The fingerprint algorithm: crc-64-avro (default), md5 or sha-256]:algorithm:(crc-64-avro md5 sha-256)'"));
+            Assert.That(script, Does.Contain("'--stdin[Read the input from standard input instead of a file]'"));
+            Assert.That(script, Does.Not.Contain(".]"), "A description kept the trailing full stop that a completion menu does not want.");
+        }
+    }
+
+    [Test]
+    public void Generate_GivenFish_DescribesOptionsAndOffersOnlyTheAcceptedValues()
+    {
+        var script = CompletionScriptGenerator.Generate(CompletionsCommand.ShellKind.Fish);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(script, Does.Contain("-l 'algorithm' -x -a 'crc-64-avro md5 sha-256' -d 'The fingerprint algorithm: crc-64-avro (default), md5 or sha-256'"));
+            Assert.That(script, Does.Contain("-l 'output-dir' -x -a '(__fish_complete_directories)'"));
         }
     }
 
@@ -154,10 +196,22 @@ internal class CompletionsCommandTests
         Assert.That(names, Is.Unique);
     }
 
-    private static IEnumerable<string> LongOptionNames(Type settingsType)
+    private static IEnumerable<string> OptionFlags(Type settingsType)
         => settingsType
             .GetProperties()
             .Select(p => p.GetCustomAttributes(typeof(CommandOptionAttribute), false).Cast<CommandOptionAttribute>().FirstOrDefault())
             .Where(a => a is { IsHidden: false })
-            .SelectMany(a => a!.LongNames);
+            .SelectMany(a => a!.ShortNames.Select(n => "-" + n).Concat(a.LongNames.Select(n => "--" + n)));
+
+    // How a script spells a flag: bash, zsh and PowerShell write it as the user types it, while
+    // fish splits it into a kind ('-s' for short, '-l' for long) and the name without dashes.
+    private static string FlagToken(CompletionsCommand.ShellKind shell, string flag)
+    {
+        if (shell != CompletionsCommand.ShellKind.Fish)
+            return flag;
+
+        var kind = flag.StartsWith("--", StringComparison.Ordinal) ? "-l" : "-s";
+
+        return $"{kind} '{flag.TrimStart('-')}'";
+    }
 }

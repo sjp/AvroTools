@@ -635,8 +635,11 @@ pattern is not expanded for any of them.
 (`bash`, `zsh`, `fish` or `powershell`) to standard output. The scripts cover
 every command and option, complete file arguments as paths, `--output-dir` as a
 directory, and offer the accepted values for `--mode`, `--algorithm`, `--format`
-and the `completions` shell argument. Redirect the script to a location your
-shell loads completions from:
+and the `completions` shell argument. The zsh and fish scripts also show each
+command's and option's description. The bash, zsh and fish scripts always use
+line feeds, so redirecting them from a Windows shell still produces a script
+those shells accept. Redirect the script to a location your shell loads
+completions from:
 
 ```sh
 # bash
