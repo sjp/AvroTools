@@ -35,9 +35,9 @@ protocol Simple {
     // A traditional optional field
     union {null, MD5} @aliases(["oldhash", "hsh"]) nullableHash = null;
 
-    // These two fields parse correctly, but will break (be changed to strings) when serializing the protocol/schema as JSON.
-    double value = NaN;
-    float average = -Infinity;
+    // Defaults may use any of the numeric literal forms the grammar accepts.
+    double value = 1e3d;
+    float average = -0x1p3;
     date d = 0;
     // An optional type with a non-null default value (results in a union with null last).
     time_ms? t = 0;

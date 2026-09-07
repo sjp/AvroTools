@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -308,11 +307,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     private JObject TranslateFixed(IdlParser.FixedDeclarationContext context, IdlParsingContext parsingContext)
     {
         var name = IdlName.EscapeName(context.name.GetText());
-        var sizeText = context.size.Text.Trim();
-        var isHexNumber = sizeText.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-            || sizeText.StartsWith("x", StringComparison.OrdinalIgnoreCase);
-        var numberBase = isHexNumber ? 16 : 10;
-        var size = Convert.ToInt32(sizeText, numberBase);
+        var size = IdlNumericLiteral.ParseInt32(context.size.Text);
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
 
@@ -701,7 +696,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
             if (precisionToken != null)
             {
-                var precision = int.Parse(precisionToken.Text, CultureInfo.InvariantCulture);
+                var precision = IdlNumericLiteral.ParseInt32(precisionToken.Text);
                 var decimalObj = new JObject
                 {
                     ["type"] = "bytes",
@@ -711,7 +706,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
                 if (scaleToken != null)
                 {
-                    var scale = int.Parse(scaleToken.Text, CultureInfo.InvariantCulture);
+                    var scale = IdlNumericLiteral.ParseInt32(scaleToken.Text);
                     decimalObj["scale"] = scale;
                 }
 
@@ -772,10 +767,17 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             return IdlStringLiteral.Unescape(context.StringLiteral().GetText());
 
         if (context.IntegerLiteral() != null)
-            return long.Parse(context.IntegerLiteral().GetText());
+            return IdlNumericLiteral.ParseInteger(context.IntegerLiteral().GetText());
 
         if (context.FloatingPointLiteral() != null)
-            return double.Parse(context.FloatingPointLiteral().GetText(), CultureInfo.InvariantCulture);
+        {
+            var literalText = context.FloatingPointLiteral().GetText();
+            var value = IdlNumericLiteral.ParseDouble(literalText);
+            if (!double.IsFinite(value))
+                throw new InvalidOperationException($"The numeric literal '{literalText}' has no JSON representation and cannot be used in an Avro schema.");
+
+            return value;
+        }
 
         if (context.BTrue() != null)
             return true;

@@ -63,12 +63,12 @@
         {
           "name": "value",
           "type": "double",
-          "default": "NaN"
+          "default": 1000.0
         },
         {
           "name": "average",
           "type": "float",
-          "default": "-Infinity"
+          "default": -8.0
         },
         {
           "name": "d",
