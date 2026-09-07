@@ -974,12 +974,16 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             using var jsonReader = new StreamReader(protocolStream);
             var protocolJson = await jsonReader.ReadToEndAsync(cancellationToken);
             var protocolObj = JObject.Parse(protocolJson);
+            var protocolNamespace = GetProtocolNamespace(protocolObj);
 
             // Import types
             if (protocolObj.TryGetValue("types", out var typesToken) && typesToken is JArray typesArray)
             {
                 foreach (var type in typesArray.OfType<JObject>())
                 {
+                    // types keep the namespace they had in the document they came from, which they
+                    // must now state explicitly as they are moving into a differently named protocol
+                    QualifyInheritedNamespaces(type, protocolNamespace);
                     importedTypes.Add(type);
 
                     // Cache for reference resolution
@@ -1058,7 +1062,11 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (!schema.TryGetValue("name", out var name))
             return null;
 
+        // a name may already be fully qualified, in which case it carries its own namespace
         var nameStr = name.ToString();
+        if (nameStr.Contains('.'))
+            return nameStr;
+
         var ns = schema.TryGetValue("namespace", out var nsToken)
             ? nsToken.ToString()
             : parsingContext.DefaultNamespace;
@@ -1066,6 +1074,94 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         return !string.IsNullOrEmpty(ns)
             ? $"{ns}.{nameStr}"
             : nameStr;
+    }
+
+    /// <summary>
+    /// The namespace that types declared in a protocol document inherit when they declare none.
+    /// </summary>
+    private static string? GetProtocolNamespace(JObject protocol)
+    {
+        if (protocol.TryGetValue("namespace", out var ns))
+        {
+            var nsText = ns.ToString();
+            if (!string.IsNullOrEmpty(nsText))
+                return nsText;
+        }
+
+        var protocolName = protocol.TryGetValue("protocol", out var name)
+            ? name.ToString()
+            : string.Empty;
+        var lastSeparator = protocolName.LastIndexOf('.');
+
+        return lastSeparator > 0
+            ? protocolName[..lastSeparator]
+            : null;
+    }
+
+    /// <summary>
+    /// Writes the namespace a named schema inherits from its enclosing document or type onto the
+    /// schema itself, so that it keeps its full name once moved into another document.
+    /// </summary>
+    private static void QualifyInheritedNamespaces(JToken? schema, string? inheritedNamespace)
+    {
+        switch (schema)
+        {
+            case JArray union:
+                foreach (var branch in union)
+                    QualifyInheritedNamespaces(branch, inheritedNamespace);
+                return;
+
+            case JObject obj:
+                var nestedNamespace = QualifyNamespace(obj, inheritedNamespace);
+
+                if (obj.TryGetValue("fields", out var fields) && fields is JArray fieldArray)
+                {
+                    foreach (var field in fieldArray.OfType<JObject>())
+                        QualifyInheritedNamespaces(field["type"], nestedNamespace);
+                }
+
+                if (obj.TryGetValue("items", out var items))
+                    QualifyInheritedNamespaces(items, nestedNamespace);
+
+                if (obj.TryGetValue("values", out var values))
+                    QualifyInheritedNamespaces(values, nestedNamespace);
+
+                return;
+        }
+    }
+
+    /// <summary>
+    /// The namespace that schemas nested inside <paramref name="schema"/> inherit, having given the
+    /// schema an explicit namespace when it is a named type that was relying on an inherited one.
+    /// </summary>
+    private static string? QualifyNamespace(JObject schema, string? inheritedNamespace)
+    {
+        if (!IsNamedSchema(schema))
+            return inheritedNamespace;
+
+        var name = schema["name"]!.ToString();
+        var lastSeparator = name.LastIndexOf('.');
+        if (lastSeparator > 0)
+            return name[..lastSeparator];
+
+        if (schema.TryGetValue("namespace", out var ns))
+        {
+            var nsText = ns.ToString();
+            return !string.IsNullOrEmpty(nsText) ? nsText : null;
+        }
+
+        if (!string.IsNullOrEmpty(inheritedNamespace))
+            schema["namespace"] = inheritedNamespace;
+
+        return inheritedNamespace;
+    }
+
+    private static bool IsNamedSchema(JObject schema)
+    {
+        if (!schema.ContainsKey("name") || !schema.TryGetValue("type", out var type))
+            return false;
+
+        return type.ToString() is "record" or "error" or "enum" or "fixed";
     }
 
     private static string GetNamedSchemaName(IdlParser.NamedSchemaDeclarationContext context)
