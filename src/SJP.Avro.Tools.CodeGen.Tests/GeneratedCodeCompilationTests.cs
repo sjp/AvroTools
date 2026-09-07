@@ -250,6 +250,78 @@ internal static class GeneratedCodeCompilationTests
     }
 
     [Test]
+    public static void Generate_GivenFixedBackedDecimal_ProducesConvertingPropertyAndItsFixedType()
+    {
+        // A decimal backed by a fixed hides a named type behind the logical type wrapper. The
+        // field is still exchanged as an AvroDecimal, exactly as a bytes-backed decimal is.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledFixedDecimalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amount", "type" : { "type" : "fixed", "name" : "CompiledMoney", "size" : 8, "logicalType" : "decimal", "precision" : 10, "scale" : 2 } }
+  ]
+}
+""");
+
+        var fixedSchema = (FixedSchema)((LogicalSchema)schema.Fields[0].Schema).BaseSchema;
+        var assembly = GeneratedSourceCompiler.Compile(
+            new AvroFixedGenerator().Generate(fixedSchema, TestNamespace),
+            new AvroRecordGenerator().Generate(schema, TestNamespace));
+
+        var generatedType = assembly.GetType($"{TestNamespace}.CompiledFixedDecimalWidget")!;
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, new AvroDecimal(1.25m));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixedSchema.Fullname, Is.EqualTo($"{TestNamespace}.CompiledMoney"));
+            Assert.That(assembly.GetType($"{TestNamespace}.CompiledMoney"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(decimal)));
+            Assert.That(generatedType.GetProperty("amount")!.GetValue(widget), Is.EqualTo(1.25m));
+            Assert.That(AvroDecimal.ToDecimal((AvroDecimal)widget.Get(0)), Is.EqualTo(1.25m));
+        }
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public static void Generate_GivenNullableFixedBackedDecimal_ReadsThroughSpecificDatumReader(bool hasValue)
+    {
+        // Reading the field means instantiating the fixed behind the logical type, which the
+        // specific reader resolves by name across the loaded assemblies.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledNullableFixedDecimalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amount", "type" : [ "null", { "type" : "fixed", "name" : "CompiledNullableMoney", "size" : 8, "logicalType" : "decimal", "precision" : 10, "scale" : 2 } ] }
+  ]
+}
+""");
+
+        var branchSchema = ((UnionSchema)schema.Fields[0].Schema).Schemas.OfType<LogicalSchema>().Single();
+        var assembly = GeneratedSourceCompiler.Compile(
+            new AvroFixedGenerator().Generate((FixedSchema)branchSchema.BaseSchema, TestNamespace),
+            new AvroRecordGenerator().Generate(schema, TestNamespace));
+
+        var generatedType = assembly.GetType($"{TestNamespace}.CompiledNullableFixedDecimalWidget")!;
+
+        var written = new GenericRecord(schema);
+        written.Add("amount", hasValue ? new AvroDecimal(1.25m) : null!);
+
+        var deserialized = WriteGenericReadSpecific(schema, written);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(decimal?)));
+            Assert.That(deserialized.Schema.Fullname, Is.EqualTo($"{TestNamespace}.CompiledNullableFixedDecimalWidget"));
+            Assert.That(deserialized.Get(0) is AvroDecimal d ? AvroDecimal.ToDecimal(d) : (decimal?)null, Is.EqualTo(hasValue ? (decimal?)1.25m : null));
+        }
+    }
+
+    [Test]
     public static void Generate_GivenDecimalsInsideCollections_RoundTripsThroughSpecificDatumReaderAsAvroDecimal()
     {
         // Values inside an array or a map stay in Avro's own representation rather than being
@@ -334,6 +406,19 @@ internal static class GeneratedCodeCompilationTests
     {
         using var stream = new MemoryStream();
         new SpecificDatumWriter<ISpecificRecord>(schema).Write(record, new BinaryEncoder(stream));
+        stream.Seek(0, SeekOrigin.Begin);
+
+        return new SpecificDatumReader<ISpecificRecord>(schema, schema).Read(null!, new BinaryDecoder(stream));
+    }
+
+    /// <summary>
+    /// Writes a record in Avro's generic representation and reads it back through the specific
+    /// reader, which resolves each named type to a generated class.
+    /// </summary>
+    private static ISpecificRecord WriteGenericReadSpecific(RecordSchema schema, GenericRecord record)
+    {
+        using var stream = new MemoryStream();
+        new GenericDatumWriter<GenericRecord>(schema).Write(record, new BinaryEncoder(stream));
         stream.Seek(0, SeekOrigin.Begin);
 
         return new SpecificDatumReader<ISpecificRecord>(schema, schema).Read(null!, new BinaryDecoder(stream));

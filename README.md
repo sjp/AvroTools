@@ -223,6 +223,11 @@ converted element by element: those properties are typed
 `List<AvroDecimal>` and `IDictionary<string, AvroDecimal>` and are handed to
 Avro as-is.
 
+A logical type may be backed by a named `fixed` rather than a primitive — a
+`decimal` stored in a `fixed`, or a `duration`. The named type is generated
+alongside the record that uses it, because `Apache.Avro` resolves it by name
+when reading. The same applies to `idl2schemata`, which writes an `.avsc` for it.
+
 Avro names admit every C# keyword, so a name that is one is emitted verbatim with
 an `@` prefix (`@class`, `@event`, `@void`). The prefix is purely lexical: the
 generated member still carries the Avro name, and field positions are unchanged.

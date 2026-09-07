@@ -825,4 +825,52 @@ namespace TestNamespace
             Assert.That(File.Exists(Path.Combine(outputDir.FullName, "OtherRecord.cs")), Is.True);
         }
     }
+
+    [Test]
+    public async Task ExecuteAsync_GivenSchemaWithFixedBackedDecimal_GeneratesTheFixedType()
+    {
+        const string input = """
+{
+  "type": "record",
+  "name": "Invoice",
+  "namespace": "TestNamespace",
+  "fields": [
+    {
+      "name": "amount",
+      "type": {
+        "type": "fixed",
+        "name": "Money",
+        "namespace": "TestNamespace",
+        "size": 8,
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      }
+    }
+  ]
+}
+""";
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], default);
+        var moneyFilePath = Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Money.cs");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Invoice.cs")), Is.True);
+            Assert.That(File.Exists(moneyFilePath), Is.True);
+        }
+
+        var moneyFileContents = await File.ReadAllTextAsync(moneyFilePath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(moneyFileContents, Does.Contain("public class Money : SpecificFixed"));
+            Assert.That(moneyFileContents, Does.Contain("public static uint FixedSize { get; } = 8;"));
+        }
+    }
 }

@@ -231,6 +231,146 @@ internal static class SchemaExtensionsTests
     }
 
     [Test]
+    public static void GetNamedTypes_GivenRecordWithFixedBackedDecimalField_ReturnsBoth()
+    {
+        const string schemaJson = """
+{
+  "type": "record",
+  "name": "Invoice",
+  "namespace": "test.namespace",
+  "fields": [
+    {
+      "name": "amount",
+      "type": {
+        "type": "fixed",
+        "name": "Money",
+        "size": 8,
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      }
+    }
+  ]
+}
+""";
+
+        var schema = Schema.Parse(schemaJson);
+        var namedTypes = schema.GetNamedTypes().ToList();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(namedTypes, Has.Count.EqualTo(2));
+            Assert.That(namedTypes[0].Name, Is.EqualTo("Invoice"));
+            Assert.That(namedTypes[1], Is.InstanceOf<FixedSchema>());
+            Assert.That(namedTypes[1].Fullname, Is.EqualTo("test.namespace.Money"));
+        }
+    }
+
+    [Test]
+    public static void GetNamedTypes_GivenRecordWithDurationField_ReturnsBoth()
+    {
+        const string schemaJson = """
+{
+  "type": "record",
+  "name": "Task",
+  "namespace": "test.namespace",
+  "fields": [
+    {
+      "name": "elapsed",
+      "type": {
+        "type": "fixed",
+        "name": "Duration",
+        "size": 12,
+        "logicalType": "duration"
+      }
+    }
+  ]
+}
+""";
+
+        var schema = Schema.Parse(schemaJson);
+        var namedTypes = schema.GetNamedTypes().ToList();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(namedTypes, Has.Count.EqualTo(2));
+            Assert.That(namedTypes[0].Name, Is.EqualTo("Task"));
+            Assert.That(namedTypes[1], Is.InstanceOf<FixedSchema>());
+            Assert.That(namedTypes[1].Fullname, Is.EqualTo("test.namespace.Duration"));
+        }
+    }
+
+    [Test]
+    public static void GetNamedTypes_GivenNullableFixedBackedDecimalField_ReturnsBoth()
+    {
+        const string schemaJson = """
+{
+  "type": "record",
+  "name": "Invoice",
+  "namespace": "test.namespace",
+  "fields": [
+    {
+      "name": "amount",
+      "type": [
+        "null",
+        {
+          "type": "fixed",
+          "name": "Money",
+          "size": 8,
+          "logicalType": "decimal",
+          "precision": 10,
+          "scale": 2
+        }
+      ]
+    }
+  ]
+}
+""";
+
+        var schema = Schema.Parse(schemaJson);
+        var namedTypes = schema.GetNamedTypes().ToList();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(namedTypes, Has.Count.EqualTo(2));
+            Assert.That(namedTypes[0].Name, Is.EqualTo("Invoice"));
+            Assert.That(namedTypes[1].Fullname, Is.EqualTo("test.namespace.Money"));
+        }
+    }
+
+    [Test]
+    public static void GetNamedTypes_GivenBytesBackedDecimalField_ReturnsOnlyRecord()
+    {
+        const string schemaJson = """
+{
+  "type": "record",
+  "name": "Invoice",
+  "namespace": "test.namespace",
+  "fields": [
+    {
+      "name": "amount",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      }
+    }
+  ]
+}
+""";
+
+        var schema = Schema.Parse(schemaJson);
+        var namedTypes = schema.GetNamedTypes().ToList();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(namedTypes, Has.Count.EqualTo(1));
+            Assert.That(namedTypes[0].Name, Is.EqualTo("Invoice"));
+        }
+    }
+
+    [Test]
     public static void GetNamedTypes_GivenArrayOfRecords_ReturnsRecords()
     {
         const string schemaJson = """

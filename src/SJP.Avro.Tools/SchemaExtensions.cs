@@ -59,6 +59,11 @@ public static class SchemaExtensions
                     yield return unionExtractedType;
                 break;
 
+            case LogicalSchema logicalSchema:
+                foreach (var nestedType in ExtractAllNamedTypesRecursive(logicalSchema.BaseSchema, visitedTypes))
+                    yield return nestedType;
+                break;
+
             // primitives and other types have no named types to extract
             default:
                 yield break;
