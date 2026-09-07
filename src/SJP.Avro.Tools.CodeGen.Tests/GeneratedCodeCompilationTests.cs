@@ -294,6 +294,197 @@ internal static class GeneratedCodeCompilationTests
         return new SpecificDatumReader<ISpecificRecord>(schema, schema).Read(null!, new BinaryDecoder(stream));
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, true)]
+    public static void Generate_GivenFieldsNamedAfterKeywords_ProducesCompilableProperties(bool requiredProperties, bool initOnlyProperties)
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledKeywordWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "class", "type" : "string" },
+    { "name" : "event", "type" : "string" },
+    { "name" : "record", "type" : "string" }
+  ]
+}
+""");
+
+        var options = new CodeGenOptions(requiredProperties, initOnlyProperties);
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace, options),
+            $"{TestNamespace}.CompiledKeywordWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, "a");
+        widget.Put(1, "b");
+        widget.Put(2, "c");
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            // The verbatim prefix is lexical only, so the members still carry the Avro names.
+            Assert.That(generatedType.GetProperty("class"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("event"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("record"), Is.Not.Null);
+            Assert.That(deserialized.Get(0), Is.EqualTo("a"));
+            Assert.That(deserialized.Get(1), Is.EqualTo("b"));
+            Assert.That(deserialized.Get(2), Is.EqualTo("c"));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenRecordNamedAfterKeyword_ProducesCompilableRecord()
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "event",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "id", "type" : "int" }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.event");
+
+        var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, 42);
+
+        Assert.That(RoundTrip(schema, instance).Get(0), Is.EqualTo(42));
+    }
+
+    [Test]
+    public static void Generate_GivenEnumSymbolNamedAfterKeyword_ProducesCompilableEnum()
+    {
+        var schema = (EnumSchema)Schema.Parse($$"""
+{
+    "type": "enum",
+    "name": "CompiledKeywordKind",
+    "namespace": "{{TestNamespace}}",
+    "symbols": [ "int", "string" ]
+}
+""");
+
+        var source = new AvroEnumGenerator().Generate(schema, TestNamespace);
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.CompiledKeywordKind");
+
+        Assert.That(Enum.GetNames(generatedType), Is.EqualTo(new[] { "int", "string" }));
+    }
+
+    [Test]
+    public static void Generate_GivenFixedNamedAfterKeyword_ProducesCompilableSpecificFixed()
+    {
+        var schema = (FixedSchema)Schema.Parse($$"""
+{
+    "type": "fixed",
+    "name": "checked",
+    "namespace": "{{TestNamespace}}",
+    "size": 8
+}
+""");
+
+        var source = new AvroFixedGenerator().Generate(schema, TestNamespace);
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.checked");
+
+        var instance = (SpecificFixed)Activator.CreateInstance(generatedType)!;
+
+        Assert.That(instance.Value, Has.Length.EqualTo(8));
+    }
+
+    [Test]
+    public static void Generate_GivenMessageNamedAfterKeyword_ProducesCompilableSpecificProtocol()
+    {
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "CompiledKeywordService",
+  "namespace" : "{{TestNamespace}}",
+  "types" : [],
+  "messages" : {
+    "lock" : {
+      "request" : [ { "name" : "for", "type" : "string" } ],
+      "response" : "null"
+    }
+  }
+}
+""");
+
+        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.CompiledKeywordService");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetMethod("lock"), Is.Not.Null);
+            Assert.That(generatedType.GetMethod("lock")!.GetParameters()[0].Name, Is.EqualTo("for"));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenFieldNamedAfterItsRecord_ProducesCompilableSuffixedProperty()
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "Foo",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "Foo", "type" : "string" },
+    { "name" : "Schema", "type" : "int" }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.Foo");
+
+        var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, "bar");
+        instance.Put(1, 3);
+
+        var deserialized = RoundTrip(schema, instance);
+
+        using (Assert.EnterMultipleScope())
+        {
+            // A member cannot share the name of its declaring type, nor of a member already
+            // generated, so both properties are suffixed while the Avro names are untouched.
+            Assert.That(generatedType.GetProperty("Foo_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("Schema_"), Is.Not.Null);
+            Assert.That(deserialized.Get(0), Is.EqualTo("bar"));
+            Assert.That(deserialized.Get(1), Is.EqualTo(3));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenMessageNamedAfterItsProtocol_ProducesCompilableSuffixedMethod()
+    {
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "Ping",
+  "namespace" : "{{TestNamespace}}",
+  "types" : [],
+  "messages" : {
+    "Ping" : { "request" : [], "response" : "null" },
+    "Request" : { "request" : [], "response" : "null" }
+  }
+}
+""");
+
+        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.Ping");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetMethod("Ping_"), Is.Not.Null);
+            Assert.That(generatedType.GetMethod("Request_"), Is.Not.Null);
+        }
+    }
+
     [Test]
     public static void Generate_GivenRecordReferringToFixedAndEnum_RoundTripsThroughSpecificDatumReader()
     {

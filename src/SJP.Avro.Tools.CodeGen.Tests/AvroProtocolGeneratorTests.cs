@@ -444,7 +444,7 @@ namespace org.apache.avro.test
         /// </summary>
         public abstract string hello(string greeting);
 
-        public abstract TestRecord echo(TestRecord record);
+        public abstract TestRecord echo(TestRecord @record);
 
         /// <summary>
         /// method 'add' takes @parameter 'arg1' @parameter 'arg2'
@@ -719,7 +719,7 @@ namespace org.apache.avro.test
         /// </summary>
         public abstract string hello(string greeting);
 
-        public abstract TestRecord echo(TestRecord record);
+        public abstract TestRecord echo(TestRecord @record);
 
         /// <summary>
         /// method 'add' takes @parameter 'arg1' @parameter 'arg2'

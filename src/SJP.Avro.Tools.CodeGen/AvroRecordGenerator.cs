@@ -61,14 +61,16 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                          Token(SyntaxKind.OverrideKeyword)));
         }
 
-        var backingFieldNames = BuildBackingFieldNames(schema);
+        var fieldEnumName = GetFieldEnumName(schema);
+        var propertyNames = BuildPropertyNames(schema, fieldEnumName);
+        var backingFieldNames = BuildBackingFieldNames(schema, propertyNames);
 
         var properties = schema.Fields
-            .SelectMany(c => BuildField(c, backingFieldNames[c.Name], options));
+            .SelectMany(c => BuildField(c, propertyNames[c.Name], backingFieldNames[c.Name], options));
 
-        var getMethod = GenerateGetMethod(schema);
-        var putMethod = GeneratePutMethod(schema, backingFieldNames, options);
-        var enumDecl = GenerateFieldMappingEnum(schema);
+        var getMethod = GenerateGetMethod(schema, propertyNames);
+        var putMethod = GeneratePutMethod(schema, propertyNames, backingFieldNames, options);
+        var enumDecl = GenerateFieldMappingEnum(schema, fieldEnumName);
 
         var members = new MemberDeclarationSyntax[]
         {
@@ -85,8 +87,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         var baseType = isError ? nameof(SpecificException) : nameof(ISpecificRecord);
 
         TypeDeclarationSyntax generatedType = isError
-            ? ClassDeclaration(schema.Name)
-            : RecordDeclaration(Token(SyntaxKind.RecordKeyword), schema.Name);
+            ? ClassDeclaration(SyntaxUtilities.SafeIdentifier(schema.Name))
+            : RecordDeclaration(Token(SyntaxKind.RecordKeyword), SyntaxUtilities.SafeIdentifier(schema.Name));
 
         generatedType = generatedType
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
@@ -156,7 +158,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         };
     }
 
-    private static IEnumerable<MemberDeclarationSyntax> BuildField(Field field, string backingFieldName, CodeGenOptions options)
+    private static IEnumerable<MemberDeclarationSyntax> BuildField(Field field, string propertyName, string backingFieldName, CodeGenOptions options)
     {
         var fieldIsNullable = AvroSchemaUtilities.IsNullableRefType(field.Schema) || AvroSchemaUtilities.IsNullableValueType(field.Schema);
 
@@ -174,7 +176,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
         var baseProperty = PropertyDeclaration(
             columnTypeSyntax,
-            Identifier(field.Name)
+            SyntaxUtilities.SafeIdentifier(propertyName)
         );
 
         if (options.InitOnlyProperties)
@@ -248,14 +250,48 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     }
 
     /// <summary>
-    /// Computes a unique backing field name per field, avoiding collisions with Avro field names,
-    /// the hardcoded <c>_schema</c> field emitted by <see cref="AvroSchemaUtilities.CreateSchemaDefinition"/>,
-    /// and backing field names already claimed by other fields in this same record.
+    /// Computes the C# property name for each Avro field. A member may not share its name with the
+    /// type that declares it, nor with the other members generated alongside the properties, so a
+    /// field with one of those names gets an underscore-suffixed property. The Avro name is
+    /// unaffected: it stays in the schema, in the field position enum and in <c>Get</c>/<c>Put</c>.
     /// </summary>
-    private static IReadOnlyDictionary<string, string> BuildBackingFieldNames(RecordSchema recordSchema)
+    private static IReadOnlyDictionary<string, string> BuildPropertyNames(RecordSchema recordSchema, string fieldEnumName)
     {
-        var reservedNames = new HashSet<string>(recordSchema.Fields.Select(f => f.Name)) { "_schema" };
-        var backingFieldNames = new Dictionary<string, string>();
+        var unavailableNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            recordSchema.Name,
+            fieldEnumName,
+            "_schema",
+            nameof(Schema),
+            nameof(ISpecificRecord.Get),
+            nameof(ISpecificRecord.Put)
+        };
+
+        var propertyNames = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var field in recordSchema.Fields)
+        {
+            var candidate = field.Name;
+            while (unavailableNames.Contains(candidate))
+                candidate += "_";
+
+            propertyNames[field.Name] = candidate;
+            unavailableNames.Add(candidate);
+        }
+
+        return propertyNames;
+    }
+
+    /// <summary>
+    /// Computes a unique backing field name per field, avoiding collisions with the generated
+    /// property names, the hardcoded <c>_schema</c> field emitted by
+    /// <see cref="AvroSchemaUtilities.CreateSchemaDefinition"/>, and backing field names already
+    /// claimed by other fields in this same record.
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> BuildBackingFieldNames(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames)
+    {
+        var reservedNames = new HashSet<string>(propertyNames.Values, StringComparer.Ordinal) { "_schema" };
+        var backingFieldNames = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var field in recordSchema.Fields)
         {
@@ -270,7 +306,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         return backingFieldNames;
     }
 
-    private static MethodDeclarationSyntax GenerateGetMethod(RecordSchema recordSchema)
+    private static MethodDeclarationSyntax GenerateGetMethod(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames)
     {
         var isError = recordSchema.Tag == Schema.Type.Error;
 
@@ -306,7 +342,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
         var fieldCaseStatements = recordSchema
             .Fields
-            .Select(f => GenerateGetCaseStatement(f, enumName))
+            .Select(f => GenerateGetCaseStatement(f, enumName, propertyNames[f.Name]))
             .Concat([GenerateGetDefaultCaseStatement()])
             .ToList();
 
@@ -333,7 +369,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                             SeparatedList(fieldCaseStatements)))));
     }
 
-    private static MethodDeclarationSyntax GeneratePutMethod(RecordSchema recordSchema, IReadOnlyDictionary<string, string> backingFieldNames, CodeGenOptions options)
+    private static MethodDeclarationSyntax GeneratePutMethod(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames, IReadOnlyDictionary<string, string> backingFieldNames, CodeGenOptions options)
     {
         var isError = recordSchema.Tag == Schema.Type.Error;
 
@@ -378,7 +414,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
         var fieldCaseStatements = recordSchema
             .Fields
-            .Select(f => GeneratePutCaseStatement(f, enumName, backingFieldNames[f.Name], options))
+            .Select(f => GeneratePutCaseStatement(f, enumName, propertyNames[f.Name], backingFieldNames[f.Name], options))
             .Concat([GeneratePutDefaultCaseStatement()])
             .ToList();
 
@@ -404,32 +440,32 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         List(fieldCaseStatements))));
     }
 
-    private static SwitchExpressionArmSyntax GenerateGetCaseStatement(Field field, string enumClassName)
+    private static SwitchExpressionArmSyntax GenerateGetCaseStatement(Field field, string enumClassName, string propertyName)
     {
         // A decimal property must be converted back to the AvroDecimal the writer expects.
         var decimalSchema = AvroSchemaUtilities.GetConvertedDecimalSchema(field.Schema);
         var valueExpression = decimalSchema != null
-            ? GenerateGetDecimalCase(field, AvroSchemaUtilities.GetDecimalScale(decimalSchema), AvroSchemaUtilities.IsNullable(field.Schema))
-            : IdentifierName(field.Name);
+            ? GenerateGetDecimalCase(propertyName, AvroSchemaUtilities.GetDecimalScale(decimalSchema), AvroSchemaUtilities.IsNullable(field.Schema))
+            : SyntaxUtilities.SafeIdentifierName(propertyName);
 
         return SwitchExpressionArm(
             ConstantPattern(
                 MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
                     IdentifierName(enumClassName),
-                    IdentifierName(field.Name))),
+                    SyntaxUtilities.SafeIdentifierName(field.Name))),
             valueExpression);
     }
 
-    private static ExpressionSyntax GenerateGetDecimalCase(Field field, int scale, bool isNullable)
+    private static ExpressionSyntax GenerateGetDecimalCase(string propertyName, int scale, bool isNullable)
     {
         // Only the non-null branch can be rounded, so a nullable decimal keeps its null as-is.
         var value = isNullable
             ? MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
-                IdentifierName(field.Name),
+                SyntaxUtilities.SafeIdentifierName(propertyName),
                 IdentifierName(nameof(Nullable<int>.Value)))
-            : (ExpressionSyntax)IdentifierName(field.Name);
+            : (ExpressionSyntax)SyntaxUtilities.SafeIdentifierName(propertyName);
 
         var conversion = GenerateAvroDecimalCreation(value, scale);
 
@@ -439,7 +475,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         return ConditionalExpression(
             BinaryExpression(
                 SyntaxKind.EqualsExpression,
-                IdentifierName(field.Name),
+                SyntaxUtilities.SafeIdentifierName(propertyName),
                 LiteralExpression(SyntaxKind.NullLiteralExpression)),
             CastExpression(
                 NullableType(IdentifierName(nameof(AvroDecimal))),
@@ -566,16 +602,16 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                                 Literal($" in {nameof(ISpecificRecord.Put)}()"))))))))));
     }
 
-    private static SwitchSectionSyntax GeneratePutCaseStatement(Field field, string enumClassName, string backingFieldName, CodeGenOptions options)
+    private static SwitchSectionSyntax GeneratePutCaseStatement(Field field, string enumClassName, string propertyName, string backingFieldName, CodeGenOptions options)
     {
         // A decimal property must be converted from the AvroDecimal the reader supplies.
         if (AvroSchemaUtilities.GetConvertedDecimalSchema(field.Schema) != null)
         {
-            return GenerateDecimalPutCaseStatement(field, enumClassName, backingFieldName, options);
+            return GenerateDecimalPutCaseStatement(field, enumClassName, propertyName, backingFieldName, options);
         }
 
         var fieldType = AvroSchemaUtilities.GetFieldType(field.Schema);
-        var assignmentTargetName = options.InitOnlyProperties ? backingFieldName : field.Name;
+        var assignmentTargetName = options.InitOnlyProperties ? backingFieldName : propertyName;
 
         return SwitchSection()
             .WithLabels(
@@ -584,23 +620,23 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
                             IdentifierName(enumClassName),
-                            IdentifierName(field.Name)))))
+                            SyntaxUtilities.SafeIdentifierName(field.Name)))))
             .WithStatements(
                 List(
                     new StatementSyntax[]{
                             ExpressionStatement(
                                 AssignmentExpression(
                                     SyntaxKind.SimpleAssignmentExpression,
-                                    IdentifierName(assignmentTargetName),
+                                    SyntaxUtilities.SafeIdentifierName(assignmentTargetName),
                                     CastExpression(
                                         fieldType,
                                         IdentifierName("fieldValue")))),
                             BreakStatement()}));
     }
 
-    private static SwitchSectionSyntax GenerateDecimalPutCaseStatement(Field field, string enumClassName, string backingFieldName, CodeGenOptions options)
+    private static SwitchSectionSyntax GenerateDecimalPutCaseStatement(Field field, string enumClassName, string propertyName, string backingFieldName, CodeGenOptions options)
     {
-        var assignmentTargetName = options.InitOnlyProperties ? backingFieldName : field.Name;
+        var assignmentTargetName = options.InitOnlyProperties ? backingFieldName : propertyName;
 
         ExpressionSyntax conversion = InvocationExpression(
                 MemberAccessExpression(
@@ -636,7 +672,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
                             IdentifierName(enumClassName),
-                            IdentifierName(field.Name)))))
+                            SyntaxUtilities.SafeIdentifierName(field.Name)))))
             .WithStatements(
                 List(
                     new StatementSyntax[]
@@ -644,20 +680,18 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                             ExpressionStatement(
                                 AssignmentExpression(
                                     SyntaxKind.SimpleAssignmentExpression,
-                                    IdentifierName(assignmentTargetName),
+                                    SyntaxUtilities.SafeIdentifierName(assignmentTargetName),
                                     conversion)),
                             BreakStatement()
                     }));
     }
 
-    private static EnumDeclarationSyntax GenerateFieldMappingEnum(RecordSchema recordSchema)
+    private static EnumDeclarationSyntax GenerateFieldMappingEnum(RecordSchema recordSchema, string enumName)
     {
         var members = recordSchema.Fields
             .Select(f => f.Name)
-            .Select(m => EnumMemberDeclaration(m))
+            .Select(m => EnumMemberDeclaration(SyntaxUtilities.SafeIdentifier(m)))
             .ToList();
-
-        var enumName = GetFieldEnumName(recordSchema);
 
         return EnumDeclaration(enumName)
             .AddModifiers(Token(SyntaxKind.PrivateKeyword))

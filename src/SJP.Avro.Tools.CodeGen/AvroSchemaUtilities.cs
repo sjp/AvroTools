@@ -46,7 +46,7 @@ internal static class AvroSchemaUtilities
         if (schema is UnionSchema unionSchema)
             return ResolveUnionType(unionSchema, convertDecimals);
 
-        return IdentifierName(schema.Name);
+        return SyntaxUtilities.SafeIdentifierName(schema.Name);
     }
 
     private static TypeSyntax ResolveLogicalType(LogicalSchema logicalSchema, bool convertDecimals)

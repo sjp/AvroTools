@@ -63,7 +63,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
                 ctor
         };
 
-        var generatedClass = ClassDeclaration(schema.Name)
+        var generatedClass = ClassDeclaration(SyntaxUtilities.SafeIdentifier(schema.Name))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
             .AddBaseListTypes(SimpleBaseType(IdentifierName(nameof(SpecificFixed))))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
@@ -104,7 +104,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
     private static ConstructorDeclarationSyntax CreateConstructor(string className)
     {
         return ConstructorDeclaration(
-            Identifier(className))
+            SyntaxUtilities.SafeIdentifier(className))
             .WithModifiers(
                 TokenList(
                     Token(SyntaxKind.PublicKeyword)))

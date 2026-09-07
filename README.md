@@ -223,6 +223,25 @@ converted element by element: those properties are typed
 `List<AvroDecimal>` and `IDictionary<string, AvroDecimal>` and are handed to
 Avro as-is.
 
+Avro names admit every C# keyword, so a name that is one is emitted verbatim with
+an `@` prefix (`@class`, `@event`, `@void`). The prefix is purely lexical: the
+generated member still carries the Avro name, and field positions are unchanged.
+
+C# also forbids a member from sharing its name with the type that declares it, or
+with another member of that type. A field or message whose name collides — with
+its own record or protocol, or with one of the generated members (`Schema`, `Get`,
+`Put`, `Protocol`, `Request`) — is given an underscore suffix:
+
+```csharp
+public record Foo : ISpecificRecord
+{
+    public int Foo_ { get; set; }   // Avro field 'Foo'
+}
+```
+
+The Avro name is untouched: it stays in the embedded schema and in the
+`Get`/`Put` mapping, so the wire format is unaffected.
+
 #### Canonical form and fingerprints
 
 `avrotool canonical` prints the [Parsing Canonical Form](https://avro.apache.org/docs/current/specification/#parsing-canonical-form-for-schemas)

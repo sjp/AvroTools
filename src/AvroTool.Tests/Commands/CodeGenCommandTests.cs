@@ -248,7 +248,7 @@ namespace SJP.Avro.CodeGen.Test
 
         public abstract void error();
 
-        public abstract void void();
+        public abstract void @void();
     }
 }
 """;
@@ -303,7 +303,7 @@ namespace SJP.Avro.CodeGen.Test
 
         public abstract void error();
 
-        public abstract void void();
+        public abstract void @void();
     }
 }
 """;

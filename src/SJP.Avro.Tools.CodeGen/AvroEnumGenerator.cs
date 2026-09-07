@@ -43,10 +43,10 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
         }
 
         var members = orderedSymbols
-            .Select(m => EnumMemberDeclaration(m))
+            .Select(m => EnumMemberDeclaration(SyntaxUtilities.SafeIdentifier(m)))
             .ToList();
 
-        var generatedEnum = EnumDeclaration(schema.Name)
+        var generatedEnum = EnumDeclaration(SyntaxUtilities.SafeIdentifier(schema.Name))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
             .WithMembers(SeparatedList(members))

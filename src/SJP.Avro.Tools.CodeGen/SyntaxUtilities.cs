@@ -86,6 +86,50 @@ internal static class SyntaxUtilities
     private static readonly SyntaxToken XmlNewline = XmlTextNewLine(Environment.NewLine);
 
     /// <summary>
+    /// Creates an identifier token for a name taken from an Avro schema. Avro names admit every C#
+    /// keyword, so a name that is one is emitted with a verbatim <c>@</c> prefix (<c>@class</c>).
+    /// The prefix is purely lexical: the declared member still carries the Avro name.
+    /// </summary>
+    /// <param name="name">A name declared in an Avro schema.</param>
+    /// <returns>A token that is always a legal C# identifier.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is empty or whitespace.</exception>
+    public static SyntaxToken SafeIdentifier(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        if (!IsKeyword(name))
+            return Identifier(name);
+
+        return Identifier(TriviaList(), SyntaxKind.IdentifierToken, "@" + name, name, TriviaList());
+    }
+
+    /// <summary>
+    /// Creates an identifier name expression for a name taken from an Avro schema, escaping it
+    /// where necessary in the same way as <see cref="SafeIdentifier(string)"/>.
+    /// </summary>
+    /// <param name="name">A name declared in an Avro schema.</param>
+    /// <returns>An identifier name that is always a legal C# identifier.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is empty or whitespace.</exception>
+    public static IdentifierNameSyntax SafeIdentifierName(string name) => IdentifierName(SafeIdentifier(name));
+
+    /// <summary>
+    /// Determines whether a name has to be escaped to be used as an identifier. Reserved keywords
+    /// always do. Most contextual keywords do not, and escaping them would only add noise, but the
+    /// few that a declaration can begin with are read as a modifier or as a declaration keyword
+    /// rather than as a name, so they do.
+    /// </summary>
+    private static bool IsKeyword(string name)
+    {
+        return SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None
+            || DeclarationContextualKeywords.Contains(name);
+    }
+
+    private static readonly IReadOnlySet<string> DeclarationContextualKeywords =
+        new HashSet<string>(StringComparer.Ordinal) { "file", "record", "required" };
+
+    /// <summary>
     /// A type syntax lookup that translates from built-in C# types to Roslyn type definitions.
     /// </summary>
     public static readonly IReadOnlyDictionary<Schema.Type, TypeSyntax> TypeSyntaxMap = new Dictionary<Schema.Type, TypeSyntax>()

@@ -52,8 +52,9 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             ParseName("Avro.Protocol"));
         usingStatements.Add(protocolAlias);
 
+        var methodNames = BuildMethodNames(protocol);
         var messageMethods = protocol.Messages.Values
-            .Select(BuildMethod)
+            .Select(m => BuildMethod(m, methodNames[m.Name]))
             .ToList();
 
         var members = new MemberDeclarationSyntax[]
@@ -64,7 +65,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         }.Concat(messageMethods)
         .ToList();
 
-        var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), protocol.Name)
+        var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), SyntaxUtilities.SafeIdentifier(protocol.Name))
             .AddModifiers(
                 Token(SyntaxKind.PublicKeyword),
                 Token(SyntaxKind.AbstractKeyword))
@@ -89,6 +90,37 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 
         using var workspace = new AdhocWorkspace();
         return Formatter.Format(document, workspace).ToFullString();
+    }
+
+    /// <summary>
+    /// Computes the C# method name for each message. A method may not share its name with the type
+    /// that declares it, nor with the other members generated alongside it, so a message with one of
+    /// those names gets an underscore-suffixed method. The Avro name is unaffected: it stays in the
+    /// protocol and in the <c>Request</c> dispatch.
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> BuildMethodNames(Protocol protocol)
+    {
+        var unavailableNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            protocol.Name,
+            "_protocol",
+            nameof(Protocol),
+            nameof(ISpecificProtocol.Request)
+        };
+
+        var methodNames = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var message in protocol.Messages.Values)
+        {
+            var candidate = message.Name;
+            while (unavailableNames.Contains(candidate))
+                candidate += "_";
+
+            methodNames[message.Name] = candidate;
+            unavailableNames.Add(candidate);
+        }
+
+        return methodNames;
     }
 
     private static IEnumerable<string> GetRequiredNamespaces(Protocol protocol)
@@ -234,7 +266,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                             BreakStatement()}));
     }
 
-    private static MethodDeclarationSyntax BuildMethod(Message message)
+    private static MethodDeclarationSyntax BuildMethod(Message message, string methodName)
     {
         var responseType = GetMessageResponseType(message.Response);
 
@@ -245,7 +277,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 
         var method = MethodDeclaration(
                 responseType,
-                Identifier(message.Name))
+                SyntaxUtilities.SafeIdentifier(methodName))
             .WithModifiers(
                 TokenList(
                     Token(SyntaxKind.PublicKeyword),
@@ -267,7 +299,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     private static ParameterSyntax BuildMessageParameter(Field field)
     {
         var paramType = AvroSchemaUtilities.GetFieldType(field.Schema);
-        var paramName = Identifier(field.Name);
+        var paramName = SyntaxUtilities.SafeIdentifier(field.Name);
 
         return Parameter(paramName)
             .WithType(paramType);
