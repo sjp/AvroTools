@@ -30,12 +30,15 @@ internal sealed class GetSchemaCommand : AsyncCommand<GetSchemaCommand.Settings>
     }
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
 
-    public GetSchemaCommand(IAnsiConsole console)
+    public GetSchemaCommand(IAnsiConsole console, IStandardStreams streams)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
 
         _console = console;
+        _streams = streams;
     }
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
@@ -56,7 +59,7 @@ internal sealed class GetSchemaCommand : AsyncCommand<GetSchemaCommand.Settings>
     {
         var source = settings.FromStandardInput ? InputSource.StandardInputName : settings.AvroFile;
 
-        using var stream = InputSource.OpenRead(settings.FromStandardInput, settings.AvroFile);
+        using var stream = _streams.OpenRead(settings.FromStandardInput, settings.AvroFile);
 
         IFileReader<GenericRecord> reader;
         try
@@ -76,7 +79,7 @@ internal sealed class GetSchemaCommand : AsyncCommand<GetSchemaCommand.Settings>
             if (settings.Pretty)
                 schemaJson = JsonFormatting.Indent(schemaJson);
 
-            await Console.Out.WriteLineAsync(schemaJson.AsMemory(), cancellationToken);
+            await _streams.Output.WriteLineAsync(schemaJson.AsMemory(), cancellationToken);
             return ErrorCode.Success;
         }
     }

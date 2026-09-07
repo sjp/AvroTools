@@ -25,16 +25,20 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
     }
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public CanonicalCommand(
         IAnsiConsole console,
+        IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _streams = streams;
         _idlTranslator = idlTranslator;
     }
 
@@ -54,7 +58,7 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var content = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.SchemaFile, cancellationToken);
+        var content = await _streams.ReadAllTextAsync(settings.FromStandardInput, settings.SchemaFile, cancellationToken);
         var baseDirectory = InputSource.ImportBaseDirectory(settings.FromStandardInput, settings.SchemaFile);
         var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
         if (input == null)
@@ -71,7 +75,7 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
             foreach (var schema in input.Schemas)
             {
                 var canonicalForm = SchemaNormalization.ToParsingForm(schema);
-                await Console.Out.WriteLineAsync(canonicalForm.AsMemory(), cancellationToken);
+                await _streams.Output.WriteLineAsync(canonicalForm.AsMemory(), cancellationToken);
             }
 
             return ErrorCode.Success;

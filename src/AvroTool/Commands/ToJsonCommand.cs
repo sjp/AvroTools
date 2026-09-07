@@ -31,12 +31,15 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
     }
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
 
-    public ToJsonCommand(IAnsiConsole console)
+    public ToJsonCommand(IAnsiConsole console, IStandardStreams streams)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
 
         _console = console;
+        _streams = streams;
     }
 
     protected override ValidationResult Validate(CommandContext context, Settings settings)
@@ -57,7 +60,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
     {
         var source = settings.FromStandardInput ? InputSource.StandardInputName : settings.AvroFile;
 
-        using var stream = InputSource.OpenRead(settings.FromStandardInput, settings.AvroFile);
+        using var stream = _streams.OpenRead(settings.FromStandardInput, settings.AvroFile);
 
         IFileReader<GenericRecord> reader;
         try
@@ -78,7 +81,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
             // A container file can hold millions of records, and standard output flushes on every
             // write, so records are buffered and forwarded in blocks. Disposal flushes whatever is
             // left, including when decoding fails part way through.
-            using var output = new BufferedTextWriter(Console.Out);
+            using var output = new BufferedTextWriter(_streams.Output);
 
             try
             {

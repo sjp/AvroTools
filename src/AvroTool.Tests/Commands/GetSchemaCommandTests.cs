@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Threading.Tasks;
 using Avro;
@@ -19,6 +18,7 @@ internal class GetSchemaCommandTests
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
 
     [SetUp]
@@ -28,9 +28,10 @@ internal class GetSchemaCommandTests
 
         _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
+        _streams = new TestStandardStreams();
 
         var registrar = new FakeTypeRegistrar();
-        var command = new GetSchemaCommand(_console.Object);
+        var command = new GetSchemaCommand(_console.Object, _streams);
         registrar.RegisterInstance(typeof(GetSchemaCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -60,22 +61,26 @@ internal class GetSchemaCommandTests
     {
         var avroFile = CreateAvroFile();
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], default);
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(stdout.ToString().Trim(), Is.EqualTo(SchemaJson));
-            }
-        }
-        finally
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText.Trim(), Is.EqualTo(SchemaJson));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStdin_WritesWriterSchemaToStdout()
+    {
+        _streams.StandardInputBytes = await File.ReadAllBytesAsync(CreateAvroFile());
+
+        var result = await _app.RunAsync(["--stdin"], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText.Trim(), Is.EqualTo(SchemaJson));
         }
     }
 
@@ -84,23 +89,13 @@ internal class GetSchemaCommandTests
     {
         var avroFile = CreateAvroFile();
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([avroFile, "--pretty"], default);
+        var result = await _app.RunAsync([avroFile, "--pretty"], default);
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(stdout.ToString(), Does.Contain("\n"));
-                Assert.That(stdout.ToString(), Does.Contain("  "));
-            }
-        }
-        finally
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText, Does.Contain("\n"));
+            Assert.That(_streams.OutputText, Does.Contain("  "));
         }
     }
 

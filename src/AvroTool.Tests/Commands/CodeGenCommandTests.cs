@@ -101,6 +101,7 @@ internal class CodeGenCommandTests
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
@@ -120,8 +121,10 @@ internal class CodeGenCommandTests
             .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
+        _streams = new TestStandardStreams();
+
         var registrar = new FakeTypeRegistrar();
-        var command = new CodeGenCommand(_console.Object, new CodeGeneratorResolver(), _idlTranslator.Object);
+        var command = new CodeGenCommand(_console.Object, _streams, new CodeGeneratorResolver(), _idlTranslator.Object);
         registrar.RegisterInstance(typeof(CodeGenCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -735,21 +738,14 @@ namespace TestNamespace
     {
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
 
-        var originalIn = Console.In;
-        Console.SetIn(new StringReader(SimpleTestIdl));
-        try
-        {
-            var result = await _app.RunAsync(["--stdin", "--namespace", TestNamespace, "--output-dir", sourceDir.FullName], default);
+        _streams.StandardInputText = SimpleTestIdl;
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")), Is.True);
-            }
-        }
-        finally
+        var result = await _app.RunAsync(["--stdin", "--namespace", TestNamespace, "--output-dir", sourceDir.FullName], default);
+
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetIn(originalIn);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs")), Is.True);
         }
     }
 

@@ -76,6 +76,7 @@ internal static class AvroInputResolver
     /// requires, reporting any failure to the console.
     /// </summary>
     /// <param name="schemaFile">The path of the file to read, or <c>null</c> to read standard input.</param>
+    /// <param name="streams">The standard streams to read standard input from.</param>
     /// <param name="translator">The IDL translator to fall back to.</param>
     /// <param name="commandName">The command name to use when reporting an unusable input.</param>
     /// <param name="console">The console to write failures to.</param>
@@ -83,6 +84,7 @@ internal static class AvroInputResolver
     /// <returns>The resolved schema, or <c>null</c> when the input could not be used.</returns>
     public static async Task<SchemaSource?> ResolveSingleSchemaAsync(
         string? schemaFile,
+        IStandardStreams streams,
         IIdlToAvroTranslator translator,
         string commandName,
         IAnsiConsole console,
@@ -91,7 +93,7 @@ internal static class AvroInputResolver
         var fromStandardInput = schemaFile == null;
         var displayName = fromStandardInput ? InputSource.StandardInputName : schemaFile!;
 
-        var content = await InputSource.ReadAllTextAsync(fromStandardInput, schemaFile, cancellationToken);
+        var content = await streams.ReadAllTextAsync(fromStandardInput, schemaFile, cancellationToken);
         var baseDirectory = InputSource.ImportBaseDirectory(fromStandardInput, schemaFile);
         var input = await ResolveAsync(content, translator, baseDirectory, cancellationToken);
         if (input == null)

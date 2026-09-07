@@ -126,6 +126,7 @@ record PairVolume {
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
@@ -145,9 +146,12 @@ record PairVolume {
             .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
+        _streams = new TestStandardStreams();
+
         var registrar = new FakeTypeRegistrar();
         var command = new IdlToSchemataCommand(
             _console.Object,
+            _streams,
             _idlTranslator.Object);
         registrar.RegisterInstance(typeof(IdlToSchemataCommand), command);
 
@@ -323,7 +327,7 @@ record PairVolume {
     {
         var console = new TestConsole().Width(200);
         var registrar = new FakeTypeRegistrar();
-        registrar.RegisterInstance(typeof(IdlToSchemataCommand), new IdlToSchemataCommand(console, _idlTranslator.Object));
+        registrar.RegisterInstance(typeof(IdlToSchemataCommand), new IdlToSchemataCommand(console, _streams, _idlTranslator.Object));
 
         var app = new CommandAppTester(registrar);
         app.SetDefaultCommand<IdlToSchemataCommand>();

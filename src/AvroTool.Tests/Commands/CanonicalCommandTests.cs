@@ -1,6 +1,4 @@
-using System;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
@@ -22,6 +20,7 @@ internal class CanonicalCommandTests
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
@@ -34,9 +33,10 @@ internal class CanonicalCommandTests
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
+        _streams = new TestStandardStreams();
 
         var registrar = new FakeTypeRegistrar();
-        var command = new CanonicalCommand(_console.Object, _idlTranslator.Object);
+        var command = new CanonicalCommand(_console.Object, _streams, _idlTranslator.Object);
         registrar.RegisterInstance(typeof(CanonicalCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -55,47 +55,26 @@ internal class CanonicalCommandTests
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "Person.avsc"));
         await File.WriteAllTextAsync(sourceFile.FullName, SchemaJson);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], default);
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(stdout.ToString().Trim(), Is.EqualTo(ExpectedCanonical));
-            }
-        }
-        finally
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText.Trim(), Is.EqualTo(ExpectedCanonical));
         }
     }
 
     [Test]
     public async Task ExecuteAsync_GivenStdin_WritesCanonicalFormToStdout()
     {
-        var originalIn = Console.In;
-        var originalOut = Console.Out;
-        Console.SetIn(new StringReader(SchemaJson));
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync(["--stdin"], default);
+        _streams.StandardInputText = SchemaJson;
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(stdout.ToString().Trim(), Is.EqualTo(ExpectedCanonical));
-            }
-        }
-        finally
+        var result = await _app.RunAsync(["--stdin"], default);
+
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetIn(originalIn);
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText.Trim(), Is.EqualTo(ExpectedCanonical));
         }
     }
 
@@ -105,25 +84,15 @@ internal class CanonicalCommandTests
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "P.avpr"));
         await File.WriteAllTextAsync(sourceFile.FullName, ProtocolJson);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], default);
 
-            var lines = stdout.ToString().Trim().ReplaceLineEndings("\n").Split('\n');
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(lines, Has.Length.EqualTo(2));
-                Assert.That(lines[0], Does.Contain("\"name\":\"A\""));
-                Assert.That(lines[1], Does.Contain("\"name\":\"Color\""));
-            }
-        }
-        finally
+        var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(lines, Has.Length.EqualTo(2));
+            Assert.That(lines[0], Does.Contain("\"name\":\"A\""));
+            Assert.That(lines[1], Does.Contain("\"name\":\"Color\""));
         }
     }
 

@@ -45,16 +45,20 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
     }
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public DiffCommand(
         IAnsiConsole console,
+        IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _streams = streams;
         _idlTranslator = idlTranslator;
     }
 
@@ -102,11 +106,11 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
     {
         var (pathA, pathB) = ResolveInputPaths(settings);
 
-        var before = await AvroInputResolver.ResolveSingleSchemaAsync(pathA, _idlTranslator, "diff", _console, cancellationToken);
+        var before = await AvroInputResolver.ResolveSingleSchemaAsync(pathA, _streams, _idlTranslator, "diff", _console, cancellationToken);
         if (before == null)
             return ErrorCode.Error;
 
-        var after = await AvroInputResolver.ResolveSingleSchemaAsync(pathB, _idlTranslator, "diff", _console, cancellationToken);
+        var after = await AvroInputResolver.ResolveSingleSchemaAsync(pathB, _streams, _idlTranslator, "diff", _console, cancellationToken);
         if (after == null)
             return ErrorCode.Error;
 
@@ -168,7 +172,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         return name.EndsWith("Removed", StringComparison.Ordinal) ? "red" : "yellow";
     }
 
-    private static async Task WriteJsonAsync(SchemaDiffResult result, CancellationToken cancellationToken)
+    private async Task WriteJsonAsync(SchemaDiffResult result, CancellationToken cancellationToken)
     {
         var payload = new
         {
@@ -185,6 +189,6 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         };
 
         var json = JsonSerializer.Serialize(payload, JsonFormatting.IndentedOptions);
-        await Console.Out.WriteLineAsync(json.AsMemory(), cancellationToken);
+        await _streams.Output.WriteLineAsync(json.AsMemory(), cancellationToken);
     }
 }

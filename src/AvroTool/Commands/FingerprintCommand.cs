@@ -58,16 +58,20 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
     public static readonly IReadOnlyList<string> SupportedFormats = [HexFormat, Base64Format, LongFormat];
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public FingerprintCommand(
         IAnsiConsole console,
+        IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _streams = streams;
         _idlTranslator = idlTranslator;
     }
 
@@ -97,7 +101,7 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var content = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.SchemaFile, cancellationToken);
+        var content = await _streams.ReadAllTextAsync(settings.FromStandardInput, settings.SchemaFile, cancellationToken);
         var baseDirectory = InputSource.ImportBaseDirectory(settings.FromStandardInput, settings.SchemaFile);
         var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
         if (input == null)
@@ -121,7 +125,7 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
                 // With more than one schema (a protocol's types), label each value with the
                 // schema's full name, in the style of the *sum tools ("<value>  <name>").
                 var line = labelled ? $"{value}  {schema.Fullname}" : value;
-                await Console.Out.WriteLineAsync(line.AsMemory(), cancellationToken);
+                await _streams.Output.WriteLineAsync(line.AsMemory(), cancellationToken);
             }
 
             return ErrorCode.Success;

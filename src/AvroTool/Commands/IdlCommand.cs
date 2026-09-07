@@ -51,16 +51,20 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
     }
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public IdlCommand(
         IAnsiConsole console,
+        IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _streams = streams;
         _idlTranslator = idlTranslator;
     }
 
@@ -89,7 +93,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
         if (settings.FromStandardInput)
         {
-            var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
+            var content = await _streams.ReadAllTextAsync(true, null, cancellationToken);
             var baseDirectory = InputSource.ImportBaseDirectory(true, null);
             var ok = await ProcessAsync(content, InputSource.StandardInputName, baseDirectory, settings, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
@@ -160,7 +164,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
             if (settings.ToStandardOutput)
             {
-                await Console.Out.WriteLineAsync(formattedOutput.AsMemory(), cancellationToken);
+                await _streams.Output.WriteLineAsync(formattedOutput.AsMemory(), cancellationToken);
                 return true;
             }
 

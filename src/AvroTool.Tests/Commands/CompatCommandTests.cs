@@ -25,6 +25,7 @@ internal class CompatCommandTests
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
@@ -37,9 +38,10 @@ internal class CompatCommandTests
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
+        _streams = new TestStandardStreams();
 
         var registrar = new FakeTypeRegistrar();
-        var command = new CompatCommand(_console.Object, _idlTranslator.Object);
+        var command = new CompatCommand(_console.Object, _streams, _idlTranslator.Object);
         registrar.RegisterInstance(typeof(CompatCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -61,32 +63,14 @@ internal class CompatCommandTests
 
     private async Task<(int ExitCode, string Stdout)> RunAsync(params string[] args)
     {
-        var originalOut = System.Console.Out;
-        var stdout = new StringWriter();
-        System.Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync(args, default);
-            return (result.ExitCode, stdout.ToString().Trim());
-        }
-        finally
-        {
-            System.Console.SetOut(originalOut);
-        }
+        var result = await _app.RunAsync(args, default);
+        return (result.ExitCode, _streams.OutputText.Trim());
     }
 
-    private async Task<(int ExitCode, string Stdout)> RunWithStandardInputAsync(string standardInput, params string[] args)
+    private Task<(int ExitCode, string Stdout)> RunWithStandardInputAsync(string standardInput, params string[] args)
     {
-        var originalIn = System.Console.In;
-        System.Console.SetIn(new StringReader(standardInput));
-        try
-        {
-            return await RunAsync(args);
-        }
-        finally
-        {
-            System.Console.SetIn(originalIn);
-        }
+        _streams.StandardInputText = standardInput;
+        return RunAsync(args);
     }
 
     [Test]

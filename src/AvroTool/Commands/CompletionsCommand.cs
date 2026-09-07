@@ -26,12 +26,15 @@ internal sealed class CompletionsCommand : AsyncCommand<CompletionsCommand.Setti
     }
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
 
-    public CompletionsCommand(IAnsiConsole console)
+    public CompletionsCommand(IAnsiConsole console, IStandardStreams streams)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
 
         _console = console;
+        _streams = streams;
     }
 
     protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -43,7 +46,7 @@ internal sealed class CompletionsCommand : AsyncCommand<CompletionsCommand.Setti
             // Write the script verbatim to standard output. It is deliberately not routed
             // through the Spectre console: the script contains markup-significant characters
             // (e.g. '[', ']') and long lines that console markup/word-wrapping would mangle.
-            Console.Out.Write(script);
+            _streams.Output.Write(script);
 
             return Task.FromResult(ErrorCode.Success);
         }

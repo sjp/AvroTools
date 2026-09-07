@@ -48,16 +48,20 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
     }
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public IdlToSchemataCommand(
         IAnsiConsole console,
+        IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _streams = streams;
         _idlTranslator = idlTranslator;
     }
 
@@ -83,7 +87,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 
         if (settings.FromStandardInput)
         {
-            var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
+            var content = await _streams.ReadAllTextAsync(true, null, cancellationToken);
             var baseDirectory = InputSource.ImportBaseDirectory(true, null);
             var ok = await ProcessAsync(content, InputSource.StandardInputName, baseDirectory, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;

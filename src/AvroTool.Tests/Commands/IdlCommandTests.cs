@@ -52,6 +52,7 @@ internal class IdlCommandTests
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
@@ -71,9 +72,12 @@ internal class IdlCommandTests
             .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
+        _streams = new TestStandardStreams();
+
         var registrar = new FakeTypeRegistrar();
         var command = new IdlCommand(
             _console.Object,
+            _streams,
             _idlTranslator.Object);
         registrar.RegisterInstance(typeof(IdlCommand), command);
 
@@ -112,51 +116,30 @@ internal class IdlCommandTests
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
         await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([sourceFile.FullName, "--stdout"], default);
+        var result = await _app.RunAsync([sourceFile.FullName, "--stdout"], default);
 
-            var normalizedStdout = stdout.ToString().ReplaceLineEndings("\n");
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(normalizedStdout, Does.Contain(SimpleTestProtocolJson.ReplaceLineEndings("\n")));
-                // no file should be written when emitting to standard output
-                Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr")), Is.False);
-            }
-        }
-        finally
+        var normalizedStdout = _streams.OutputText.ReplaceLineEndings("\n");
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(normalizedStdout, Does.Contain(SimpleTestProtocolJson.ReplaceLineEndings("\n")));
+            // no file should be written when emitting to standard output
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr")), Is.False);
         }
     }
 
     [Test]
     public async Task ExecuteAsync_GivenStdinInputAndStdoutOption_PipesInputToOutput()
     {
-        var originalIn = Console.In;
-        var originalOut = Console.Out;
-        Console.SetIn(new StringReader(SimpleTestIdl));
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync(["--stdin", "--stdout"], default);
+        _streams.StandardInputText = SimpleTestIdl;
 
-            var normalizedStdout = stdout.ToString().ReplaceLineEndings("\n");
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(normalizedStdout, Does.Contain(SimpleTestProtocolJson.ReplaceLineEndings("\n")));
-            }
-        }
-        finally
+        var result = await _app.RunAsync(["--stdin", "--stdout"], default);
+
+        var normalizedStdout = _streams.OutputText.ReplaceLineEndings("\n");
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetIn(originalIn);
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(normalizedStdout, Does.Contain(SimpleTestProtocolJson.ReplaceLineEndings("\n")));
         }
     }
 
@@ -191,21 +174,14 @@ internal class IdlCommandTests
             .Callback((string _, string baseDirectory, CancellationToken _) => capturedBaseDirectory = baseDirectory)
             .ReturnsAsync(() => _parseResult);
 
-        var originalIn = Console.In;
-        Console.SetIn(new StringReader(SimpleTestIdl));
-        try
-        {
-            var result = await _app.RunAsync(["--stdin", "--output-dir", _tempDir.DirectoryPath], default);
+        _streams.StandardInputText = SimpleTestIdl;
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(capturedBaseDirectory, Is.EqualTo(Directory.GetCurrentDirectory()));
-            }
-        }
-        finally
+        var result = await _app.RunAsync(["--stdin", "--output-dir", _tempDir.DirectoryPath], default);
+
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetIn(originalIn);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(capturedBaseDirectory, Is.EqualTo(Directory.GetCurrentDirectory()));
         }
     }
 
@@ -443,7 +419,7 @@ internal class IdlCommandTests
         var console = new TestConsole().Width(200);
         var registrar = new FakeTypeRegistrar();
         var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
-        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(console, translator));
+        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(console, _streams, translator));
 
         var app = new CommandAppTester(registrar);
         app.SetDefaultCommand<IdlCommand>();

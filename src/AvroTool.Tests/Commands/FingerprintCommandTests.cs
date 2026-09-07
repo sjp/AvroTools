@@ -1,6 +1,4 @@
-using System;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
@@ -28,6 +26,7 @@ internal class FingerprintCommandTests
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
     private Mock<IIdlToAvroTranslator> _idlTranslator;
 
@@ -40,9 +39,10 @@ internal class FingerprintCommandTests
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
 
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
+        _streams = new TestStandardStreams();
 
         var registrar = new FakeTypeRegistrar();
-        var command = new FingerprintCommand(_console.Object, _idlTranslator.Object);
+        var command = new FingerprintCommand(_console.Object, _streams, _idlTranslator.Object);
         registrar.RegisterInstance(typeof(FingerprintCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -60,19 +60,9 @@ internal class FingerprintCommandTests
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "Person.avsc"));
         await File.WriteAllTextAsync(sourceFile.FullName, SchemaJson);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            string[] fullArgs = [sourceFile.FullName, .. args];
-            var result = await _app.RunAsync(fullArgs, default);
-            return (result.ExitCode, stdout.ToString().Trim());
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
+        string[] fullArgs = [sourceFile.FullName, .. args];
+        var result = await _app.RunAsync(fullArgs, default);
+        return (result.ExitCode, _streams.OutputText.Trim());
     }
 
     [Test]
@@ -141,25 +131,15 @@ internal class FingerprintCommandTests
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "P.avpr"));
         await File.WriteAllTextAsync(sourceFile.FullName, ProtocolJson);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([sourceFile.FullName], default);
+        var result = await _app.RunAsync([sourceFile.FullName], default);
 
-            var lines = stdout.ToString().Trim().ReplaceLineEndings("\n").Split('\n');
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(lines, Has.Length.EqualTo(2));
-                Assert.That(lines[0], Does.Match("^[0-9a-f]+  A$"));
-                Assert.That(lines[1], Does.Match("^[0-9a-f]+  Color$"));
-            }
-        }
-        finally
+        var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(lines, Has.Length.EqualTo(2));
+            Assert.That(lines[0], Does.Match("^[0-9a-f]+  A$"));
+            Assert.That(lines[1], Does.Match("^[0-9a-f]+  Color$"));
         }
     }
 

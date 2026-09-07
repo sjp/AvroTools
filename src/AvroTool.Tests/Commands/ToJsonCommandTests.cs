@@ -1,4 +1,3 @@
-using System;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
@@ -20,6 +19,7 @@ internal class ToJsonCommandTests
 
     private CommandAppTester _app;
     private TemporaryDirectory _tempDir;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
 
     [SetUp]
@@ -29,9 +29,10 @@ internal class ToJsonCommandTests
 
         _console = new Mock<IAnsiConsole>(MockBehavior.Strict);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
+        _streams = new TestStandardStreams();
 
         var registrar = new FakeTypeRegistrar();
-        var command = new ToJsonCommand(_console.Object);
+        var command = new ToJsonCommand(_console.Object, _streams);
         registrar.RegisterInstance(typeof(ToJsonCommand), command);
 
         _app = new CommandAppTester(registrar);
@@ -66,25 +67,34 @@ internal class ToJsonCommandTests
 
         var avroFile = CreateAvroFile(alice, bob);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], default);
 
-            var lines = stdout.ToString().Trim().ReplaceLineEndings("\n").Split('\n');
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(lines, Has.Length.EqualTo(2));
-                Assert.That(lines[0], Is.EqualTo("""{"name":"Alice","nickname":{"string":"Ally"}}"""));
-                Assert.That(lines[1], Is.EqualTo("""{"name":"Bob","nickname":null}"""));
-            }
-        }
-        finally
+        var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(lines, Has.Length.EqualTo(2));
+            Assert.That(lines[0], Is.EqualTo("""{"name":"Alice","nickname":{"string":"Ally"}}"""));
+            Assert.That(lines[1], Is.EqualTo("""{"name":"Bob","nickname":null}"""));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStdin_WritesOneJsonLinePerRecord()
+    {
+        var schema = Schema;
+        var alice = new GenericRecord(schema);
+        alice.Add("name", "Alice");
+        alice.Add("nickname", "Ally");
+
+        _streams.StandardInputBytes = await File.ReadAllBytesAsync(CreateAvroFile(alice));
+
+        var result = await _app.RunAsync(["--stdin"], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText.Trim(), Is.EqualTo("""{"name":"Alice","nickname":{"string":"Ally"}}"""));
         }
     }
 
@@ -98,23 +108,13 @@ internal class ToJsonCommandTests
 
         var avroFile = CreateAvroFile(alice);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([avroFile, "--pretty"], default);
+        var result = await _app.RunAsync([avroFile, "--pretty"], default);
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(stdout.ToString(), Does.Contain("\n"));
-                Assert.That(stdout.ToString(), Does.Contain("  \"name\""));
-            }
-        }
-        finally
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText, Does.Contain("\n"));
+            Assert.That(_streams.OutputText, Does.Contain("  \"name\""));
         }
     }
 
@@ -135,25 +135,15 @@ internal class ToJsonCommandTests
 
         var avroFile = CreateAvroFile(records);
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], default);
 
-            var lines = stdout.ToString().Trim().ReplaceLineEndings("\n").Split('\n');
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(lines, Has.Length.EqualTo(recordCount));
-                Assert.That(lines[0], Is.EqualTo("""{"name":"0","nickname":null}"""));
-                Assert.That(lines[^1], Is.EqualTo("""{"name":"4999","nickname":null}"""));
-            }
-        }
-        finally
+        var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(lines, Has.Length.EqualTo(recordCount));
+            Assert.That(lines[0], Is.EqualTo("""{"name":"0","nickname":null}"""));
+            Assert.That(lines[^1], Is.EqualTo("""{"name":"4999","nickname":null}"""));
         }
     }
 
@@ -162,22 +152,12 @@ internal class ToJsonCommandTests
     {
         var avroFile = CreateAvroFile();
 
-        var originalOut = Console.Out;
-        var stdout = new StringWriter();
-        Console.SetOut(stdout);
-        try
-        {
-            var result = await _app.RunAsync([avroFile], default);
+        var result = await _app.RunAsync([avroFile], default);
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.ExitCode, Is.Zero);
-                Assert.That(stdout.ToString().Trim(), Is.Empty);
-            }
-        }
-        finally
+        using (Assert.EnterMultipleScope())
         {
-            Console.SetOut(originalOut);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText.Trim(), Is.Empty);
         }
     }
 

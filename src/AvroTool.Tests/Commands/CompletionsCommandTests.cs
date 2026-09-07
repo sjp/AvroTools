@@ -17,6 +17,7 @@ namespace AvroTool.Tests.Commands;
 internal class CompletionsCommandTests
 {
     private CommandAppTester _app;
+    private TestStandardStreams _streams;
     private Mock<IAnsiConsole> _console;
 
     private static IEnumerable<CompletionsCommand.ShellKind> Shells => Enum.GetValues<CompletionsCommand.ShellKind>();
@@ -26,20 +27,25 @@ internal class CompletionsCommandTests
     {
         _console = new Mock<IAnsiConsole>(MockBehavior.Loose);
         _console.Setup(c => c.Write(It.IsAny<IRenderable>()));
+        _streams = new TestStandardStreams();
 
         var registrar = new FakeTypeRegistrar();
-        registrar.RegisterInstance(typeof(CompletionsCommand), new CompletionsCommand(_console.Object));
+        registrar.RegisterInstance(typeof(CompletionsCommand), new CompletionsCommand(_console.Object, _streams));
 
         _app = new CommandAppTester(registrar);
         _app.SetDefaultCommand<CompletionsCommand>();
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenKnownShell_ReturnsSuccess()
+    public async Task ExecuteAsync_GivenKnownShell_WritesScriptToStdout()
     {
         var result = await _app.RunAsync(["bash"], default);
 
-        Assert.That(result.ExitCode, Is.Zero);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(_streams.OutputText, Does.Contain("complete -F _avrotool_completions avrotool"));
+        }
     }
 
     [Test]

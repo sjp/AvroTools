@@ -64,16 +64,20 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
     };
 
     private readonly IAnsiConsole _console;
+    private readonly IStandardStreams _streams;
     private readonly IIdlToAvroTranslator _idlTranslator;
 
     public CompatCommand(
         IAnsiConsole console,
+        IStandardStreams streams,
         IIdlToAvroTranslator idlTranslator)
     {
         ArgumentNullException.ThrowIfNull(console);
+        ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(idlTranslator);
 
         _console = console;
+        _streams = streams;
         _idlTranslator = idlTranslator;
     }
 
@@ -122,7 +126,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         var sources = new List<SchemaSource>(inputs.Count);
         foreach (var schemaFile in inputs)
         {
-            var source = await AvroInputResolver.ResolveSingleSchemaAsync(schemaFile, _idlTranslator, "compat", _console, cancellationToken);
+            var source = await AvroInputResolver.ResolveSingleSchemaAsync(schemaFile, _streams, _idlTranslator, "compat", _console, cancellationToken);
             if (source == null)
                 return ErrorCode.Error;
 
@@ -222,7 +226,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
             _console.MarkupLine("[red]Schemas are not compatible.[/]");
     }
 
-    private static async Task WriteJsonAsync(string mode, bool compatible, IReadOnlyList<CompatibilityCheck> checks, CancellationToken cancellationToken)
+    private async Task WriteJsonAsync(string mode, bool compatible, IReadOnlyList<CompatibilityCheck> checks, CancellationToken cancellationToken)
     {
         var payload = new
         {
@@ -244,7 +248,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         };
 
         var json = JsonSerializer.Serialize(payload, JsonFormatting.IndentedOptions);
-        await Console.Out.WriteLineAsync(json.AsMemory(), cancellationToken);
+        await _streams.Output.WriteLineAsync(json.AsMemory(), cancellationToken);
     }
 
     private static bool IsTransitive(CompatibilityMode mode) =>

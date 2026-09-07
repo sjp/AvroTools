@@ -26,6 +26,7 @@ internal static class Program
 
         var services = new ServiceCollection();
         services.AddSingleton<IAnsiConsole>(errorConsole);
+        services.AddSingleton<IStandardStreams, ConsoleStandardStreams>();
         services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
         services.AddTransient<IIdlFileReader, PhysicalIdlFileReader>();
         services.AddTransient<IIdlToAvroTranslator, IdlToAvroTranslator>();
