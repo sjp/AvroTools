@@ -11,13 +11,11 @@ namespace AvroTool;
 /// large blocks rather than as it arrives.
 /// </summary>
 /// <remarks>
-/// <see cref="Console.Out"/> auto-flushes, so a command that emits one line per record costs a
-/// write syscall per record — and a terminal redraw per record when the output is not
-/// redirected — which dominates the run time of a large object container file. Wrapping it in
-/// this writer reduces that to one write per buffer-full. An inner writer is wrapped rather
-/// than opening <see cref="Console.OpenStandardOutput()"/> directly so that any redirection of
-/// <see cref="Console.Out"/> still applies. The inner writer is not owned, and so is flushed
-/// but never disposed.
+/// A command that emits one line per record costs a write call per record — and a terminal
+/// redraw per record when the output is not redirected — which dominates the run time of a
+/// large object container file. Wrapping the destination in this writer reduces that to one
+/// write per buffer-full, whatever buffering the destination does for itself. The inner writer
+/// is not owned, and so is flushed but never disposed.
 /// </remarks>
 internal sealed class BufferedTextWriter : TextWriter
 {

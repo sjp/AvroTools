@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SJP.Avro.Tools.CodeGen;
@@ -18,8 +19,10 @@ internal static class Program
     /// </summary>
     private const int UnwrappedWidth = int.MaxValue;
 
-    public static Task<int> Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
+        UseUtf8Console();
+
         // Route status and diagnostic output to standard error so that standard
         // output carries only command payloads (e.g. 'idl --stdout'), keeping the
         // tool clean to use in shell pipelines. Help and version are payloads in
@@ -27,14 +30,39 @@ internal static class Program
         var statusConsole = CreateStatusConsole(Console.Error);
         var helpConsole = CreateHelpConsole(Console.Out);
 
+        // Declared before the registrar so that standard output is flushed after everything
+        // that might still write to it has been torn down.
+        using var streams = new ConsoleStandardStreams();
+
         var services = new ServiceCollection();
-        RegisterServices(services, statusConsole, new ConsoleStandardStreams());
+        RegisterServices(services, statusConsole, streams);
         using var registrar = new DependencyInjectionRegistrar(services);
 
         var app = new CommandApp(registrar);
         app.Configure(config => Configure(config, helpConsole, statusConsole));
 
-        return app.RunAsync(args);
+        return await app.RunAsync(args).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Asks the console to interpret the bytes written to it as UTF-8.
+    /// </summary>
+    /// <remarks>
+    /// Payloads are written as UTF-8 whatever the platform. A console left on a legacy code page
+    /// renders those bytes as mojibake and replaces anything it cannot represent with a question
+    /// mark, so the code page is moved to match. Best effort: a process with no console attached
+    /// has nothing to configure, and its output is already going somewhere that takes the bytes
+    /// as they are.
+    /// </remarks>
+    private static void UseUtf8Console()
+    {
+        try
+        {
+            Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        }
+        catch (IOException)
+        {
+        }
     }
 
     /// <summary>
