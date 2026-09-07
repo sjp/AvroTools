@@ -162,12 +162,14 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         OutputCollector collector,
         CancellationToken cancellationToken)
     {
-        var input = await AvroInputResolver.ResolveAsync(inputContent, _idlTranslator, baseDirectory, cancellationToken);
-        if (input == null)
+        var resolution = await AvroInputResolver.ResolveAsync(inputContent, _idlTranslator, baseDirectory, cancellationToken);
+        if (resolution.Input == null)
         {
-            _console.MarkupLineInterpolated($"[red]Input '{source}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
+            _console.MarkupLineInterpolated($"[red]{resolution.FailureMessage(source)}[/]");
             return false;
         }
+
+        var input = resolution.Input;
 
         var codeGenOptions = new CodeGenOptions(RequiredProperties: settings.Required, InitOnlyProperties: settings.InitOnly);
 

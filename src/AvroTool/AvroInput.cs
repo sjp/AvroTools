@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools.Idl;
@@ -39,6 +41,35 @@ internal sealed class AvroInput
 }
 
 /// <summary>
+/// The outcome of resolving textual input: either the parsed input, or the reason it could not
+/// be parsed.
+/// </summary>
+internal sealed class AvroInputResult
+{
+    private readonly string? _failureReason;
+
+    private AvroInputResult(AvroInput? input, string? failureReason)
+    {
+        Input = input;
+        _failureReason = failureReason;
+    }
+
+    /// <summary>The parsed input, or <c>null</c> when the content could not be parsed.</summary>
+    public AvroInput? Input { get; }
+
+    /// <summary>
+    /// Describes why an input could not be parsed, naming the input and the parser whose failure
+    /// is being reported. Only meaningful when <see cref="Input"/> is <c>null</c>.
+    /// </summary>
+    /// <param name="inputName">The path the content was read from, or <c>&lt;stdin&gt;</c>.</param>
+    public string FailureMessage(string inputName) => $"Input '{inputName}' {_failureReason}";
+
+    public static AvroInputResult Resolved(AvroInput input) => new(input, null);
+
+    public static AvroInputResult Failed(string failureReason) => new(null, failureReason);
+}
+
+/// <summary>
 /// Resolves textual input to an <see cref="AvroInput"/>, trying JSON protocol, then JSON
 /// schema, then Avro IDL (in that order), mirroring the detection used across the commands.
 /// </summary>
@@ -51,23 +82,23 @@ internal static class AvroInputResolver
     /// <param name="translator">The IDL translator to fall back to.</param>
     /// <param name="baseDirectory">The directory that relative IDL import paths are resolved against.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The resolved input, or <c>null</c> if it could not be parsed as any of the three.</returns>
-    public static async Task<AvroInput?> ResolveAsync(string content, IIdlToAvroTranslator translator, string? baseDirectory, CancellationToken cancellationToken)
+    /// <returns>The resolved input, or the reason it could not be parsed as any of the three.</returns>
+    public static async Task<AvroInputResult> ResolveAsync(string content, IIdlToAvroTranslator translator, string? baseDirectory, CancellationToken cancellationToken)
     {
-        if (TryParseProtocol(content, out var protocol))
-            return AvroInput.FromProtocol(protocol);
+        if (TryParseProtocol(content, out var protocol, out var protocolError))
+            return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
 
-        if (TryParseSchema(content, out var schema))
-            return AvroInput.FromSchema(schema);
+        if (TryParseSchema(content, out var schema, out var schemaError))
+            return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
 
         try
         {
             var result = await translator.Translate(content, baseDirectory, cancellationToken);
-            return result.Match<AvroInput>(AvroInput.FromProtocol, AvroInput.FromSchema);
+            return AvroInputResult.Resolved(result.Match<AvroInput>(AvroInput.FromProtocol, AvroInput.FromSchema));
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            return AvroInputResult.Failed(DescribeFailure(content, protocolError, schemaError, ex.Message));
         }
     }
 
@@ -95,13 +126,14 @@ internal static class AvroInputResolver
 
         var content = await streams.ReadAllTextAsync(fromStandardInput, schemaFile, cancellationToken);
         var baseDirectory = InputSource.ImportBaseDirectory(fromStandardInput, schemaFile);
-        var input = await ResolveAsync(content, translator, baseDirectory, cancellationToken);
-        if (input == null)
+        var resolution = await ResolveAsync(content, translator, baseDirectory, cancellationToken);
+        if (resolution.Input == null)
         {
-            console.MarkupLineInterpolated($"[red]Input '{displayName}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
+            console.MarkupLineInterpolated($"[red]{resolution.FailureMessage(displayName)}[/]");
             return null;
         }
 
+        var input = resolution.Input;
         if (input.Schemas.Count != 1)
         {
             console.MarkupLineInterpolated($"[red]Input '{displayName}' resolves to {input.Schemas.Count} named types; {commandName} expects a single schema per input.[/]");
@@ -111,30 +143,69 @@ internal static class AvroInputResolver
         return new SchemaSource(displayName, input.Schemas[0]);
     }
 
-    private static bool TryParseProtocol(string content, out AvroProtocol protocol)
+    /// <summary>
+    /// Chooses which of the three failures to report, based on the shape of the content: JSON
+    /// (an object or array) is judged against the protocol parser when it declares a protocol
+    /// and the schema parser otherwise, and anything else against the IDL parser. Reporting the
+    /// one parser the content was plainly meant for keeps the real cause visible, instead of
+    /// three unrelated messages or none at all.
+    /// </summary>
+    private static string DescribeFailure(string content, string protocolError, string schemaError, string idlError)
+    {
+        var start = content.AsSpan().TrimStart();
+        if (start.Length == 0 || (start[0] != '{' && start[0] != '['))
+            return $"could not be parsed as Avro IDL: {idlError}";
+
+        return DeclaresProtocol(content)
+            ? $"could not be parsed as a JSON protocol: {protocolError}"
+            : $"could not be parsed as a JSON schema: {schemaError}";
+    }
+
+    /// <summary>
+    /// Whether the content is a JSON object carrying a <c>protocol</c> key, the property that
+    /// distinguishes a protocol document from a schema one. Content too malformed to read as
+    /// JSON at all is treated as a schema, the more common of the two.
+    /// </summary>
+    private static bool DeclaresProtocol(string content)
     {
         try
         {
-            protocol = AvroProtocol.Parse(content);
-            return true;
+            return JsonNode.Parse(content) is JsonObject document && document.ContainsKey("protocol");
         }
-        catch
+        catch (JsonException)
         {
-            protocol = default!;
             return false;
         }
     }
 
-    private static bool TryParseSchema(string content, out AvroSchema schema)
+    private static bool TryParseProtocol(string content, out AvroProtocol protocol, out string error)
+    {
+        try
+        {
+            protocol = AvroProtocol.Parse(content);
+            error = string.Empty;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            protocol = default!;
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private static bool TryParseSchema(string content, out AvroSchema schema, out string error)
     {
         try
         {
             schema = AvroSchema.Parse(content);
+            error = string.Empty;
             return true;
         }
-        catch
+        catch (Exception ex)
         {
             schema = default!;
+            error = ex.Message;
             return false;
         }
     }

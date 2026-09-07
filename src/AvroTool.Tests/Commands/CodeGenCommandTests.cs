@@ -10,6 +10,7 @@ using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
 
@@ -19,6 +20,10 @@ namespace AvroTool.Tests.Commands;
 internal class CodeGenCommandTests
 {
     private const string TestNamespace = "SJP.Avro.CodeGen.Test";
+
+    private const string InvalidNameSchemaJson = """{"type":"record","name":"weird-name","fields":[]}""";
+    private const string MalformedIdl = "protocol TestProtocol { record TestRecord { string a } }";
+    private const string IdlWithMissingImport = """protocol TestProtocol { import idl "absent.avdl"; }""";
 
     private const string SimpleTestIdl = @"protocol TestProtocol {
   record TestRecord {
@@ -1036,6 +1041,84 @@ namespace TestNamespace
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(File.Exists(Path.Combine(outputDir, "TestRecord.cs")), Is.True);
+        }
+    }
+
+
+    /// <summary>
+    /// An app wired to the real IDL translator and a console whose output the test can read,
+    /// for the cases where the message under test is produced by an actual parser.
+    /// </summary>
+    private (CommandAppTester App, TestConsole Console) CreateAppWithRealParsers()
+    {
+        // wide enough that a parser's message is not wrapped, matching the unwrapped width
+        // the tool uses when its output is redirected
+        var console = new TestConsole().Width(10000);
+        var registrar = new FakeTypeRegistrar();
+        var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
+        registrar.RegisterInstance(typeof(CodeGenCommand), new CodeGenCommand(new StatusConsole(console), _streams, new CodeGeneratorResolver(), translator));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<CodeGenCommand>();
+
+        return (app, console);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenSchemaWithInvalidName_ReportsTheSchemaParserMessage()
+    {
+        var (app, console) = CreateAppWithRealParsers();
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "invalid.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, InvalidNameSchemaJson, TestContext.CurrentContext.CancellationToken);
+
+        var result = await app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", _tempDir.DirectoryPath], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("invalid.avsc"));
+            Assert.That(console.Output, Does.Contain("could not be parsed as a JSON schema"));
+            Assert.That(console.Output, Does.Contain("weird-name"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenIdlWithSyntaxError_ReportsThePositionOfTheError()
+    {
+        var (app, console) = CreateAppWithRealParsers();
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "syntax.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, MalformedIdl, TestContext.CurrentContext.CancellationToken);
+
+        var result = await app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", _tempDir.DirectoryPath], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("syntax.avdl"));
+            Assert.That(console.Output, Does.Contain("could not be parsed as Avro IDL"));
+            Assert.That(console.Output, Does.Contain("Syntax error at line 1:53 - mismatched input '}' expecting"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenIdlWithMissingImport_ReportsTheMissingPath()
+    {
+        var (app, console) = CreateAppWithRealParsers();
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "importing.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, IdlWithMissingImport, TestContext.CurrentContext.CancellationToken);
+
+        var result = await app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", _tempDir.DirectoryPath], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("importing.avdl"));
+            Assert.That(console.Output, Does.Contain("could not be parsed as Avro IDL"));
+            Assert.That(console.Output, Does.Contain("File not found"));
+            Assert.That(console.Output, Does.Contain("absent.avdl"));
         }
     }
 }

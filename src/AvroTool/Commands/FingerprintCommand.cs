@@ -101,14 +101,17 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
+        var displayName = settings.FromStandardInput ? InputSource.StandardInputName : settings.SchemaFile;
         var content = await _streams.ReadAllTextAsync(settings.FromStandardInput, settings.SchemaFile, cancellationToken);
         var baseDirectory = InputSource.ImportBaseDirectory(settings.FromStandardInput, settings.SchemaFile);
-        var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
-        if (input == null)
+        var resolution = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
+        if (resolution.Input == null)
         {
-            _console.MarkupLine("[red]Input unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");
+            _console.MarkupLineInterpolated($"[red]{resolution.FailureMessage(displayName)}[/]");
             return ErrorCode.Error;
         }
+
+        var input = resolution.Input;
 
         var avroAlgorithm = Algorithms[NamingConventions.NormaliseOption(settings.Algorithm)];
         var format = NamingConventions.NormaliseOption(settings.Format);
