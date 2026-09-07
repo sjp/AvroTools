@@ -862,6 +862,81 @@ namespace Test.Avro.Namespace
         Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
 
+    // A union with more than one non-null branch has no single C# type: the reader may hand any
+    // of the branches to Put, so the property is typed as object. Branches of the same Avro kind,
+    // such as two records or two enums, are no more interchangeable than branches of different kinds.
+    [TestCase(""" { "type" : "record", "name" : "A", "fields" : [] }, { "type" : "record", "name" : "B", "fields" : [] } """)]
+    [TestCase(""" { "type" : "enum", "name" : "E1", "symbols" : [ "X" ] }, { "type" : "enum", "name" : "E2", "symbols" : [ "Y" ] } """)]
+    [TestCase(""" { "type" : "record", "name" : "A", "fields" : [] }, { "type" : "enum", "name" : "E1", "symbols" : [ "X" ] } """)]
+    [TestCase(""" "string", "int" """)]
+    public static void Generate_GivenNullableUnionOfSeveralBranches_TypesTheFieldAsObject(string branches)
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "fields" : [
+    { "name" : "v", "type" : [ "null", {{branches}} ] }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Does.Contain("public object? v { get; set; }"));
+            Assert.That(result, Does.Contain("v = (object?)fieldValue;"));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenUnionOfSeveralBranchesWithoutNull_TypesTheFieldAsNonNullableObject()
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        var schema = (RecordSchema)Schema.Parse("""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "fields" : [
+    { "name" : "v", "type" : [
+      { "type" : "record", "name" : "A", "fields" : [] },
+      { "type" : "record", "name" : "B", "fields" : [] } ] }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace);
+
+        Assert.That(result, Does.Contain("public object v { get; set; } = default!;"));
+    }
+
+    [Test]
+    public static void Generate_GivenNullableUnionOfOneBranch_TypesTheFieldAsThatBranch()
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        var schema = (RecordSchema)Schema.Parse("""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "fields" : [
+    { "name" : "v", "type" : [ "null", { "type" : "record", "name" : "A", "fields" : [] } ] }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace);
+
+        Assert.That(result, Does.Contain("public A? v { get; set; }"));
+    }
+
     [Test]
     public static void Generate_GivenInitOnlyOptionWithCollidingFieldNames_GeneratesUniqueBackingFields()
     {

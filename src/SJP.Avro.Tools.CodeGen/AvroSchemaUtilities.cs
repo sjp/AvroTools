@@ -100,25 +100,18 @@ internal static class AvroSchemaUtilities
 
     private static TypeSyntax ResolveUnionType(UnionSchema unionSchema, bool convertDecimals)
     {
-        var typeCount = unionSchema.Schemas
-            .Select(s => s.Tag)
-            .Distinct()
-            .Count(t => t != Schema.Type.Null);
+        var nonNullSchemas = unionSchema.Schemas
+            .Where(s => s.Tag != Schema.Type.Null)
+            .ToList();
 
-        // If we have a set of values > 2, we'll need custom code (not possible
-        // to automatically generate.
-        // Return 'object'.
-        if (typeCount > 1)
+        // A union only maps onto a single C# type when exactly one branch remains once null is
+        // ignored. Two branches could each be handed to Put at runtime, and two records or two
+        // enums are as distinct as a record and a string, so anything else falls back to 'object'.
+        // A union of nothing but null has no type to fall back to either.
+        if (nonNullSchemas.Count != 1)
             return PredefinedType(Token(SyntaxKind.ObjectKeyword));
 
-        var nonNullType = unionSchema.Schemas
-            .FirstOrDefault(s => s.Tag != Schema.Type.Null);
-
-        // giving up, only a null value (unable to resolve to anything other than 'object'.
-        if (nonNullType == null)
-            return PredefinedType(Token(SyntaxKind.ObjectKeyword));
-
-        return GetFieldType(nonNullType, convertDecimals);
+        return GetFieldType(nonNullSchemas[0], convertDecimals);
     }
 
     /// <summary>

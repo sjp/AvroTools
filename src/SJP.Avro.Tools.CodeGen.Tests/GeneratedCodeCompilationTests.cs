@@ -285,6 +285,51 @@ internal static class GeneratedCodeCompilationTests
         }
     }
 
+    [TestCase("CompiledUnionAlpha")]
+    [TestCase("CompiledUnionBeta")]
+    public static void Generate_GivenUnionOfTwoRecords_RoundTripsEitherBranchThroughSpecificDatumReader(string branchName)
+    {
+        // Both branches are records, so a property typed as either one of them would fail the cast
+        // in Put as soon as the other branch arrived.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledUnionWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "v", "type" : [
+      "null",
+      { "type" : "record", "name" : "CompiledUnionAlpha", "fields" : [ { "name" : "a", "type" : "int" } ] },
+      { "type" : "record", "name" : "CompiledUnionBeta", "fields" : [ { "name" : "b", "type" : "string" } ] } ] }
+  ]
+}
+""");
+
+        var recordGenerator = new AvroRecordGenerator();
+        var branchSchemas = ((UnionSchema)schema.Fields[0].Schema).Schemas
+            .OfType<RecordSchema>()
+            .Select(s => recordGenerator.Generate(s, TestNamespace));
+
+        var assembly = GeneratedSourceCompiler.Compile(
+            branchSchemas.Append(recordGenerator.Generate(schema, TestNamespace)).ToArray());
+
+        var generatedType = assembly.GetType($"{TestNamespace}.CompiledUnionWidget")!;
+        var branch = (ISpecificRecord)Activator.CreateInstance(assembly.GetType($"{TestNamespace}.{branchName}")!)!;
+        branch.Put(0, branchName == "CompiledUnionAlpha" ? 42 : "hello");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, branch);
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("v")!.PropertyType, Is.EqualTo(typeof(object)));
+            Assert.That(((ISpecificRecord)deserialized.Get(0)).Schema.Fullname, Is.EqualTo($"{TestNamespace}.{branchName}"));
+            Assert.That(((ISpecificRecord)deserialized.Get(0)).Get(0), Is.EqualTo(branch.Get(0)));
+        }
+    }
+
     private static ISpecificRecord RoundTrip(RecordSchema schema, ISpecificRecord record)
     {
         using var stream = new MemoryStream();
