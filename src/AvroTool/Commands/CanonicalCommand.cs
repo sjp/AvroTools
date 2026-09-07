@@ -55,7 +55,8 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var content = await InputSource.ReadAllTextAsync(settings.FromStandardInput, settings.SchemaFile, cancellationToken);
-        var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, cancellationToken);
+        var baseDirectory = InputSource.ImportBaseDirectory(settings.FromStandardInput, settings.SchemaFile);
+        var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
         if (input == null)
         {
             _console.MarkupLine("[red]Input unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");

@@ -113,7 +113,7 @@ internal class CodeGenCommandTests
         _parseResult = IdlParseResult.Schema(AvroSchema.Parse(SimpleTestSchema));
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
         var registrar = new FakeTypeRegistrar();
@@ -623,7 +623,7 @@ namespace TestNamespace
         const string input = "%";
 
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));

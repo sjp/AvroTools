@@ -46,8 +46,12 @@ internal static class AvroInputResolver
     /// <summary>
     /// Attempts to parse the given content as a protocol, schema or IDL document.
     /// </summary>
+    /// <param name="content">The textual content to parse.</param>
+    /// <param name="translator">The IDL translator to fall back to.</param>
+    /// <param name="baseDirectory">The directory that relative IDL import paths are resolved against.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The resolved input, or <c>null</c> if it could not be parsed as any of the three.</returns>
-    public static async Task<AvroInput?> ResolveAsync(string content, IIdlToAvroTranslator translator, CancellationToken cancellationToken)
+    public static async Task<AvroInput?> ResolveAsync(string content, IIdlToAvroTranslator translator, string? baseDirectory, CancellationToken cancellationToken)
     {
         if (TryParseProtocol(content, out var protocol))
             return AvroInput.FromProtocol(protocol);
@@ -57,7 +61,7 @@ internal static class AvroInputResolver
 
         try
         {
-            var result = await translator.Translate(content, cancellationToken);
+            var result = await translator.Translate(content, baseDirectory, cancellationToken);
             return result.Match<AvroInput>(AvroInput.FromProtocol, AvroInput.FromSchema);
         }
         catch

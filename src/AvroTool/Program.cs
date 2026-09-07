@@ -1,10 +1,8 @@
 using System;
-using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using AvroTool.Commands;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
@@ -30,7 +28,7 @@ internal static class Program
         var services = new ServiceCollection();
         services.AddSingleton<IAnsiConsole>(errorConsole);
         services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
-        services.AddTransient<IFileProvider>(_ => new PhysicalFileProvider(Directory.GetCurrentDirectory()));
+        services.AddTransient<IIdlFileReader, PhysicalIdlFileReader>();
         services.AddTransient<IIdlToAvroTranslator, IdlToAvroTranslator>();
         using var registrar = new DependencyInjectionRegistrar(services);
 

@@ -110,7 +110,8 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         if (settings.FromStandardInput)
         {
             var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
-            var ok = await ProcessAsync(content, "<stdin>", settings, outputDir, collector, cancellationToken);
+            var baseDirectory = InputSource.ImportBaseDirectory(true, null);
+            var ok = await ProcessAsync(content, "<stdin>", baseDirectory, settings, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
         }
 
@@ -128,7 +129,8 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         foreach (var file in expansion.Files)
         {
             var content = await File.ReadAllTextAsync(file, cancellationToken);
-            var ok = await ProcessAsync(content, file, settings, outputDir, collector, cancellationToken);
+            var baseDirectory = InputSource.ImportBaseDirectory(false, file);
+            var ok = await ProcessAsync(content, file, baseDirectory, settings, outputDir, collector, cancellationToken);
             if (!ok)
             {
                 anyFailed = true;
@@ -143,12 +145,13 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
     private async Task<bool> ProcessAsync(
         string inputContent,
         string source,
+        string baseDirectory,
         Settings settings,
         DirectoryInfo outputDir,
         OutputCollector collector,
         CancellationToken cancellationToken)
     {
-        var input = await AvroInputResolver.ResolveAsync(inputContent, _idlTranslator, cancellationToken);
+        var input = await AvroInputResolver.ResolveAsync(inputContent, _idlTranslator, baseDirectory, cancellationToken);
         if (input == null)
         {
             _console.MarkupLineInterpolated($"[red]Input '{source}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");

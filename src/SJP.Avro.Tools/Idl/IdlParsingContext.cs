@@ -39,4 +39,10 @@ public sealed record IdlParsingContext
     /// The default namespace for the current parsing context.
     /// </summary>
     public string? DefaultNamespace { get; set; }
+
+    /// <summary>
+    /// The directory that relative import paths are resolved against, i.e. the directory holding
+    /// the document being parsed. When <c>null</c>, import paths are used exactly as written.
+    /// </summary>
+    public string? BaseDirectory { get; set; }
 }

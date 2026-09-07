@@ -79,7 +79,8 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         if (settings.FromStandardInput)
         {
             var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
-            var ok = await ProcessAsync(content, "<stdin>", outputDir, collector, cancellationToken);
+            var baseDirectory = InputSource.ImportBaseDirectory(true, null);
+            var ok = await ProcessAsync(content, "<stdin>", baseDirectory, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
         }
 
@@ -97,7 +98,8 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         foreach (var file in expansion.Files)
         {
             var content = await File.ReadAllTextAsync(file, cancellationToken);
-            var ok = await ProcessAsync(content, file, outputDir, collector, cancellationToken);
+            var baseDirectory = InputSource.ImportBaseDirectory(false, file);
+            var ok = await ProcessAsync(content, file, baseDirectory, outputDir, collector, cancellationToken);
             if (!ok)
             {
                 anyFailed = true;
@@ -112,6 +114,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
     private async Task<bool> ProcessAsync(
         string idlContent,
         string source,
+        string baseDirectory,
         DirectoryInfo outputDir,
         OutputCollector collector,
         CancellationToken cancellationToken)
@@ -119,7 +122,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
         IdlFileParseResult parseResult;
         try
         {
-            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
+            var result = await _idlTranslator.Translate(idlContent, baseDirectory, cancellationToken);
             parseResult = IdlFileParseResult.Ok(result);
         }
         catch (Exception ex)

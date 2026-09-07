@@ -32,6 +32,20 @@ internal static class InputSource
     }
 
     /// <summary>
+    /// The directory that a document's relative import paths resolve against.
+    /// </summary>
+    /// <param name="useStandardInput">When <c>true</c>, the document came from standard input and <paramref name="path"/> is ignored.</param>
+    /// <param name="path">The path of the file the document was read from.</param>
+    /// <returns>The directory holding the file, or the current directory for standard input.</returns>
+    public static string ImportBaseDirectory(bool useStandardInput, string? path)
+    {
+        if (useStandardInput || string.IsNullOrEmpty(path))
+            return Directory.GetCurrentDirectory();
+
+        return Path.GetDirectoryName(Path.GetFullPath(path)) ?? Directory.GetCurrentDirectory();
+    }
+
+    /// <summary>
     /// Opens a binary stream over standard input, or the given file path.
     /// </summary>
     /// <param name="useStandardInput">When <c>true</c>, read from standard input and ignore <paramref name="path"/>.</param>

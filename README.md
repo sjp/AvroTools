@@ -373,6 +373,31 @@ $ avrotool tojson people.avro
 `--pretty` for indented output and `--stdin` to read the container file from
 standard input instead of a path.
 
+### Imports
+
+An IDL document's `import idl`/`import protocol`/`import schema` statements are
+resolved **relative to the directory of the file containing the import**, at every
+level of nesting, matching the reference Avro IDL compiler. So a tree such as
+
+```plain
+schemas/
+  main.avdl        # import idl "common/ids.avdl";
+  common/
+    ids.avdl       # import schema "uuid.avsc";
+    uuid.avsc
+```
+
+compiles from anywhere:
+
+```sh
+avrotool idl schemas/main.avdl
+```
+
+Absolute import paths are used as given. When the document is read from standard
+input there is no containing file, so imports resolve against the current working
+directory. The same file reached by two different spellings (`ids.avdl` and
+`./ids.avdl`, say) is recognised as one import rather than being pulled in twice.
+
 ### Standard input and output
 
 The `idl`, `idl2schemata`, `codegen`, `getschema` and `tojson` commands can

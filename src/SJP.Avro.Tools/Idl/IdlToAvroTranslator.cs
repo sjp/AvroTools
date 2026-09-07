@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
-using Microsoft.Extensions.FileProviders;
 using Newtonsoft.Json.Linq;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
@@ -18,15 +17,17 @@ namespace SJP.Avro.Tools.Idl;
 /// </summary>
 public class IdlToAvroTranslator : IIdlToAvroTranslator
 {
-    private readonly IFileProvider _fileProvider;
+    private readonly IIdlFileReader _fileReader;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IdlToAvroTranslator"/> class.
     /// </summary>
-    /// <param name="fileProvider">The file provider to use for reading imported files.</param>
-    public IdlToAvroTranslator(IFileProvider fileProvider)
+    /// <param name="fileReader">The reader to use for retrieving imported files.</param>
+    public IdlToAvroTranslator(IIdlFileReader fileReader)
     {
-        _fileProvider = fileProvider;
+        ArgumentNullException.ThrowIfNull(fileReader);
+
+        _fileReader = fileReader;
     }
 
     /// <summary>
@@ -35,13 +36,23 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// <param name="idlContent">A string containing an IDL representing a protocol or a schema.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
-    public async Task<IdlParseResult> Translate(string idlContent, CancellationToken cancellationToken = default)
+    public Task<IdlParseResult> Translate(string idlContent, CancellationToken cancellationToken = default)
+        => Translate(idlContent, null, cancellationToken);
+
+    /// <summary>
+    /// Translates IDL to either Protocol or Schema.
+    /// </summary>
+    /// <param name="idlContent">A string containing an IDL representing a protocol or a schema.</param>
+    /// <param name="baseDirectory">The directory that relative import paths are resolved against, typically the directory containing the document. When <c>null</c>, import paths are used exactly as written.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    public async Task<IdlParseResult> Translate(string idlContent, string? baseDirectory, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(idlContent);
 
         var antlrStream = new AntlrInputStream(idlContent);
         var parseTree = ParseIdlContent(antlrStream);
-        var context = new IdlParsingContext();
+        var context = new IdlParsingContext { BaseDirectory = NormaliseBaseDirectory(baseDirectory) };
         return await Translate(parseTree, context, cancellationToken);
     }
 
@@ -51,12 +62,29 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// <param name="idlContent">A stream whose contents contain an IDL representing a protocol or a schema.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
-    public async Task<IdlParseResult> Translate(Stream idlContent, CancellationToken cancellationToken = default)
+    public Task<IdlParseResult> Translate(Stream idlContent, CancellationToken cancellationToken = default)
+        => Translate(idlContent, null, cancellationToken);
+
+    /// <summary>
+    /// Translates IDL to either Protocol or Schema.
+    /// </summary>
+    /// <param name="idlContent">A stream whose contents contain an IDL representing a protocol or a schema.</param>
+    /// <param name="baseDirectory">The directory that relative import paths are resolved against, typically the directory containing the document. When <c>null</c>, import paths are used exactly as written.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    public async Task<IdlParseResult> Translate(Stream idlContent, string? baseDirectory, CancellationToken cancellationToken)
     {
         var antlrStream = new AntlrInputStream(idlContent);
         var parseTree = ParseIdlContent(antlrStream);
-        var context = new IdlParsingContext();
+        var context = new IdlParsingContext { BaseDirectory = NormaliseBaseDirectory(baseDirectory) };
         return await Translate(parseTree, context, cancellationToken);
+    }
+
+    private static string? NormaliseBaseDirectory(string? baseDirectory)
+    {
+        return string.IsNullOrWhiteSpace(baseDirectory)
+            ? null
+            : Path.GetFullPath(baseDirectory);
     }
 
     private static IdlParser.IdlFileContext ParseIdlContent(AntlrInputStream inputStream)
@@ -813,33 +841,47 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                 .TrimEnd(QuoteChar);
         }
 
-        // prevent circular imports
-        if (parsingContext.ProcessedImports.Contains(location))
-            return;
+        var importPath = ResolveImportPath(location, parsingContext.BaseDirectory);
 
-        parsingContext.ProcessedImports.Add(location);
+        // prevent circular imports, comparing resolved paths so that the same file reached by
+        // two different spellings is recognised as a single import
+        if (!parsingContext.ProcessedImports.Add(importPath))
+            return;
 
         switch (importType.ToLowerInvariant())
         {
             case "idl":
-                await ProcessIdlImport(location, importedTypes, importedMessages, parsingContext, cancellationToken);
+                await ProcessIdlImport(importPath, importedTypes, importedMessages, parsingContext, cancellationToken);
                 break;
             case "protocol":
-                await ProcessProtocolImport(location, importedTypes, importedMessages, parsingContext, cancellationToken);
+                await ProcessProtocolImport(importPath, importedTypes, importedMessages, parsingContext, cancellationToken);
                 break;
             case "schema":
-                await ProcessSchemaImport(location, importedTypes, parsingContext, cancellationToken);
+                await ProcessSchemaImport(importPath, importedTypes, parsingContext, cancellationToken);
                 break;
         }
     }
 
-    private Stream ReadFileContent(string filePath)
+    /// <summary>
+    /// Resolves an import location against the directory holding the importing document. When that
+    /// directory is unknown, the location is used exactly as written so that a file reader keyed on
+    /// bare names (such as one over embedded resources) still resolves it.
+    /// </summary>
+    private static string ResolveImportPath(string location, string? baseDirectory)
     {
-        var fileInfo = _fileProvider.GetFileInfo(filePath);
-        if (!fileInfo.Exists)
-            throw new FileNotFoundException($"File not found: {filePath}");
+        return string.IsNullOrEmpty(baseDirectory)
+            ? location
+            : Path.GetFullPath(location, baseDirectory);
+    }
 
-        return fileInfo.CreateReadStream();
+    /// <summary>
+    /// The directory that an imported document's own relative imports resolve against.
+    /// </summary>
+    private static string? GetImportBaseDirectory(string importPath, string? baseDirectory)
+    {
+        return string.IsNullOrEmpty(baseDirectory)
+            ? null
+            : Path.GetDirectoryName(importPath);
     }
 
     private async Task ProcessIdlImport(
@@ -851,11 +893,14 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     {
         try
         {
-            await using var idlContent = ReadFileContent(importPath);
+            await using var idlContent = _fileReader.OpenRead(importPath);
             var antlrInputStream = new AntlrInputStream(idlContent);
             var parseTree = ParseIdlContent(antlrInputStream);
 
-            var nestedContext = new IdlParsingContext();
+            var nestedContext = new IdlParsingContext
+            {
+                BaseDirectory = GetImportBaseDirectory(importPath, parsingContext.BaseDirectory)
+            };
             nestedContext.ProcessedImports.UnionWith(parsingContext.ProcessedImports); // Carry forward processed imports
 
             if (parseTree.protocol != null)
@@ -925,7 +970,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     {
         try
         {
-            await using var protocolStream = ReadFileContent(importPath);
+            await using var protocolStream = _fileReader.OpenRead(importPath);
             using var jsonReader = new StreamReader(protocolStream);
             var protocolJson = await jsonReader.ReadToEndAsync(cancellationToken);
             var protocolObj = JObject.Parse(protocolJson);
@@ -967,7 +1012,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     {
         try
         {
-            await using var schemaStream = ReadFileContent(importPath);
+            await using var schemaStream = _fileReader.OpenRead(importPath);
             using var schemaReader = new StreamReader(schemaStream);
             var schemaJson = await schemaReader.ReadToEndAsync(cancellationToken);
             var schemaObj = JObject.Parse(schemaJson);

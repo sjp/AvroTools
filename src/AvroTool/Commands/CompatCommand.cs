@@ -90,7 +90,8 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         foreach (var schemaFile in settings.Schemas)
         {
             var content = await File.ReadAllTextAsync(schemaFile, cancellationToken);
-            var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, cancellationToken);
+            var baseDirectory = InputSource.ImportBaseDirectory(false, schemaFile);
+            var input = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
             if (input == null)
             {
                 _console.MarkupLineInterpolated($"[red]Input '{schemaFile}' unable to be parsed as one of Avro IDL, JSON protocol or JSON schema.[/]");

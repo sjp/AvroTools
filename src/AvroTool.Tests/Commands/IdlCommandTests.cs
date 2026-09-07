@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
 using NUnit.Framework;
-using Microsoft.Extensions.FileProviders;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -69,7 +68,7 @@ internal class IdlCommandTests
         _parseResult = IdlParseResult.Protocol(AvroProtocol.Parse(SimpleTestProtocolJson));
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
         var registrar = new FakeTypeRegistrar();
@@ -162,12 +161,61 @@ internal class IdlCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenFileInput_ResolvesImportsAgainstTheFilesDirectory()
+    {
+        string capturedBaseDirectory = null;
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((string _, string baseDirectory, CancellationToken _) => capturedBaseDirectory = baseDirectory)
+            .ReturnsAsync(() => _parseResult);
+
+        var sourceDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "sub"));
+        var sourceFile = new FileInfo(Path.Combine(sourceDir.FullName, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl);
+
+        var result = await _app.RunAsync([sourceFile.FullName, "--output-dir", _tempDir.DirectoryPath], default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(capturedBaseDirectory, Is.EqualTo(sourceDir.FullName));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenStdinInput_ResolvesImportsAgainstTheCurrentDirectory()
+    {
+        string capturedBaseDirectory = null;
+        _idlTranslator
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((string _, string baseDirectory, CancellationToken _) => capturedBaseDirectory = baseDirectory)
+            .ReturnsAsync(() => _parseResult);
+
+        var originalIn = Console.In;
+        Console.SetIn(new StringReader(SimpleTestIdl));
+        try
+        {
+            var result = await _app.RunAsync(["--stdin", "--output-dir", _tempDir.DirectoryPath], default);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(capturedBaseDirectory, Is.EqualTo(Directory.GetCurrentDirectory()));
+            }
+        }
+        finally
+        {
+            Console.SetIn(originalIn);
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenInvalidInput_ReturnsError()
     {
         const string input = "%";
 
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
@@ -279,8 +327,8 @@ internal class IdlCommandTests
     private void SetupTranslatorToParseProtocolFromContent()
     {
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string content, CancellationToken _) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, string _, CancellationToken __) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
     }
 
     [Test]
@@ -364,8 +412,8 @@ internal class IdlCommandTests
     public async Task ExecuteAsync_GivenFailFastAndFailingFirstInput_DoesNotProcessRest()
     {
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string content, CancellationToken _) =>
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, string _, CancellationToken __) =>
                 content.Contains("BAD")
                     ? throw new InvalidOperationException("bad input")
                     : IdlParseResult.Protocol(AvroProtocol.Parse(content)));
@@ -394,7 +442,7 @@ internal class IdlCommandTests
     {
         var console = new TestConsole().Width(200);
         var registrar = new FakeTypeRegistrar();
-        var translator = new IdlToAvroTranslator(new PhysicalFileProvider(_tempDir.DirectoryPath));
+        var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
         registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(console, translator));
 
         var app = new CommandAppTester(registrar);

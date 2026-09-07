@@ -80,7 +80,8 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         if (settings.FromStandardInput)
         {
             var content = await InputSource.ReadAllTextAsync(true, null, cancellationToken);
-            var ok = await ProcessAsync(content, "<stdin>", settings, outputDir, collector, cancellationToken);
+            var baseDirectory = InputSource.ImportBaseDirectory(true, null);
+            var ok = await ProcessAsync(content, "<stdin>", baseDirectory, settings, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
         }
 
@@ -104,7 +105,8 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         foreach (var file in expansion.Files)
         {
             var content = await File.ReadAllTextAsync(file, cancellationToken);
-            var ok = await ProcessAsync(content, file, settings, outputDir, collector, cancellationToken);
+            var baseDirectory = InputSource.ImportBaseDirectory(false, file);
+            var ok = await ProcessAsync(content, file, baseDirectory, settings, outputDir, collector, cancellationToken);
             if (!ok)
             {
                 anyFailed = true;
@@ -119,6 +121,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
     private async Task<bool> ProcessAsync(
         string idlContent,
         string source,
+        string baseDirectory,
         Settings settings,
         DirectoryInfo outputDir,
         OutputCollector collector,
@@ -127,7 +130,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         IdlFileParseResult parseResult;
         try
         {
-            var result = await _idlTranslator.Translate(idlContent, cancellationToken);
+            var result = await _idlTranslator.Translate(idlContent, baseDirectory, cancellationToken);
             parseResult = IdlFileParseResult.Ok(result);
         }
         catch (Exception ex)
