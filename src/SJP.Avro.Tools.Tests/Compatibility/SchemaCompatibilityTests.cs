@@ -224,4 +224,107 @@ internal static class SchemaCompatibilityTests
         var result = Check(node, node);
         Assert.That(result.IsCompatible, Is.True);
     }
+
+    [Test]
+    public static void Check_GivenNestedFieldMismatch_LocatesItUnderTheFieldsType()
+    {
+        const string writer = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"array","items":"string"}}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"array","items":"int"}}]}""";
+
+        var result = Check(reader, writer);
+
+        Assert.That(result.Incompatibilities.Single().Location, Is.EqualTo("/fields/a/type/items"));
+    }
+
+    [Test]
+    public static void Check_GivenTypeUsedByTwoFields_ReportsIncompatibilityAtEachFieldsLocation()
+    {
+        const string writer = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                { "name": "home", "type": { "type": "record", "name": "Address", "fields": [{ "name": "street", "type": "string" }] } },
+                { "name": "work", "type": "Address" }
+            ]
+        }
+        """;
+        const string reader = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                {
+                    "name": "home",
+                    "type": {
+                        "type": "record",
+                        "name": "Address",
+                        "fields": [{ "name": "street", "type": "string" }, { "name": "zip", "type": "string" }]
+                    }
+                },
+                { "name": "work", "type": "Address" }
+            ]
+        }
+        """;
+
+        var result = Check(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                result.Incompatibilities.Select(i => i.Type),
+                Is.All.EqualTo(SchemaIncompatibilityType.ReaderFieldMissingDefaultValue));
+            Assert.That(result.Incompatibilities.Select(i => i.Location), Is.EquivalentTo(new[]
+            {
+                "/fields/home/type/fields/zip",
+                "/fields/work/type/fields/zip",
+            }));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenTypeUsedByAFieldAndAnArray_ReportsIncompatibilityAtEachLocation()
+    {
+        const string writer = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                { "name": "home", "type": { "type": "record", "name": "Address", "fields": [{ "name": "street", "type": "string" }] } },
+                { "name": "previous", "type": { "type": "array", "items": "Address" } }
+            ]
+        }
+        """;
+        const string reader = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                {
+                    "name": "home",
+                    "type": {
+                        "type": "record",
+                        "name": "Address",
+                        "fields": [{ "name": "street", "type": "string" }, { "name": "zip", "type": "string" }]
+                    }
+                },
+                { "name": "previous", "type": { "type": "array", "items": "Address" } }
+            ]
+        }
+        """;
+
+        var result = Check(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                result.Incompatibilities.Select(i => i.Type),
+                Is.All.EqualTo(SchemaIncompatibilityType.ReaderFieldMissingDefaultValue));
+            Assert.That(result.Incompatibilities.Select(i => i.Location), Is.EquivalentTo(new[]
+            {
+                "/fields/home/type/fields/zip",
+                "/fields/previous/type/items/fields/zip",
+            }));
+        }
+    }
 }

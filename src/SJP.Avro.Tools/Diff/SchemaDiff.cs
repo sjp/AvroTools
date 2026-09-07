@@ -44,7 +44,9 @@ public static class SchemaDiff
     /// so an in-flight pair only ever short-circuits the single reentrant call that found it still
     /// in progress: the outer call keeps walking and its real (possibly non-empty) result is what
     /// gets memoised. This terminates recursive schemas (e.g. a record containing an array of
-    /// itself) without suppressing genuine differences found on the way down.
+    /// itself) without suppressing genuine differences found on the way down. Memoised changes
+    /// carry locations relative to the pair they were found in, so a type reached from several
+    /// places reports the same changes once at each of those places, each with its own path.
     /// </summary>
     private sealed class Differ
     {
@@ -57,7 +59,14 @@ public static class SchemaDiff
             _includeMetadata = includeMetadata;
         }
 
-        public List<SchemaChange> Calculate(Schema before, Schema after, string location)
+        public List<SchemaChange> Calculate(Schema before, Schema after, string location) =>
+            Rebase(CalculateRelative(before, after), location);
+
+        /// <summary>
+        /// Computes the changes between a pair with locations relative to that pair's own root,
+        /// which is what makes the memoised result reusable from any position.
+        /// </summary>
+        private List<SchemaChange> CalculateRelative(Schema before, Schema after)
         {
             before = Unwrap(before);
             after = Unwrap(after);
@@ -70,11 +79,28 @@ public static class SchemaDiff
                 return []; // recursion in progress at this pair; the outer call owns the real result
 
             var sink = new List<SchemaChange>();
-            Compute(sink, before, after, location);
+            Compute(sink, before, after, RelativeRoot);
 
             _inFlight.Remove(pair);
             _memo[pair] = sink;
             return sink;
+        }
+
+        private static List<SchemaChange> Rebase(List<SchemaChange> relative, string location)
+        {
+            var rebased = new List<SchemaChange>(relative.Count);
+            foreach (var change in relative)
+            {
+                rebased.Add(new SchemaChange(
+                    change.Kind,
+                    Combine(location, change.Location),
+                    change.Message,
+                    change.OldValue,
+                    change.NewValue,
+                    change.IsValidPromotion));
+            }
+
+            return rebased;
         }
 
         private void Compute(List<SchemaChange> sink, Schema before, Schema after, string location)
@@ -367,19 +393,20 @@ public static class SchemaDiff
                 }
 
                 var typeLocation = Append(fieldLocation, "type");
-                var typeChanges = Calculate(matchedBefore.Schema, matchedAfter.Schema, typeLocation);
+                var typeChanges = CalculateRelative(matchedBefore.Schema, matchedAfter.Schema);
 
                 // A tag mismatch (or unrelated named-type swap) found directly at the field's own
                 // type is the common, important case the spec calls out as "field type changed";
                 // reuse the same detection emitted by Calculate for nested structures (array items,
                 // union branches, etc.), but relabel it when it's this field's own immediate type
-                // rather than something changed deeper inside it.
-                if (typeChanges.Count == 1 && typeChanges[0].Kind == ChangeKind.TypeKindChanged && typeChanges[0].Location == typeLocation)
+                // rather than something changed deeper inside it. A change sitting at the pair's
+                // own root is exactly that case.
+                if (typeChanges.Count == 1 && typeChanges[0].Kind == ChangeKind.TypeKindChanged && typeChanges[0].Location.Length == 0)
                 {
                     var change = typeChanges[0];
                     sink.Add(new SchemaChange(
                         ChangeKind.FieldTypeChanged,
-                        change.Location,
+                        typeLocation,
                         change.Message,
                         change.OldValue,
                         change.NewValue,
@@ -387,7 +414,7 @@ public static class SchemaDiff
                 }
                 else
                 {
-                    sink.AddRange(typeChanges);
+                    sink.AddRange(Rebase(typeChanges, typeLocation));
                 }
 
                 CompareFieldDefault(sink, matchedBefore, matchedAfter, fieldLocation);
@@ -512,8 +539,21 @@ public static class SchemaDiff
         return aliases.Select(a => a.Fullname);
     }
 
-    private static string Append(string location, string segment) =>
-        location.EndsWith('/') ? location + segment : location + "/" + segment;
+    /// <summary>The location of the pair currently being computed, which every change hangs off.</summary>
+    private const string RelativeRoot = "";
+
+    /// <summary>Joins a location prefix to a suffix, either of which may be the empty relative root.</summary>
+    private static string Combine(string prefix, string suffix)
+    {
+        if (suffix.Length == 0)
+            return prefix;
+        if (prefix.Length == 0)
+            return suffix;
+
+        return prefix.EndsWith('/') ? prefix + suffix : prefix + "/" + suffix;
+    }
+
+    private static string Append(string location, string segment) => Combine(location, segment);
 
     private static string Append(string location, string first, string second) =>
         Append(Append(location, first), second);

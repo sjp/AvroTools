@@ -38,6 +38,9 @@ public static class SchemaCompatibility
     /// reader/writer pair is independent of where it appears, so results are memoised per pair.
     /// A pair still being computed is treated as compatible, which terminates recursive schemas
     /// (a recursive type is compatible with itself), as in the Avro specification's resolution.
+    /// Memoised incompatibilities carry locations relative to the pair they were found in, so a
+    /// type reached from several places reports the same findings once at each of those places,
+    /// each with its own path.
     /// </summary>
     private sealed class Checker
     {
@@ -46,7 +49,14 @@ public static class SchemaCompatibility
 
         private static readonly List<Incompatibility> None = [];
 
-        public List<Incompatibility> Calculate(Schema reader, Schema writer, string location)
+        public List<Incompatibility> Calculate(Schema reader, Schema writer, string location) =>
+            Rebase(CalculateRelative(reader, writer), location);
+
+        /// <summary>
+        /// Computes the incompatibilities of a pair with locations relative to that pair's own
+        /// root, which is what makes the memoised result reusable from any position.
+        /// </summary>
+        private List<Incompatibility> CalculateRelative(Schema reader, Schema writer)
         {
             // Logical types resolve on their underlying representation, so compare the base schemas.
             reader = Unwrap(reader);
@@ -59,10 +69,24 @@ public static class SchemaCompatibility
             _memo[pair] = null;
 
             var sink = new List<Incompatibility>();
-            Compute(sink, reader, writer, location);
+            Compute(sink, reader, writer, RelativeRoot);
 
             _memo[pair] = sink;
             return sink;
+        }
+
+        private static List<Incompatibility> Rebase(List<Incompatibility> relative, string location)
+        {
+            var rebased = new List<Incompatibility>(relative.Count);
+            foreach (var incompatibility in relative)
+            {
+                rebased.Add(new Incompatibility(
+                    incompatibility.Type,
+                    incompatibility.Message,
+                    Combine(location, incompatibility.Location)));
+            }
+
+            return rebased;
         }
 
         private void Compute(List<Incompatibility> sink, Schema reader, Schema writer, string location)
@@ -144,7 +168,7 @@ public static class SchemaCompatibility
 
         private void CheckReaderUnion(List<Incompatibility> sink, UnionSchema reader, Schema writer, string location)
         {
-            var readable = reader.Schemas.Any(branch => Calculate(branch, writer, location).Count == 0);
+            var readable = reader.Schemas.Any(branch => CalculateRelative(branch, writer).Count == 0);
             if (!readable)
             {
                 sink.Add(new Incompatibility(
@@ -198,7 +222,7 @@ public static class SchemaCompatibility
             {
                 if (TryLookupWriterField(writer, readerField, out var writerField))
                 {
-                    sink.AddRange(Calculate(readerField.Schema, writerField.Schema, Append(location, "fields", readerField.Name)));
+                    sink.AddRange(Calculate(readerField.Schema, writerField.Schema, Append(location, "fields", readerField.Name, "type")));
                 }
                 else if (readerField.DefaultValue == null)
                 {
@@ -304,9 +328,25 @@ public static class SchemaCompatibility
             HashCode.Combine(RuntimeHelpers.GetHashCode(_reader), RuntimeHelpers.GetHashCode(_writer));
     }
 
-    private static string Append(string location, string segment) =>
-        location.EndsWith('/') ? location + segment : location + "/" + segment;
+    /// <summary>The location of the pair currently being computed, which every finding hangs off.</summary>
+    private const string RelativeRoot = "";
+
+    /// <summary>Joins a location prefix to a suffix, either of which may be the empty relative root.</summary>
+    private static string Combine(string prefix, string suffix)
+    {
+        if (suffix.Length == 0)
+            return prefix;
+        if (prefix.Length == 0)
+            return suffix;
+
+        return prefix.EndsWith('/') ? prefix + suffix : prefix + "/" + suffix;
+    }
+
+    private static string Append(string location, string segment) => Combine(location, segment);
 
     private static string Append(string location, string first, string second) =>
         Append(Append(location, first), second);
+
+    private static string Append(string location, string first, string second, string third) =>
+        Append(Append(Append(location, first), second), third);
 }

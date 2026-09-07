@@ -348,4 +348,129 @@ internal static class SchemaDiffTests
 
         Assert.That(result.Changes.Single().Kind, Is.EqualTo(ChangeKind.FieldAdded));
     }
+
+    [Test]
+    public static void Compare_GivenTypeUsedByTwoFields_ReportsChangeAtEachFieldsLocation()
+    {
+        const string before = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                { "name": "home", "type": { "type": "record", "name": "Address", "fields": [{ "name": "street", "type": "string" }] } },
+                { "name": "work", "type": "Address" }
+            ]
+        }
+        """;
+        const string after = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                {
+                    "name": "home",
+                    "type": {
+                        "type": "record",
+                        "name": "Address",
+                        "fields": [{ "name": "street", "type": "string" }, { "name": "zip", "type": "string", "default": "" }]
+                    }
+                },
+                { "name": "work", "type": "Address" }
+            ]
+        }
+        """;
+
+        var result = Compare(before, after);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Changes.Select(c => c.Kind), Is.All.EqualTo(ChangeKind.FieldAdded));
+            Assert.That(result.Changes.Select(c => c.Location), Is.EquivalentTo(new[]
+            {
+                "/fields/home/type/fields/zip",
+                "/fields/work/type/fields/zip",
+            }));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenTypeUsedByAFieldAndAnArray_ReportsChangeAtEachLocation()
+    {
+        const string before = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                { "name": "home", "type": { "type": "record", "name": "Address", "fields": [{ "name": "street", "type": "string" }] } },
+                { "name": "previous", "type": { "type": "array", "items": "Address" } }
+            ]
+        }
+        """;
+        const string after = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                {
+                    "name": "home",
+                    "type": {
+                        "type": "record",
+                        "name": "Address",
+                        "fields": [{ "name": "street", "type": "string" }, { "name": "zip", "type": "string", "default": "" }]
+                    }
+                },
+                { "name": "previous", "type": { "type": "array", "items": "Address" } }
+            ]
+        }
+        """;
+
+        var result = Compare(before, after);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Changes.Select(c => c.Kind), Is.All.EqualTo(ChangeKind.FieldAdded));
+            Assert.That(result.Changes.Select(c => c.Location), Is.EquivalentTo(new[]
+            {
+                "/fields/home/type/fields/zip",
+                "/fields/previous/type/items/fields/zip",
+            }));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenSharedTypeReplacedInTwoFields_ReportsFieldTypeChangedForBoth()
+    {
+        const string before = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                { "name": "home", "type": { "type": "record", "name": "Address", "fields": [{ "name": "street", "type": "string" }] } },
+                { "name": "work", "type": "Address" }
+            ]
+        }
+        """;
+        const string after = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                { "name": "home", "type": { "type": "record", "name": "Place", "fields": [{ "name": "street", "type": "string" }] } },
+                { "name": "work", "type": "Place" }
+            ]
+        }
+        """;
+
+        var result = Compare(before, after);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Changes.Select(c => c.Kind), Is.All.EqualTo(ChangeKind.FieldTypeChanged));
+            Assert.That(result.Changes.Select(c => c.Location), Is.EquivalentTo(new[]
+            {
+                "/fields/home/type",
+                "/fields/work/type",
+            }));
+        }
+    }
 }
