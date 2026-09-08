@@ -8,8 +8,10 @@ namespace SJP.Avro.Tools.Idl;
 /// Reads imported IDL, protocol and schema files from an <see cref="IFileProvider"/>.
 /// </summary>
 /// <remarks>
-/// The paths given to a file provider are relative to its root, so this reader is intended for
-/// documents whose imports are looked up by a bare name, such as embedded resources.
+/// The paths given to a file provider are relative to its root, so an import written in the
+/// document handed to the translator is looked up exactly as it is written. An import written in a
+/// document that was itself reached through a subdirectory is resolved against that subdirectory,
+/// so that a document refers to its neighbours by name wherever it sits under the root.
 /// </remarks>
 public sealed class FileProviderIdlFileReader : IIdlFileReader
 {

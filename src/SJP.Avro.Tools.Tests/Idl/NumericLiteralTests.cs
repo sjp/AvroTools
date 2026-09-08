@@ -74,7 +74,7 @@ internal class NumericLiteralTests
     {
         var idl = $"protocol P {{ record R {{ double v = {literal}; }} }}";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain(literal).And.Contain("no JSON representation"));
     }
@@ -114,7 +114,7 @@ internal class NumericLiteralTests
     {
         var idl = $"protocol P {{ fixed F({literal}); }}";
 
-        var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain(literal).And.Contain("32-bit integer"));
     }
@@ -130,7 +130,7 @@ internal class NumericLiteralTests
     {
         var idl = $"protocol P {{ record R {{ long v = {literal}; }} }}";
 
-        var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain(literal).And.Contain("64-bit integer"));
     }

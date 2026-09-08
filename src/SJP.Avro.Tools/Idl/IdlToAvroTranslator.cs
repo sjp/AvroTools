@@ -34,7 +34,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// </summary>
     /// <param name="idlContent">A string containing an IDL representing a protocol or a schema.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="ArgumentException"><paramref name="idlContent"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     public Task<IdlParseResult> Translate(string idlContent, CancellationToken cancellationToken = default)
         => Translate(idlContent, null, cancellationToken);
 
@@ -44,7 +46,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// <param name="idlContent">A string containing an IDL representing a protocol or a schema.</param>
     /// <param name="baseDirectory">The directory that relative import paths are resolved against, typically the directory containing the document. When <c>null</c>, import paths are used exactly as written.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="ArgumentException"><paramref name="idlContent"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     public Task<IdlParseResult> Translate(string idlContent, string? baseDirectory, CancellationToken cancellationToken)
         => Translate(idlContent, baseDirectory, null, cancellationToken);
 
@@ -60,7 +64,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// as for a document read from standard input, no such path is known.
     /// </param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="ArgumentException"><paramref name="idlContent"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     public async Task<IdlParseResult> Translate(string idlContent, string? baseDirectory, string? sourcePath, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(idlContent);
@@ -80,7 +86,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// </summary>
     /// <param name="idlContent">A stream whose contents contain an IDL representing a protocol or a schema.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="idlContent"/> is <c>null</c>.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     public Task<IdlParseResult> Translate(Stream idlContent, CancellationToken cancellationToken = default)
         => Translate(idlContent, null, cancellationToken);
 
@@ -90,9 +98,13 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// <param name="idlContent">A stream whose contents contain an IDL representing a protocol or a schema.</param>
     /// <param name="baseDirectory">The directory that relative import paths are resolved against, typically the directory containing the document. When <c>null</c>, import paths are used exactly as written.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="idlContent"/> is <c>null</c>.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     public async Task<IdlParseResult> Translate(Stream idlContent, string? baseDirectory, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(idlContent);
+
         var antlrStream = new AntlrInputStream(idlContent);
         var parsed = ParseIdlContent(antlrStream);
         var context = CreateRootContext(parsed, baseDirectory);
@@ -152,14 +164,31 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.protocol != null)
         {
             var protocolJson = await TranslateProtocolToJson(context.protocol, parsingContext, cancellationToken);
-            var protocol = AvroProtocol.Parse(protocolJson.ToString());
+            var protocol = ParseTranslated(() => AvroProtocol.Parse(protocolJson.ToString()), "protocol");
             return IdlParseResult.Protocol(protocol, protocolJson, parsingContext.NamedSchemas, parsingContext.Warnings);
         }
         else
         {
             var schemaJson = await TranslateSchemaToJson(context, parsingContext, cancellationToken);
-            var schema = AvroSchema.Parse(schemaJson.ToString());
+            var schema = ParseTranslated(() => AvroSchema.Parse(schemaJson.ToString()), "schema");
             return IdlParseResult.Schema(schema, schemaJson, parsingContext.NamedSchemas, parsingContext.Warnings);
+        }
+    }
+
+    /// <summary>
+    /// Reads the translated JSON back as an Avro protocol or schema, reporting a document that
+    /// translates to something Avro will not accept as a translation failure rather than letting
+    /// an error from another library's object model escape.
+    /// </summary>
+    private static T ParseTranslated<T>(Func<T> parse, string kind)
+    {
+        try
+        {
+            return parse();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new IdlTranslationException($"The document does not describe a valid Avro {kind}: {ex.Message}", ex);
         }
     }
 
@@ -217,7 +246,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         }
         else
         {
-            throw new InvalidOperationException("The IDL file does not contain a schema.");
+            throw new IdlTranslationException("The IDL file does not contain a schema.");
         }
 
         return mainSchemaJson;
@@ -370,13 +399,13 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.recordDeclaration() != null)
             return TranslateRecord(context.recordDeclaration(), parsingContext);
 
-        throw new InvalidOperationException("Unknown named schema type");
+        throw Error(context, "Unknown named schema type");
     }
 
     private JObject TranslateFixed(IdlParser.FixedDeclarationContext context, IdlParsingContext parsingContext)
     {
         var (name, ownNamespace) = SplitDeclaredName(context.name.GetName());
-        var size = IdlNumericLiteral.ParseInt32(context.size.Text);
+        var size = ParseNumericLiteral(context.size, context.size.Text, IdlNumericLiteral.ParseInt32);
         var doc = parsingContext.DocComments.For(context);
         var properties = TranslateProperties(context._schemaProperties);
 
@@ -507,6 +536,10 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var fieldName = varDecl.fieldName.GetName();
         var defaultValue = varDecl.defaultValue != null ? TranslateJsonValue(varDecl.defaultValue) : null;
         var fieldType = TranslateFullType(fieldDecl.fieldType, parsingContext, defaultValue);
+
+        if (defaultValue != null)
+            ValidateDefaultValue(fieldType, defaultValue, $"field '{fieldName}'", varDecl, parsingContext);
+
         // a comment attached to the variable describes that variable alone, so it wins over the
         // comment on the declaration, which is shared by every variable declared with the same type
         var doc = parsingContext.DocComments.For(varDecl)
@@ -540,7 +573,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var isOneway = context.oneway != null;
 
         if (isOneway && context.returnType.Void() == null)
-            throw new InvalidOperationException($"One-way message must return void: '{context.name.GetName()}'.");
+            throw Error(context, $"One-way message must return void: '{context.name.GetName()}'.");
 
         var request = new JArray();
         foreach (var param in context._formalParameters)
@@ -548,6 +581,10 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             var paramName = param.parameter.fieldName.GetName();
             var paramDefault = param.parameter.defaultValue != null ? TranslateJsonValue(param.parameter.defaultValue) : null;
             var paramType = TranslateFullType(param.parameterType, parsingContext, paramDefault);
+
+            if (paramDefault != null)
+                ValidateDefaultValue(paramType, paramDefault, $"parameter '{paramName}' of message '{context.name.GetName()}'", param.parameter, parsingContext);
+
             // a comment written against the parameter name itself is preferred over one written
             // ahead of its type, matching the precedence used for record fields
             var paramDoc = parsingContext.DocComments.For(param.parameter)
@@ -620,12 +657,12 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         // so any property written alongside the reference would be silently discarded
         var referenceName = context.plainType().nullableType()?.referenceName;
         if (referenceName != null)
-            throw new InvalidOperationException($"Annotations cannot be applied to a reference to the named type '{referenceName.GetName()}'; annotate the declaration of the type instead.");
+            throw Error(context, $"Annotations cannot be applied to a reference to the named type '{referenceName.GetName()}'; annotate the declaration of the type instead.");
 
         if (typeToken is JArray unionArray)
         {
             if (context.plainType().unionType() != null)
-                throw new InvalidOperationException("Annotations cannot be applied to a union type; annotate the individual branches instead.");
+                throw Error(context, "Annotations cannot be applied to a union type; annotate the individual branches instead.");
 
             return ApplyAnnotationsToNullableBranch(unionArray, properties);
         }
@@ -691,7 +728,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.nullableType() != null)
             return TranslateNullableType(context.nullableType(), parsingContext, defaultValue);
 
-        throw new InvalidOperationException("Unknown plain type");
+        throw Error(context, "Unknown plain type");
     }
 
     private JObject TranslateArrayType(IdlParser.ArrayTypeContext context, IdlParsingContext parsingContext)
@@ -742,7 +779,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.referenceName != null)
             return TranslateReferenceType(context, parsingContext);
 
-        throw new InvalidOperationException("Unknown nullable type");
+        throw Error(context, "Unknown nullable type");
     }
 
     private JToken TranslateReferenceType(IdlParser.NullableTypeContext context, IdlParsingContext parsingContext)
@@ -788,7 +825,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var typeNameToken = context.typeName;
         if (typeNameToken == null)
         {
-            throw new InvalidOperationException("Primitive type has no type name");
+            throw Error(context, "Primitive type has no type name");
         }
 
         var logicalType = TranslateLogicalType(context);
@@ -816,7 +853,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     private static JObject? TranslateLogicalType(IdlParser.PrimitiveTypeContext context)
     {
         var typeNameToken = context.typeName
-            ?? throw new InvalidOperationException("Logical type has no type name");
+            ?? throw Error(context, "Logical type has no type name");
 
         var text = typeNameToken.Text;
 
@@ -828,7 +865,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
             if (precisionToken != null)
             {
-                var precision = IdlNumericLiteral.ParseInt32(precisionToken.Text);
+                var precision = ParseNumericLiteral(precisionToken, precisionToken.Text, IdlNumericLiteral.ParseInt32);
                 var decimalObj = new JObject
                 {
                     ["type"] = "bytes",
@@ -838,7 +875,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
                 if (scaleToken != null)
                 {
-                    var scale = IdlNumericLiteral.ParseInt32(scaleToken.Text);
+                    var scale = ParseNumericLiteral(scaleToken, scaleToken.Text, IdlNumericLiteral.ParseInt32);
                     decimalObj["scale"] = scale;
                 }
 
@@ -890,7 +927,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.jsonArray() != null)
             return TranslateJsonArray(context.jsonArray());
 
-        throw new InvalidOperationException("Unknown JSON value type");
+        throw Error(context, "Unknown JSON value type");
     }
 
     private static JToken TranslateJsonLiteral(IdlParser.JsonLiteralContext context)
@@ -899,14 +936,14 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             return IdlStringLiteral.Unescape(context.StringLiteral().GetText());
 
         if (context.IntegerLiteral() != null)
-            return IdlNumericLiteral.ParseInteger(context.IntegerLiteral().GetText());
+            return ParseNumericLiteral(context, context.IntegerLiteral().GetText(), IdlNumericLiteral.ParseInteger);
 
         if (context.FloatingPointLiteral() != null)
         {
             var literalText = context.FloatingPointLiteral().GetText();
-            var value = IdlNumericLiteral.ParseDouble(literalText);
+            var value = ParseNumericLiteral(context, literalText, IdlNumericLiteral.ParseDouble);
             if (!double.IsFinite(value))
-                throw new InvalidOperationException($"The numeric literal '{literalText}' has no JSON representation and cannot be used in an Avro schema.");
+                throw Error(context, $"The numeric literal '{literalText}' has no JSON representation and cannot be used in an Avro schema.");
 
             return value;
         }
@@ -920,7 +957,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.Null() != null)
             return JValue.CreateNull();
 
-        throw new InvalidOperationException("Unknown JSON literal type");
+        throw Error(context, "Unknown JSON literal type");
     }
 
     private JObject TranslateJsonObject(IdlParser.JsonObjectContext context)
@@ -979,22 +1016,60 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// directory is unknown, the location is used exactly as written so that a file reader keyed on
     /// bare names (such as one over embedded resources) still resolves it.
     /// </summary>
+    /// <remarks>
+    /// A directory that is itself relative belongs to a reader whose paths are relative to a root
+    /// of its own, so the two are joined and reduced as text. Only a rooted directory is resolved
+    /// against the file system.
+    /// </remarks>
     private static string ResolveImportPath(string location, string? baseDirectory)
     {
-        return string.IsNullOrEmpty(baseDirectory)
-            ? location
-            : Path.GetFullPath(location, baseDirectory);
+        if (string.IsNullOrEmpty(baseDirectory))
+            return location;
+
+        return Path.IsPathRooted(baseDirectory)
+            ? Path.GetFullPath(location, baseDirectory)
+            : CombineRelativePath(baseDirectory, location);
     }
 
     /// <summary>
-    /// The directory that an imported document's own relative imports resolve against.
+    /// Joins a location onto a relative directory, reducing the <c>.</c> and <c>..</c> segments
+    /// that a resolved path no longer needs. The result keeps <c>/</c> separators, which every
+    /// file provider understands.
     /// </summary>
-    private static string? GetImportBaseDirectory(string importPath, string? baseDirectory)
+    private static string CombineRelativePath(string baseDirectory, string location)
     {
-        return string.IsNullOrEmpty(baseDirectory)
-            ? null
-            : Path.GetDirectoryName(importPath);
+        if (Path.IsPathRooted(location))
+            return location;
+
+        var segments = new List<string>();
+
+        foreach (var segment in $"{baseDirectory}/{location}".Split('/', '\\'))
+        {
+            switch (segment)
+            {
+                case "" or ".":
+                    break;
+                case ".." when segments.Count > 0 && segments[^1] != "..":
+                    segments.RemoveAt(segments.Count - 1);
+                    break;
+                default:
+                    segments.Add(segment);
+                    break;
+            }
+        }
+
+        return string.Join('/', segments);
     }
+
+    /// <summary>
+    /// The directory that an imported document's own relative imports resolve against, which is
+    /// the directory holding the imported document. A document reached by a bare name has none, so
+    /// its own imports are looked up by bare name in turn.
+    /// </summary>
+    private static string? GetImportBaseDirectory(string importPath)
+        => Path.IsPathRooted(importPath)
+            ? Path.GetDirectoryName(importPath)
+            : Path.GetDirectoryName(importPath.Replace('\\', '/'));
 
     private async Task ProcessIdlImport(
         string importPath,
@@ -1012,7 +1087,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
             var nestedContext = new IdlParsingContext
             {
-                BaseDirectory = GetImportBaseDirectory(importPath, parsingContext.BaseDirectory),
+                BaseDirectory = GetImportBaseDirectory(importPath),
                 DocComments = parsed.DocComments
             };
             nestedContext.ProcessedImports.UnionWith(parsingContext.ProcessedImports); // Carry forward processed imports
@@ -1106,9 +1181,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             foreach (var warning in nestedContext.Warnings)
                 parsingContext.Warnings.Add($"{importPath}: {warning}");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new InvalidOperationException($"Failed to import IDL from '{importPath}': {ex.Message}", ex);
+            throw ImportError(importPath, "Failed to import IDL from", ex);
         }
     }
 
@@ -1159,9 +1234,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new InvalidOperationException($"Failed to import protocol from '{importPath}': {ex.Message}", ex);
+            throw ImportError(importPath, "Failed to import protocol from", ex);
         }
     }
 
@@ -1188,9 +1263,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                 parsingContext.NamedSchemas[name] = schemaObj;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new InvalidOperationException($"Failed to import schema from '{importPath}': {ex.Message}", ex);
+            throw ImportError(importPath, "Failed to import schema from", ex);
         }
     }
 
@@ -1417,7 +1492,55 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.recordDeclaration() != null)
             return context.recordDeclaration().name.GetName();
 
-        throw new InvalidOperationException("Unknown named schema type");
+        throw Error(context, "Unknown named schema type");
+    }
+
+    /// <summary>
+    /// An error describing something in a document that cannot be translated, naming the position
+    /// of the declaration it was found on so that it can be located in the source.
+    /// </summary>
+    private static IdlTranslationException Error(ParserRuleContext context, string message, Exception? innerException = null)
+        => Error(context.Start, message, innerException);
+
+    /// <inheritdoc cref="Error(ParserRuleContext, string, Exception)"/>
+    private static IdlTranslationException Error(IToken token, string message, Exception? innerException = null)
+        => new($"Error at line {token.Line}:{token.Column} - {message}", null, token.Line, token.Column, innerException);
+
+    /// <summary>
+    /// Reads a numeric literal, reporting a literal that denotes no number the declared type can
+    /// hold against the position it was written at.
+    /// </summary>
+    private static T ParseNumericLiteral<T>(IToken token, string literalText, Func<string, T> parse)
+    {
+        try
+        {
+            return parse(literalText);
+        }
+        catch (FormatException ex)
+        {
+            throw Error(token, ex.Message, ex);
+        }
+    }
+
+    /// <inheritdoc cref="ParseNumericLiteral{T}(IToken, string, Func{string, T})"/>
+    private static T ParseNumericLiteral<T>(ParserRuleContext context, string literalText, Func<string, T> parse)
+        => ParseNumericLiteral(context.Start, literalText, parse);
+
+    /// <summary>
+    /// An error raised while reading an imported document, named by the import it came from. The
+    /// position within the imported document, where one is known, is carried up unchanged: it
+    /// describes where in that document the error is, not where in this one the import sits.
+    /// </summary>
+    private static IdlTranslationException ImportError(string importPath, string description, Exception innerException)
+    {
+        var located = innerException as IdlTranslationException;
+
+        return new IdlTranslationException(
+            $"{description} '{importPath}': {innerException.Message}",
+            located?.FileName ?? importPath,
+            located?.LineNumber,
+            located?.ColumnNumber,
+            innerException);
     }
 
     private static string ResolveFullTypeName(string typeName, IdlParsingContext parsingContext)
@@ -1447,6 +1570,29 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         }
 
         return typeName;
+    }
+
+    /// <summary>
+    /// The definition of a type referred to by name, or <c>null</c> when no type of that name has
+    /// been read yet, as is the case for one declared further down the document.
+    /// </summary>
+    private static JToken? ResolveNamedSchema(string typeName, IdlParsingContext parsingContext)
+        => parsingContext.NamedSchemas.GetValueOrDefault(ResolveFullTypeName(typeName, parsingContext));
+
+    /// <summary>
+    /// Rejects a default value that the declared type cannot hold, so that it is reported against
+    /// the declaration that carries it rather than failing somewhere further downstream.
+    /// </summary>
+    private static void ValidateDefaultValue(
+        JToken type,
+        JToken defaultValue,
+        string declaration,
+        ParserRuleContext context,
+        IdlParsingContext parsingContext)
+    {
+        var reason = IdlDefaultValue.DescribeMismatch(type, defaultValue, name => ResolveNamedSchema(name, parsingContext));
+        if (reason != null)
+            throw Error(context, $"The default value for {declaration} cannot be used: {reason}.");
     }
 
     /// <summary>

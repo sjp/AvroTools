@@ -14,7 +14,9 @@ public interface IIdlToAvroTranslator
     /// </summary>
     /// <param name="idlContent">A stream whose contents contain an IDL representing a protocol or a schema.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="idlContent"/> is <c>null</c>.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     Task<IdlParseResult> Translate(Stream idlContent, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -23,7 +25,9 @@ public interface IIdlToAvroTranslator
     /// <param name="idlContent">A stream whose contents contain an IDL representing a protocol or a schema.</param>
     /// <param name="baseDirectory">The directory that relative import paths are resolved against, typically the directory containing the document. When <c>null</c>, import paths are used exactly as written.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="idlContent"/> is <c>null</c>.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     Task<IdlParseResult> Translate(Stream idlContent, string? baseDirectory, CancellationToken cancellationToken);
 
     /// <summary>
@@ -31,7 +35,9 @@ public interface IIdlToAvroTranslator
     /// </summary>
     /// <param name="idlContent">A string containing an IDL representing a protocol or a schema.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="System.ArgumentException"><paramref name="idlContent"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     Task<IdlParseResult> Translate(string idlContent, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -40,7 +46,9 @@ public interface IIdlToAvroTranslator
     /// <param name="idlContent">A string containing an IDL representing a protocol or a schema.</param>
     /// <param name="baseDirectory">The directory that relative import paths are resolved against, typically the directory containing the document. When <c>null</c>, import paths are used exactly as written.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="System.ArgumentException"><paramref name="idlContent"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     Task<IdlParseResult> Translate(string idlContent, string? baseDirectory, CancellationToken cancellationToken);
 
     /// <summary>
@@ -55,6 +63,8 @@ public interface IIdlToAvroTranslator
     /// as for a document read from standard input, no such path is known.
     /// </param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A parse result that contains either a protocol or a schema. If parsing fails, an exception is thrown.</returns>
+    /// <returns>A parse result that contains either a protocol or a schema.</returns>
+    /// <exception cref="System.ArgumentException"><paramref name="idlContent"/> is <c>null</c>, empty or whitespace.</exception>
+    /// <exception cref="IdlTranslationException">The document could not be translated.</exception>
     Task<IdlParseResult> Translate(string idlContent, string? baseDirectory, string? sourcePath, CancellationToken cancellationToken);
 }

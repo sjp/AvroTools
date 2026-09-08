@@ -90,31 +90,31 @@ internal class IdlToAvroTranslatorTests
     }
 
     [Test]
-    public void Translate_GivenPropertyAnnotatedOnAReferenceToANamedType_ThrowsInvalidOperationException()
+    public void Translate_GivenPropertyAnnotatedOnAReferenceToANamedType_ThrowsWithExplanation()
     {
         const string idl = "protocol P { record R { int a; } record S { @foo(\"bar\") R h; } }";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("'R'"));
     }
 
     [Test]
-    public void Translate_GivenPropertyAnnotatedOnAnOptionalReferenceToANamedType_ThrowsInvalidOperationException()
+    public void Translate_GivenPropertyAnnotatedOnAnOptionalReferenceToANamedType_ThrowsWithExplanation()
     {
         const string idl = "protocol P { record R { int a; } record S { @foo(\"bar\") R? h; } }";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("'R'"));
     }
 
     [Test]
-    public void Translate_GivenPropertyAnnotatedOnAReferenceNestedInAnArray_ThrowsInvalidOperationException()
+    public void Translate_GivenPropertyAnnotatedOnAReferenceNestedInAnArray_ThrowsWithExplanation()
     {
         const string idl = "protocol P { record R { int a; } record S { array<@foo(\"bar\") R> h; } }";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("'R'"));
     }
@@ -188,11 +188,11 @@ internal class IdlToAvroTranslatorTests
     }
 
     [Test]
-    public void Translate_GivenAOneWayMessageWithANonVoidReturnType_ThrowsInvalidOperationException()
+    public void Translate_GivenAOneWayMessageWithANonVoidReturnType_ThrowsWithExplanation()
     {
         const string idl = "protocol P { int f() oneway; }";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("One-way message must return void"));
     }
@@ -277,11 +277,11 @@ internal class IdlToAvroTranslatorTests
     }
 
     [Test]
-    public void Translate_GivenAnnotationOnAUnionType_ThrowsInvalidOperationException()
+    public void Translate_GivenAnnotationOnAUnionType_ThrowsWithExplanation()
     {
         const string idl = "protocol P { record R { @foo(\"bar\") union { null, string } u; } }";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("union"));
     }
@@ -291,7 +291,7 @@ internal class IdlToAvroTranslatorTests
     {
         const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("Syntax error at line 1:54"));
     }
@@ -302,7 +302,7 @@ internal class IdlToAvroTranslatorTests
         const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(idl));
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(stream, TestContext.CurrentContext.CancellationToken));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(stream, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("Syntax error at line 1:54"));
     }

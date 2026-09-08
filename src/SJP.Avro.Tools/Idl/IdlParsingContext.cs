@@ -7,7 +7,7 @@ namespace SJP.Avro.Tools.Idl;
 /// Represents the parsing context for IDL to Avro translation.
 /// This class encapsulates all mutable state during the parsing process.
 /// </summary>
-public sealed record IdlParsingContext
+internal sealed record IdlParsingContext
 {
     /// <summary>
     /// Cache of named schemas for reference resolution.
@@ -58,7 +58,7 @@ public sealed record IdlParsingContext
     /// in an import graph has its own, because a declaration is identified by where it sits in the
     /// token stream of the document it was written in.
     /// </summary>
-    internal IdlDocComments DocComments { get; set; } = IdlDocComments.Empty;
+    public IdlDocComments DocComments { get; set; } = IdlDocComments.Empty;
 
     /// <summary>
     /// Describes anything about the document that is worth reporting but does not stop it being

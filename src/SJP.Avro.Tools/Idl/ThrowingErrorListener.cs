@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using Antlr4.Runtime;
 
@@ -12,7 +11,7 @@ public class ThrowingErrorListener : BaseErrorListener, IAntlrErrorListener<int>
     /// <summary>
     /// Method called when a syntax error is encountered while parsing.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when a syntax error has occurred.</exception>
+    /// <exception cref="IdlTranslationException">Thrown when a syntax error has occurred.</exception>
     public override void SyntaxError(
         TextWriter output,
         IRecognizer recognizer,
@@ -28,7 +27,7 @@ public class ThrowingErrorListener : BaseErrorListener, IAntlrErrorListener<int>
     /// <summary>
     /// Method called when a syntax error is encountered while tokenising.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when a syntax error has occurred.</exception>
+    /// <exception cref="IdlTranslationException">Thrown when a syntax error has occurred.</exception>
     public void SyntaxError(
         TextWriter output,
         IRecognizer recognizer,
@@ -41,10 +40,13 @@ public class ThrowingErrorListener : BaseErrorListener, IAntlrErrorListener<int>
         throw SyntaxErrorException(line, charPositionInLine, msg, e);
     }
 
-    private static InvalidOperationException SyntaxErrorException(int line, int charPositionInLine, string msg, RecognitionException e)
+    private static IdlTranslationException SyntaxErrorException(int line, int charPositionInLine, string msg, RecognitionException e)
     {
-        return new InvalidOperationException(
+        return new IdlTranslationException(
             $"Syntax error at line {line}:{charPositionInLine} - {msg}",
+            null,
+            line,
+            charPositionInLine,
             e);
     }
 }

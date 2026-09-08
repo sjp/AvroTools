@@ -71,7 +71,7 @@ internal class ImportedProtocolNamespaceTests
             "main.avdl",
             """@namespace("my.ns") protocol Main { import protocol "inner.avpr"; record Outer { InnerRec i; } }""");
 
-        var thrown = Assert.ThrowsAsync<SchemaParseException>(() => TranslateProtocol(main));
+        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => TranslateProtocol(main));
 
         Assert.That(thrown.Message, Does.Contain("InnerRec"));
     }
