@@ -959,7 +959,7 @@ namespace TestNamespace
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
-            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs")), Is.True);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestProtocol.cs")), Is.True);
         }
     }
 

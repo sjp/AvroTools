@@ -59,14 +59,6 @@ internal sealed record OutputPlan(string? Error, IReadOnlyList<PlannedOutput> Ou
 internal sealed class OutputCollector
 {
     /// <summary>
-    /// Compares output paths the way the file system does: case-sensitively on Linux,
-    /// case-insensitively on Windows and macOS.
-    /// </summary>
-    private static readonly StringComparer PathComparer = OperatingSystem.IsLinux()
-        ? StringComparer.Ordinal
-        : StringComparer.OrdinalIgnoreCase;
-
-    /// <summary>
     /// An output path already claimed, and by what. Content is held as a hash so that a run over
     /// a large tree does not keep every generated file in memory.
     /// </summary>
@@ -75,10 +67,57 @@ internal sealed class OutputCollector
         public bool Holds(string content) => ContentHash.AsSpan().SequenceEqual(HashOf(content));
     }
 
-    private readonly Dictionary<string, Claim> _claims = new(PathComparer);
+    private readonly StringComparer _pathComparer;
+    private readonly Dictionary<string, Claim> _claims;
     private readonly bool _overwrite;
 
-    public OutputCollector(bool overwrite) => _overwrite = overwrite;
+    public OutputCollector(bool overwrite, StringComparer pathComparer)
+    {
+        _overwrite = overwrite;
+        _pathComparer = pathComparer;
+        _claims = new Dictionary<string, Claim>(pathComparer);
+    }
+
+    /// <summary>
+    /// Determines whether the file system holding a directory treats file names as
+    /// case-sensitive, by writing a probe file and checking whether it can also be found under
+    /// a differently-cased name. This is the trait that actually matters for output-path
+    /// collisions — unlike the operating system, it varies by volume, notably on case-sensitive
+    /// APFS volumes on macOS and case-insensitive mounts on Linux.
+    /// </summary>
+    /// <param name="directory">The directory to probe. Must already exist.</param>
+    /// <returns>
+    /// A comparer matching the directory's case sensitivity, or the platform's usual default
+    /// when the directory could not be probed.
+    /// </returns>
+    public static StringComparer DetectPathComparer(DirectoryInfo directory)
+    {
+        var defaultComparer = OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+
+        try
+        {
+            var probePath = Path.Combine(directory.FullName, Path.GetRandomFileName());
+            var upper = probePath.ToUpperInvariant();
+            var lower = probePath.ToLowerInvariant();
+            if (upper == lower)
+                return defaultComparer;
+
+            File.WriteAllBytes(probePath, []);
+            try
+            {
+                var variantPath = probePath == upper ? lower : upper;
+                return File.Exists(variantPath) ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+            }
+            finally
+            {
+                File.Delete(probePath);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return defaultComparer;
+        }
+    }
 
     /// <summary>
     /// Reserves all output paths that a single input will produce, atomically: either every path
@@ -95,7 +134,7 @@ internal sealed class OutputCollector
     public OutputPlan Reserve(IReadOnlyList<OutputReservation> outputs, string source)
     {
         var planned = new List<PlannedOutput>(outputs.Count);
-        var claimedHere = new Dictionary<string, OutputReservation>(PathComparer);
+        var claimedHere = new Dictionary<string, OutputReservation>(_pathComparer);
 
         foreach (var output in outputs)
         {

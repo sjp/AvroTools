@@ -79,6 +79,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
+        var pathComparer = StringComparer.Ordinal;
         if (!settings.ToStandardOutput)
         {
             var directoryError = OutputCollector.EnsureDirectory(outputDir);
@@ -87,9 +88,11 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
                 _console.MarkupLineInterpolated($"[red]{directoryError}[/]");
                 return ErrorCode.Error;
             }
+
+            pathComparer = OutputCollector.DetectPathComparer(outputDir);
         }
 
-        var collector = new OutputCollector(settings.Overwrite);
+        var collector = new OutputCollector(settings.Overwrite, pathComparer);
 
         if (settings.FromStandardInput)
         {

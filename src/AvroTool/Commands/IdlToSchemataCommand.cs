@@ -83,7 +83,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
             return ErrorCode.Error;
         }
 
-        var collector = new OutputCollector(settings.Overwrite);
+        var collector = new OutputCollector(settings.Overwrite, OutputCollector.DetectPathComparer(outputDir));
 
         if (settings.FromStandardInput)
         {

@@ -255,11 +255,12 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 > identifier; a part that is a C# keyword has to be escaped, as in
 > `--namespace @class.Models`.
 
-Each named type (record, error, enum, fixed) is written to `<fullname>.cs` —
-its Avro namespace and name joined with a dot, so `TestRecord` above becomes
-`org.foo.TestRecord.cs` once it declares `namespace org.foo`. A protocol is
-always written to `<name>.cs`, without its namespace, regardless of whether
-one is declared or supplied with `--namespace`.
+Each named type (record, error, enum, fixed) and each protocol is written to
+`<fullname>.cs` — its Avro namespace and name joined with a dot, so
+`TestRecord` above becomes `org.foo.TestRecord.cs` once it declares
+`namespace org.foo`. A type or protocol without its own namespace is written
+to `<name>.cs`, even when `--namespace` supplies one for the generated C#
+code.
 
 Avro records and protocols are generated as C# `record`s, with unconditional
 nullable (`T?`) annotations for optional (`["null", ...]`) fields. Avro `fixed`

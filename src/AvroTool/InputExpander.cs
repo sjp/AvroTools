@@ -93,7 +93,7 @@ internal static class InputExpander
         if (!Directory.Exists(baseDirectory))
             return [];
 
-        var matcher = new Matcher(StringComparison.Ordinal);
+        var matcher = new Matcher(OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
         matcher.AddInclude(pattern);
 
         var result = matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(baseDirectory)));
@@ -121,7 +121,7 @@ internal static class InputExpander
         var pattern = normalized[(slashBeforeWildcard + 1)..];
 
         var baseDirectory = basePart.Length == 0
-            ? "/"
+            ? Path.GetPathRoot(Directory.GetCurrentDirectory()) is { Length: > 0 } root ? root : "/"
             : Path.IsPathRooted(basePart) ? basePart : Path.Combine(Directory.GetCurrentDirectory(), basePart);
 
         return (baseDirectory, pattern);

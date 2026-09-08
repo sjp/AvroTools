@@ -29,7 +29,7 @@ internal static class InputReader
     /// <param name="displayName">The name of the input to use when reporting a failure.</param>
     /// <param name="console">The console to write a failure to.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The content of the input, or <c>null</c> when it could not be read.</returns>
+    /// <returns>The content of the input, or <c>null</c> when it could not be read or was empty.</returns>
     public static async Task<string?> TryReadAllTextAsync(
         IStandardStreams streams,
         bool useStandardInput,
@@ -38,15 +38,25 @@ internal static class InputReader
         IStatusConsole console,
         CancellationToken cancellationToken)
     {
+        string content;
         try
         {
-            return await streams.ReadAllTextAsync(useStandardInput, path, cancellationToken).ConfigureAwait(false);
+            content = await streams.ReadAllTextAsync(useStandardInput, path, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
             console.MarkupLineInterpolated($"[red]Unable to read '{displayName}': {ex.Message}[/]");
             return null;
         }
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            var subject = useStandardInput ? "standard input" : $"'{displayName}'";
+            console.MarkupLineInterpolated($"[red]{subject} was empty[/]");
+            return null;
+        }
+
+        return content;
     }
 
     /// <summary>

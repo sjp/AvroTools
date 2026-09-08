@@ -115,7 +115,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             return ErrorCode.Error;
         }
 
-        var collector = new OutputCollector(settings.Overwrite);
+        var collector = new OutputCollector(settings.Overwrite, OutputCollector.DetectPathComparer(outputDir));
 
         if (settings.FromStandardInput)
         {
@@ -194,8 +194,6 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 .ToList();
 
             var generatesProtocol = protocol != null && protocol.Messages.Count > 0;
-            if (protocol != null && !generatesProtocol)
-                _console.MarkupLineInterpolated($"[yellow]Skipping protocol message generation. Protocol '{protocol.Name}' has no messages[/]");
 
             if (string.IsNullOrWhiteSpace(settings.BaseNamespace))
             {
@@ -223,8 +221,12 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
                 var protocolOutput = protocolGenerator.Generate(protocol!, settings.BaseNamespace, codeGenOptions);
 
+                var protocolFullName = string.IsNullOrWhiteSpace(protocol!.Namespace)
+                    ? protocol.Name
+                    : $"{protocol.Namespace}.{protocol.Name}";
+
                 reservations.Add(new OutputReservation(
-                    Path.Combine(outputDir.FullName, protocol!.Name + ".cs"),
+                    Path.Combine(outputDir.FullName, protocolFullName + ".cs"),
                     $"protocol '{protocol.Name}'",
                     protocolOutput));
             }
