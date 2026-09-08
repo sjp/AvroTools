@@ -410,7 +410,9 @@ their `-transitive` variants, which take a candidate schema followed by every
 earlier version to check it against. `--json` emits a machine-readable list of
 incompatibilities (kind, location and message) instead of the summary above.
 Both forms of the report go to standard output, so either can be redirected to
-a file or piped onwards.
+a file or piped onwards. Types are named the way a schema document names them —
+`int`, `enum`, `string` — and a named type the reader has no branch for is
+reported by its full name.
 
 `compat` slots directly into CI as a pre-merge gate: it exits `0` when the
 schemas are compatible, `1` when they are not, and `2` when it could not reach
@@ -471,10 +473,16 @@ canonical form preserves field order and only strips non-structural attributes
 — but data written with either field order still reads back the same way, so
 `diff` treats the two as equivalent. Type changes, default changes, renames
 (detected via `aliases`), and enum/fixed/union shape changes are all reported. A
+union branch that is a named type renamed through an `aliases` link is matched to
+the branch it replaces, so the rename and whatever changed inside that branch are
+reported rather than one branch removed and an unrelated one added. A
 type change also carries `isValidPromotion`, which says whether a reader using
 the new type can still read data written with the old one under Avro's type
 promotion rules — `int` to `long` is a valid promotion, `long` to `int` is not.
-It is `null` for changes that aren't type changes.
+It is `null` for changes that aren't type changes. A change's message, values and
+location name a type the way a schema document does — `int`, `enum` — and a named
+type by its full name, which is also the segment a union branch contributes to a
+location.
 Logical types count too: adding, removing or replacing a `logicalType`, or
 changing a decimal's `precision` or `scale`, is reported even though the
 underlying representation is unchanged, because it changes how the data is

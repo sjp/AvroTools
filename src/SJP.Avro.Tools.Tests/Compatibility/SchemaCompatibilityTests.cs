@@ -44,7 +44,12 @@ internal static class SchemaCompatibilityTests
         {
             Assert.That(result.IsCompatible, Is.EqualTo(expectedCompatible));
             if (!expectedCompatible)
+            {
                 Assert.That(result.Incompatibilities.Single().Type, Is.EqualTo(SchemaIncompatibilityType.TypeMismatch));
+                Assert.That(
+                    result.Incompatibilities.Single().Message,
+                    Is.EqualTo($"reader type: {readerType} not compatible with writer type: {writerType}"));
+            }
         }
     }
 
@@ -130,6 +135,23 @@ internal static class SchemaCompatibilityTests
         {
             Assert.That(result.IsCompatible, Is.False);
             Assert.That(result.Incompatibilities.Single().Type, Is.EqualTo(SchemaIncompatibilityType.MissingUnionBranch));
+            Assert.That(result.Incompatibilities.Single().Message, Is.EqualTo("reader union lacking writer type: string"));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenWriterUnionBranchOfNamedTypeNotReadable_NamesTheMissingType()
+    {
+        const string writer = """["null",{"type":"record","name":"B","namespace":"ns","fields":[]}]""";
+        const string reader = """["null",{"type":"record","name":"A","namespace":"ns","fields":[]}]""";
+
+        var result = Check(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsCompatible, Is.False);
+            Assert.That(result.Incompatibilities.Single().Type, Is.EqualTo(SchemaIncompatibilityType.MissingUnionBranch));
+            Assert.That(result.Incompatibilities.Single().Message, Is.EqualTo("reader union lacking writer type: record ns.B"));
         }
     }
 

@@ -175,7 +175,7 @@ public static class SchemaCompatibility
             {
                 sink.Add(new Incompatibility(
                     SchemaIncompatibilityType.MissingUnionBranch,
-                    $"reader union lacking writer type: {writer.Tag.ToString().ToUpperInvariant()}",
+                    $"reader union lacking writer type: {Describe(writer)}",
                     location));
             }
         }
@@ -241,7 +241,7 @@ public static class SchemaCompatibility
         {
             sink.Add(new Incompatibility(
                 SchemaIncompatibilityType.TypeMismatch,
-                $"reader type: {reader.Tag.ToString().ToUpperInvariant()} not compatible with writer type: {writer.Tag.ToString().ToUpperInvariant()}",
+                $"reader type: {TypeName(reader)} not compatible with writer type: {TypeName(writer)}",
                 location));
         }
     }
@@ -261,6 +261,21 @@ public static class SchemaCompatibility
 
     private static Schema Unwrap(Schema schema) =>
         schema is LogicalSchema logical ? logical.BaseSchema : schema;
+
+    /// <summary>
+    /// The name the Avro specification gives a schema's type (<c>int</c>, <c>enum</c>, …), which is
+    /// what a schema document is written in and therefore what a reader of a report expects to see.
+    /// </summary>
+    private static string TypeName(Schema schema) => Schema.GetTypeString(schema.Tag);
+
+    /// <summary>
+    /// Describes a schema for a message: its type, qualified by its full name when it is a named
+    /// type, because for those the name is usually the reason a resolution failed.
+    /// </summary>
+    private static string Describe(Schema schema) =>
+        schema is NamedSchema named
+            ? TypeName(schema) + " " + named.Fullname
+            : TypeName(schema);
 
     /// <summary>
     /// The type a schema is resolved as. A protocol error is a record that carries an error flag:

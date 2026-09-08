@@ -127,9 +127,9 @@ public static class SchemaDiff
                 sink.Add(new SchemaChange(
                     ChangeKind.TypeKindChanged,
                     location,
-                    $"type changed from {before.Tag.ToString().ToUpperInvariant()} to {after.Tag.ToString().ToUpperInvariant()}",
-                    oldValue: before.Tag.ToString(),
-                    newValue: after.Tag.ToString(),
+                    $"type changed from {TypeName(before)} to {TypeName(after)}",
+                    oldValue: TypeName(before),
+                    newValue: TypeName(after),
                     isValidPromotion: IsPromotable(readerType: afterType, writerType: beforeType)));
                 return;
             }
@@ -211,8 +211,7 @@ public static class SchemaDiff
             if (string.Equals(before.Fullname, after.Fullname, StringComparison.Ordinal))
                 return true;
 
-            if (NamedSchemaAliases(before).Contains(after.Fullname, StringComparer.Ordinal) ||
-                NamedSchemaAliases(after).Contains(before.Fullname, StringComparer.Ordinal))
+            if (LinkedByAlias(before, after))
             {
                 sink.Add(new SchemaChange(
                     ChangeKind.TypeRenamed,
@@ -340,22 +339,66 @@ public static class SchemaDiff
         {
             var beforeByKey = BranchesByKey(before);
             var afterByKey = BranchesByKey(after);
+            var matches = MatchBranches(beforeByKey, afterByKey);
+            var matchedBeforeKeys = matches.Values.ToHashSet(StringComparer.Ordinal);
 
             foreach (var (key, afterBranch) in afterByKey)
             {
-                if (beforeByKey.TryGetValue(key, out var beforeBranch))
-                    sink.AddRange(Calculate(beforeBranch, afterBranch, Append(location, key)));
+                if (matches.TryGetValue(key, out var beforeKey))
+                    sink.AddRange(Calculate(beforeByKey[beforeKey], afterBranch, Append(location, key)));
                 else
-                    sink.Add(new SchemaChange(ChangeKind.UnionBranchAdded, location, $"branch added: {DescribeBranch(afterBranch)}"));
+                    sink.Add(new SchemaChange(ChangeKind.UnionBranchAdded, location, $"branch added: {BranchName(afterBranch)}"));
             }
 
             foreach (var (key, beforeBranch) in beforeByKey)
             {
-                if (!afterByKey.ContainsKey(key))
-                    sink.Add(new SchemaChange(ChangeKind.UnionBranchRemoved, location, $"branch removed: {DescribeBranch(beforeBranch)}"));
+                if (!matchedBeforeKeys.Contains(key))
+                    sink.Add(new SchemaChange(ChangeKind.UnionBranchRemoved, location, $"branch removed: {BranchName(beforeBranch)}"));
             }
 
-            CompareUnionBranchOrder(sink, beforeByKey, afterByKey, location);
+            CompareUnionBranchOrder(sink, beforeByKey, afterByKey, matches, location);
+        }
+
+        /// <summary>
+        /// Pairs up the branches of the two unions, returning the "before" branch each "after"
+        /// branch was paired with, keyed by the "after" branch's name. Branches sharing a name pair
+        /// with each other; a named branch left unpaired then pairs with an unpaired named branch
+        /// linked to it by an alias in either direction, so that a type renamed between the two
+        /// versions is diffed as the one branch it is, exactly as it would be at a field position,
+        /// rather than being reported as an unrelated branch removed and another added.
+        /// </summary>
+        private static Dictionary<string, string> MatchBranches(
+            OrderedDictionary<string, Schema> beforeByKey,
+            OrderedDictionary<string, Schema> afterByKey)
+        {
+            var matches = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var key in afterByKey.Keys)
+            {
+                if (beforeByKey.ContainsKey(key))
+                    matches[key] = key;
+            }
+
+            var unpairedBefore = beforeByKey
+                .Where(branch => !afterByKey.ContainsKey(branch.Key) && Unwrap(branch.Value) is NamedSchema)
+                .Select(branch => (branch.Key, Named: (NamedSchema)Unwrap(branch.Value)))
+                .ToList();
+
+            foreach (var (afterKey, afterBranch) in afterByKey)
+            {
+                if (unpairedBefore.Count == 0)
+                    break;
+                if (matches.ContainsKey(afterKey) || Unwrap(afterBranch) is not NamedSchema afterNamed)
+                    continue;
+
+                var index = unpairedBefore.FindIndex(branch => LinkedByAlias(branch.Named, afterNamed));
+                if (index < 0)
+                    continue;
+
+                matches[afterKey] = unpairedBefore[index].Key;
+                unpairedBefore.RemoveAt(index);
+            }
+
+            return matches;
         }
 
         /// <summary>
@@ -363,23 +406,27 @@ public static class SchemaDiff
         /// of the schema's meaning: it fixes the index each branch is written under in binary
         /// encoding, it is preserved in the parsing canonical form and therefore in the
         /// fingerprint, and it decides which branch a default value has to belong to. Only the
-        /// branches present on both sides are compared, so the shift that inevitably follows a
+        /// branches paired across both sides are compared, so the shift that inevitably follows a
         /// branch being added or removed is left to the addition or removal to describe.
         /// </summary>
         private static void CompareUnionBranchOrder(
             List<SchemaChange> sink,
             OrderedDictionary<string, Schema> beforeByKey,
             OrderedDictionary<string, Schema> afterByKey,
+            Dictionary<string, string> matches,
             string location)
         {
-            var beforeCommon = beforeByKey.Keys.Where(afterByKey.ContainsKey);
-            var afterCommon = afterByKey.Keys.Where(beforeByKey.ContainsKey);
+            // Both sequences are expressed in "before" keys, so that a branch paired through an
+            // alias is compared by position rather than counting as a move.
+            var matchedBeforeKeys = matches.Values.ToHashSet(StringComparer.Ordinal);
+            var beforeCommon = beforeByKey.Keys.Where(matchedBeforeKeys.Contains);
+            var afterCommon = afterByKey.Keys.Where(matches.ContainsKey).Select(key => matches[key]);
 
             if (beforeCommon.SequenceEqual(afterCommon, StringComparer.Ordinal))
                 return;
 
-            var oldOrder = string.Join(", ", beforeByKey.Values.Select(DescribeBranch));
-            var newOrder = string.Join(", ", afterByKey.Values.Select(DescribeBranch));
+            var oldOrder = string.Join(", ", beforeByKey.Values.Select(BranchName));
+            var newOrder = string.Join(", ", afterByKey.Values.Select(BranchName));
 
             sink.Add(new SchemaChange(
                 ChangeKind.UnionBranchesReordered,
@@ -398,18 +445,19 @@ public static class SchemaDiff
         {
             var branches = new OrderedDictionary<string, Schema>(union.Count, StringComparer.Ordinal);
             foreach (var branch in union.Schemas)
-                branches.TryAdd(BranchKey(branch), branch);
+                branches.TryAdd(BranchName(branch), branch);
 
             return branches;
         }
 
-        // Branches are matched on their underlying representation, so that a branch which gains or
-        // loses a logical type is still recognised as the same branch and diffed as a change to it.
-        private static string BranchKey(Schema schema) =>
-            Unwrap(schema) is NamedSchema named ? named.Fullname : Unwrap(schema).Tag.ToString();
-
-        private static string DescribeBranch(Schema schema) =>
-            Unwrap(schema) is NamedSchema named ? named.Fullname : Unwrap(schema).Tag.ToString().ToUpperInvariant();
+        /// <summary>
+        /// Names a union branch: its full name when it is a named type, otherwise the Avro name of
+        /// its type. A branch is matched, located and described by this name. Naming goes by the
+        /// underlying representation, so a branch that gains or loses a logical type is still
+        /// recognised as the same branch and diffed as a change to it.
+        /// </summary>
+        private static string BranchName(Schema schema) =>
+            Unwrap(schema) is NamedSchema named ? named.Fullname : TypeName(Unwrap(schema));
 
         /// <summary>
         /// Reports a <c>logicalType</c> that was added, removed or replaced, and — when both sides
@@ -699,6 +747,20 @@ public static class SchemaDiff
 
     private static Schema Unwrap(Schema schema) =>
         schema is LogicalSchema logical ? logical.BaseSchema : schema;
+
+    /// <summary>
+    /// The name the Avro specification gives a schema's type (<c>int</c>, <c>enum</c>, …), which is
+    /// what a schema document is written in and therefore what a reader of a report expects to see.
+    /// </summary>
+    private static string TypeName(Schema schema) => Schema.GetTypeString(schema.Tag);
+
+    /// <summary>
+    /// Whether two named schemas are the same type under different names, i.e. one of them lists
+    /// the other's full name among its aliases.
+    /// </summary>
+    private static bool LinkedByAlias(NamedSchema before, NamedSchema after) =>
+        NamedSchemaAliases(before).Contains(after.Fullname, StringComparer.Ordinal) ||
+        NamedSchemaAliases(after).Contains(before.Fullname, StringComparer.Ordinal);
 
     /// <summary>
     /// The type a schema is compared as. A protocol error is a record that carries an error flag,

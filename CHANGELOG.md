@@ -11,6 +11,18 @@ version out of this file and fails if there is no section for it.
 
 ## Unreleased
 
+### Changed
+
+- `compat` and `diff` name a type the way a schema document does — `int`, `enum`, `string`
+  — in their messages, their `--json` values and the locations they report, and `compat`
+  gives the full name of a named type a reader union has no branch for.
+
+### Fixed
+
+- `diff` matches a union branch renamed through an alias to the branch it replaces, so the
+  rename and the changes inside the branch are reported instead of one branch removed and
+  an unrelated one added.
+
 ## 0.2.0
 
 The first release since the tool grew from an IDL compiler into a general-purpose Avro
