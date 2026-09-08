@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -60,8 +61,8 @@ internal static class GeneratedSourceCompiler
     /// hiding without <c>new</c>, hiding a virtual member without <c>override</c>, and a
     /// <c>new</c> that hides nothing.
     /// </summary>
-    private static readonly IReadOnlySet<string> HidingDiagnosticIds =
-        new HashSet<string>(StringComparer.Ordinal) { "CS0108", "CS0109", "CS0114" };
+    private static readonly FrozenSet<string> HidingDiagnosticIds =
+        new HashSet<string>(StringComparer.Ordinal) { "CS0108", "CS0109", "CS0114" }.ToFrozenSet();
 
     /// <summary>
     /// Compiles generated source and returns one of the types it declares.

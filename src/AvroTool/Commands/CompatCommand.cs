@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -53,7 +54,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
     ];
 
     // Accepts hyphen- or underscore-separated spellings, case-insensitively.
-    private static readonly Dictionary<string, CompatibilityMode> Modes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenDictionary<string, CompatibilityMode> Modes = new Dictionary<string, CompatibilityMode>(StringComparer.OrdinalIgnoreCase)
     {
         ["backward"] = CompatibilityMode.Backward,
         ["forward"] = CompatibilityMode.Forward,
@@ -61,7 +62,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         ["backwardtransitive"] = CompatibilityMode.BackwardTransitive,
         ["forwardtransitive"] = CompatibilityMode.ForwardTransitive,
         ["fulltransitive"] = CompatibilityMode.FullTransitive,
-    };
+    }.ToFrozenDictionary();
 
     private readonly IStatusConsole _console;
     private readonly IOutputConsole _output;

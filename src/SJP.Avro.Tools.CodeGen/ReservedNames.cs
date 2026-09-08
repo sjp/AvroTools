@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 
 namespace SJP.Avro.Tools.CodeGen;
@@ -24,7 +25,7 @@ internal static class ReservedNames
         "MemberwiseClone",
         "ReferenceEquals",
         "ToString"
-    };
+    }.ToFrozenSet();
 
     /// <summary>
     /// Members the compiler writes into every C# <c>record</c>. A member of the same name is either
@@ -36,7 +37,7 @@ internal static class ReservedNames
         "Clone",
         "EqualityContract",
         "PrintMembers"
-    };
+    }.ToFrozenSet();
 
     /// <summary>
     /// Members inherited from <see cref="Exception"/>, which a generated error type derives from.
@@ -54,7 +55,7 @@ internal static class ReservedNames
         "Source",
         "StackTrace",
         "TargetSite"
-    };
+    }.ToFrozenSet();
 
     /// <summary>
     /// Returns <paramref name="name"/>, suffixed with as many underscores as it takes to tell it

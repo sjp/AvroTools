@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -764,14 +765,14 @@ public static class SchemaDiff
     }
 
     /// <summary>The type promotions permitted by the Avro specification, keyed by reader type.</summary>
-    private static readonly Dictionary<Schema.Type, HashSet<Schema.Type>> PromotableWriterTypes = new()
+    private static readonly FrozenDictionary<Schema.Type, FrozenSet<Schema.Type>> PromotableWriterTypes = new Dictionary<Schema.Type, FrozenSet<Schema.Type>>
     {
-        [Schema.Type.Long] = [Schema.Type.Int],
-        [Schema.Type.Float] = [Schema.Type.Int, Schema.Type.Long],
-        [Schema.Type.Double] = [Schema.Type.Int, Schema.Type.Long, Schema.Type.Float],
-        [Schema.Type.Bytes] = [Schema.Type.String],
-        [Schema.Type.String] = [Schema.Type.Bytes],
-    };
+        [Schema.Type.Long] = new HashSet<Schema.Type> { Schema.Type.Int }.ToFrozenSet(),
+        [Schema.Type.Float] = new HashSet<Schema.Type> { Schema.Type.Int, Schema.Type.Long }.ToFrozenSet(),
+        [Schema.Type.Double] = new HashSet<Schema.Type> { Schema.Type.Int, Schema.Type.Long, Schema.Type.Float }.ToFrozenSet(),
+        [Schema.Type.Bytes] = new HashSet<Schema.Type> { Schema.Type.String }.ToFrozenSet(),
+        [Schema.Type.String] = new HashSet<Schema.Type> { Schema.Type.Bytes }.ToFrozenSet(),
+    }.ToFrozenDictionary();
 
     /// <summary>
     /// Whether a reader using <paramref name="readerType"/> can read data written with

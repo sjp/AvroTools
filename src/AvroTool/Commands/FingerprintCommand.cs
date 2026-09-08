@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
@@ -41,14 +42,14 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
 
     // The algorithm names understood by Apache.Avro's SchemaNormalization, keyed by a normalised
     // (lower-case, separator-stripped) form of the user-supplied value.
-    private static readonly Dictionary<string, string> Algorithms = new()
+    private static readonly FrozenDictionary<string, string> Algorithms = new Dictionary<string, string>
     {
         ["crc64avro"] = "CRC-64-AVRO",
         ["crc64"] = "CRC-64-AVRO",
         ["rabin"] = "CRC-64-AVRO",
         ["md5"] = "MD5",
         ["sha256"] = "SHA-256",
-    };
+    }.ToFrozenDictionary();
 
     private const string HexFormat = "hex";
     private const string Base64Format = "base64";

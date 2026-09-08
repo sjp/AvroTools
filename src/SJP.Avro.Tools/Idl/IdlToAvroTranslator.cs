@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -1412,11 +1413,11 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// type declared elsewhere: primitive type names and the "type" discriminator of array, map and
     /// named-schema wrappers.
     /// </summary>
-    private static readonly HashSet<string> ReservedTypeKeywords = new(StringComparer.Ordinal)
+    private static readonly FrozenSet<string> ReservedTypeKeywords = new HashSet<string>(StringComparer.Ordinal)
     {
         "null", "boolean", "int", "long", "float", "double", "string", "bytes",
         "array", "map", "enum", "fixed", "record", "error"
-    };
+    }.ToFrozenSet();
 
     /// <summary>
     /// Qualifies the bare type references in an imported message's request, response and errors against

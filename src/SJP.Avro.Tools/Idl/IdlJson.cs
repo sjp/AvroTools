@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
@@ -13,7 +14,7 @@ namespace SJP.Avro.Tools.Idl;
 /// </summary>
 public static class IdlJson
 {
-    private static readonly HashSet<string> NamedSchemaKinds = new(StringComparer.Ordinal) { "record", "error", "enum", "fixed" };
+    private static readonly FrozenSet<string> NamedSchemaKinds = new HashSet<string>(StringComparer.Ordinal) { "record", "error", "enum", "fixed" }.ToFrozenSet();
 
     /// <summary>
     /// The fully qualified name a named schema (a record, error, enum or fixed type) is written

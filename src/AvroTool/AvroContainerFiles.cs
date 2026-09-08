@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -20,13 +21,13 @@ internal static class AvroContainerFiles
     /// reference, keyed by the assembly it fails to load when a container declares one of the
     /// codecs it does not bundle.
     /// </summary>
-    private static readonly Dictionary<string, string> UnbundledCodecAssemblies = new(StringComparer.Ordinal)
+    private static readonly FrozenDictionary<string, string> UnbundledCodecAssemblies = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["Avro.File.Snappy"] = "snappy",
         ["Avro.File.BZip2"] = "bzip2",
         ["Avro.File.Zstandard"] = "zstandard",
         ["Avro.File.XZ"] = "xz",
-    };
+    }.ToFrozenDictionary();
 
     private const string UnrecognizedCodecPrefix = "Unrecognized codec: ";
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using Avro;
 
@@ -15,7 +16,7 @@ public class CodeGeneratorResolver : ICodeGeneratorResolver
         [typeof(FixedSchema)] = new AvroFixedGenerator(),
         [typeof(RecordSchema)] = new AvroRecordGenerator(),
         [typeof(Protocol)] = new AvroProtocolGenerator()
-    };
+    }.ToFrozenDictionary();
 
     /// <summary>
     /// Retrieves a code generator matching a provided type.

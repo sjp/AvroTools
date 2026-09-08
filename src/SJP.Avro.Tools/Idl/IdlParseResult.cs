@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
@@ -12,7 +13,7 @@ namespace SJP.Avro.Tools.Idl;
 /// </summary>
 public sealed record IdlParseResult
 {
-    private static readonly IReadOnlyDictionary<string, JObject> EmptyNamedSchemas = new Dictionary<string, JObject>();
+    private static readonly IReadOnlyDictionary<string, JObject> EmptyNamedSchemas = FrozenDictionary<string, JObject>.Empty;
 
     private readonly AvroProtocol? _protocol;
     private readonly AvroSchema? _schema;

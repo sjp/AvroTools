@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using Avro;
@@ -238,7 +239,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         AvroSchemaUtilities.SchemaMemberName,
         nameof(ISpecificRecord.Get),
         nameof(ISpecificRecord.Put)
-    };
+    }.ToFrozenSet();
 
     /// <summary>
     /// Computes the C# property name for each Avro field. A member may not share its name with the

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -316,8 +317,8 @@ internal static class SyntaxUtilities
             || DeclarationContextualKeywords.Contains(name);
     }
 
-    private static readonly IReadOnlySet<string> DeclarationContextualKeywords =
-        new HashSet<string>(StringComparer.Ordinal) { "file", "record", "required" };
+    private static readonly FrozenSet<string> DeclarationContextualKeywords =
+        new HashSet<string>(StringComparer.Ordinal) { "file", "record", "required" }.ToFrozenSet();
 
     /// <summary>
     /// A type syntax lookup that translates from built-in C# types to Roslyn type definitions.
@@ -334,7 +335,7 @@ internal static class SyntaxUtilities
         [Schema.Type.Long] = PredefinedType(Token(SyntaxKind.LongKeyword)),
         [Schema.Type.Null] = PredefinedType(Token(SyntaxKind.ObjectKeyword)),
         [Schema.Type.String] = PredefinedType(Token(SyntaxKind.StringKeyword))
-    };
+    }.ToFrozenDictionary();
 
     /// <summary>
     /// Returns an assignment expression that generates <c>= default!</c>.
