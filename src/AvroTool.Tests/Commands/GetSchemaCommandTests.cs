@@ -8,6 +8,7 @@ using NUnit.Framework;
 using Spectre.Console;
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 
 namespace AvroTool.Tests.Commands;
 
@@ -146,5 +147,32 @@ internal class GetSchemaCommandTests
         var result = await _app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
 
         Assert.That(result.ExitCode, Is.Not.Zero);
+    }
+
+    [TestCase("snappy")]
+    [TestCase("bzip2")]
+    [TestCase("zstandard")]
+    [TestCase("xz")]
+    [TestCase("not-a-real-codec")]
+    public async Task ExecuteAsync_GivenUnsupportedCodec_NamesTheCodecInTheError(string codecName)
+    {
+        var schema = (RecordSchema)Schema.Parse(SchemaJson);
+        var path = Path.Combine(_tempDir.DirectoryPath, "unsupported-codec.avro");
+        AvroDataFileFixtures.WriteContainerHeaderWithCodec(path, schema, codecName);
+
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        registrar.RegisterInstance(typeof(GetSchemaCommand), new GetSchemaCommand(new StatusConsole(console), _streams));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<GetSchemaCommand>();
+
+        var result = await app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain($"The container uses the '{codecName}' codec; only 'null' and 'deflate' are supported."));
+        }
     }
 }

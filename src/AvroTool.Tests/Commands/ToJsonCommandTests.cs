@@ -233,6 +233,32 @@ internal class ToJsonCommandTests
         Assert.That(result.ExitCode, Is.Not.Zero);
     }
 
+    [TestCase("snappy")]
+    [TestCase("bzip2")]
+    [TestCase("zstandard")]
+    [TestCase("xz")]
+    [TestCase("not-a-real-codec")]
+    public async Task ExecuteAsync_GivenUnsupportedCodec_NamesTheCodecInTheError(string codecName)
+    {
+        var path = Path.Combine(_tempDir.DirectoryPath, "unsupported-codec.avro");
+        AvroDataFileFixtures.WriteContainerHeaderWithCodec(path, Schema, codecName);
+
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        registrar.RegisterInstance(typeof(ToJsonCommand), new ToJsonCommand(new StatusConsole(console), _streams));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<ToJsonCommand>();
+
+        var result = await app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain($"The container uses the '{codecName}' codec; only 'null' and 'deflate' are supported."));
+        }
+    }
+
     [Test]
     public async Task ExecuteAsync_GivenFileThatFailsToDecodeMidStream_WritesTheRecordsDecodedBeforeTheFailure()
     {

@@ -3,8 +3,6 @@ using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Avro.File;
-using Avro.Generic;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -63,17 +61,9 @@ internal sealed class GetSchemaCommand : AsyncCommand<GetSchemaCommand.Settings>
         if (stream == null)
             return ErrorCode.Error;
 
-        IFileReader<GenericRecord> reader;
-        try
-        {
-            reader = DataFileReader<GenericRecord>.OpenReader(stream);
-        }
-        catch (Exception ex)
-        {
-            _console.MarkupLineInterpolated($"[red]Unable to read '{source}' as an Avro object container file.[/]");
-            _console.MarkupLineInterpolated($"[red]    {ex.Message}[/]");
+        var reader = AvroContainerFiles.TryOpenReader(stream, source, _console);
+        if (reader == null)
             return ErrorCode.Error;
-        }
 
         using (reader)
         {

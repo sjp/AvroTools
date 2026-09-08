@@ -255,6 +255,12 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 > identifier; a part that is a C# keyword has to be escaped, as in
 > `--namespace @class.Models`.
 
+Each named type (record, error, enum, fixed) is written to `<fullname>.cs` —
+its Avro namespace and name joined with a dot, so `TestRecord` above becomes
+`org.foo.TestRecord.cs` once it declares `namespace org.foo`. A protocol is
+always written to `<name>.cs`, without its namespace, regardless of whether
+one is declared or supplied with `--namespace`.
+
 Avro records and protocols are generated as C# `record`s, with unconditional
 nullable (`T?`) annotations for optional (`["null", ...]`) fields. Avro `fixed`
 and `error` types are generated as `class`es instead: they derive from the
@@ -323,8 +329,13 @@ Avro as-is.
 
 A logical type may be backed by a named `fixed` rather than a primitive — a
 `decimal` stored in a `fixed`, or a `duration`. The named type is generated
-alongside the record that uses it, because `Apache.Avro` resolves it by name
-when reading. The same applies to `idl2schemata`, which writes an `.avsc` for it.
+alongside the record that uses it, and `idl2schemata` writes an `.avsc` for it
+the same as for any other named type, but neither case is usable through
+`Apache.Avro`'s specific API today: a fixed-backed `decimal` throws when
+written or read back, and a `duration` field is generated as `TimeSpan` even
+though the library has no `duration` logical type, so it is written and read
+as the raw 12-byte `fixed` instead. Avoid both until the generator either
+converts them correctly or reports them as unsupported.
 
 Avro names admit every C# keyword, so a name that is one is emitted verbatim with
 an `@` prefix (`@class`, `@event`, `@void`). The prefix is purely lexical: the
@@ -359,21 +370,27 @@ $ avrotool canonical Person.avsc
 
 `avrotool fingerprint` computes a fingerprint over that canonical form — the same
 value the wider Avro ecosystem uses for single-object encoding and registry
-lookups. The default algorithm is `crc-64-avro` (the Rabin fingerprint), with
-`md5` and `sha-256` also available.
+lookups. The default algorithm is `crc-64-avro` (the Rabin fingerprint, also
+accepted as `crc64` or `rabin`), with `md5` and `sha-256` also available via
+`-a`/`--algorithm`. The output format defaults to lowercase hex; `-f`/`--format`
+also accepts `base64`, and `long` (crc-64-avro only), as a signed 64-bit integer.
 
 ```plain
 $ avrotool fingerprint Person.avsc                       # crc-64-avro, lowercase hex
 b0e15e3c5393d356
 $ avrotool fingerprint Person.avsc --format long         # crc-64-avro as a signed 64-bit integer
 6256506293052170672
+$ avrotool fingerprint Person.avsc --format base64       # crc-64-avro, base64
+sOFePFOT01Y=
 $ avrotool fingerprint Person.avsc --algorithm sha-256
 dfcf26207b59396b32b55e6269a8413e2ba78708cef6d7370a489c84ae151009
 ```
 
 Both commands accept an IDL, protocol or schema as input (and `--stdin`). When
-given a protocol, they emit one line per named type; `fingerprint` labels each
-line with the type's full name (`<fingerprint>  <name>`).
+given a protocol, they emit one line per named type; if there is more than one,
+`fingerprint` labels each line with the type's full name (`<fingerprint>  <name>`).
+A protocol with a single named type prints a bare fingerprint, since there is
+nothing to disambiguate.
 
 #### Compatibility checking
 
@@ -387,7 +404,7 @@ COMPATIBLE (backward) reader 'v2.avsc' can read writer 'v1.avsc'
 Schemas are compatible.
 ```
 
-The default mode is `backward`; `--mode` also accepts `forward`, `full`, and
+The default mode is `backward`; `-m`/`--mode` also accepts `forward`, `full`, and
 their `-transitive` variants, which take a candidate schema followed by every
 earlier version to check it against. `--json` emits a machine-readable list of
 incompatibilities (kind, location and message) instead of the summary above.
@@ -445,14 +462,19 @@ $ avrotool diff v1.avsc v2.avsc --json
 }
 ```
 
-Reordering fields doesn't count as a change (it mirrors canonical-form
-thinking), but type changes, default changes, renames (detected via
-`aliases`), and enum/fixed/union shape changes are all reported. Logical types
-count too: adding, removing or replacing a `logicalType`, or changing a
-decimal's `precision` or `scale`, is reported even though the underlying
-representation is unchanged, because it changes how the data is interpreted.
-Pass `--verbose` to also report `doc`/`aliases` metadata changes that don't
-affect the schema's shape.
+Reordering fields doesn't count as a change: fields are matched between the two
+schemas by name (or by alias, to catch a rename), not by position, the same
+way Avro's schema resolution matches a reader's fields against a writer's. A
+reordered field's own Parsing Canonical Form and binary encoding do change —
+canonical form preserves field order and only strips non-structural attributes
+— but data written with either field order still reads back the same way, so
+`diff` treats the two as equivalent. Type changes, default changes, renames
+(detected via `aliases`), and enum/fixed/union shape changes are all reported.
+Logical types count too: adding, removing or replacing a `logicalType`, or
+changing a decimal's `precision` or `scale`, is reported even though the
+underlying representation is unchanged, because it changes how the data is
+interpreted. Pass `--verbose` to also report `doc`/`aliases` metadata changes
+that don't affect the schema's shape.
 
 As with `git diff`, the diff itself is the payload, so both forms of it go to
 standard output and can be redirected or piped:
@@ -462,9 +484,9 @@ avrotool diff v1.avsc v2.avsc > changes.txt
 ```
 
 The exit codes follow `diff(1)` too, which makes `diff` a CI "did the schema
-change?" gate: `0` when the schemas are identical, `1` when they differ, and `2`
-when the comparison could not be made — a missing file, or a schema that will
-not parse.
+change?" gate: `0` when the schemas are resolution-equivalent (identical aside
+from field order), `1` when they differ, and `2` when the comparison could not
+be made — a missing file, or a schema that will not parse.
 
 Like `compat`, each of `<SCHEMA_A>` and `<SCHEMA_B>` must resolve to a single
 schema — a protocol with more than one named type is rejected with a clear
@@ -488,9 +510,19 @@ $ avrotool getschema people.avro --pretty
   "name": "Person",
   "namespace": "ns",
   "fields": [
-    { "name": "Name", "type": "string" },
-    { "name": "Age", "type": "int" },
-    { "name": "Email", "default": "", "type": "string" }
+    {
+      "name": "Name",
+      "type": "string"
+    },
+    {
+      "name": "Age",
+      "type": "int"
+    },
+    {
+      "name": "Email",
+      "default": "",
+      "type": "string"
+    }
   ]
 }
 
@@ -503,6 +535,17 @@ $ avrotool tojson people.avro
 `tojson` decodes every record to JSON Lines (one record per line). Both accept
 `--pretty` for indented output and `--stdin` to read the container file from
 standard input instead of a path.
+
+Both commands read the file's compression codec to decode its blocks.
+Apache.Avro 1.12.2 (the library this tool is built on) implements the `null`
+and `deflate` codecs; a container compressed with `snappy`, `bzip2`,
+`zstandard` or `xz` is reported as unreadable, naming the codec responsible:
+
+```plain
+$ avrotool getschema snappy-compressed.avro
+Unable to read 'snappy-compressed.avro' as an Avro object container file.
+    The container uses the 'snappy' codec; only 'null' and 'deflate' are supported.
+```
 
 ### Imports
 
@@ -603,8 +646,10 @@ avrotool codegen "schemas/**/*.avsc" --namespace My.Ns
 Details:
 
 - **Output naming** continues to derive from each schema/protocol's own name and
-  the `--output-dir`, so many inputs can safely share one output directory. The
-  existing `--overwrite` semantics are respected per file.
+  the `--output-dir`, so many inputs can safely share one output directory.
+  `-o`/`--overwrite` is checked per input: if any of an input's outputs already
+  exists on disk, that whole input is refused and none of its outputs are
+  written, including ones that don't exist yet.
 - **Output directory creation** — `--output-dir` (`-d`) is created if it does not
   already exist, including any missing parent directories, so a generated tree can
   be written straight into a fresh location.

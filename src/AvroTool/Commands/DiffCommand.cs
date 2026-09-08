@@ -17,7 +17,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
     public sealed class Settings : CommandSettings
     {
         [CommandArgument(0, "[SCHEMA_A]")]
-        [Description("The earlier/base schema. May be an IDL, protocol or schema file. Omit whichever schema --stdin supplies.")]
+        [Description("The earlier/base schema. May be an IDL, protocol or schema file.")]
         public string SchemaA { get; set; } = "";
 
         [CommandArgument(1, "[SCHEMA_B]")]
@@ -25,12 +25,12 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         public string SchemaB { get; set; } = "";
 
         [CommandOption("--stdin")]
-        [Description("Read one of the two schemas from standard input instead of a file. Only one positional argument is then given.")]
+        [Description("Read one of the two schemas from standard input instead of a file. Only one positional argument is then given, and it supplies whichever schema --stdin-as doesn't.")]
         [DefaultValue(false)]
         public bool FromStandardInput { get; set; }
 
         [CommandOption("--stdin-as")]
-        [Description("Which schema standard input supplies, as a 1-based position: 1 for SCHEMA_A (the default) or 2 for SCHEMA_B.")]
+        [Description("Which schema standard input supplies, as a 1-based position: 1 for SCHEMA_A (the default) or 2 for SCHEMA_B. The sole positional argument then supplies the other one, regardless of its own SCHEMA_A/SCHEMA_B label.")]
         public int? StandardInputPosition { get; set; }
 
         [CommandOption("--json")]
