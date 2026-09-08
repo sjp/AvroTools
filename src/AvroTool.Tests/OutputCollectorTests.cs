@@ -34,9 +34,11 @@ internal sealed class OutputCollectorTests
         // exercised rather than a write that never started.
         Directory.CreateDirectory(path);
 
+        // File.Move onto an existing directory raises IOException on Windows but
+        // UnauthorizedAccessException on Linux/macOS; either signals the same failure.
         Assert.That(
             async () => await OutputCollector.WriteAsync(path, "{}", CancellationToken.None),
-            Throws.InstanceOf<IOException>());
+            Throws.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
         Assert.That(Directory.GetFileSystemEntries(directory.DirectoryPath), Is.EqualTo([path]));
     }
 }
