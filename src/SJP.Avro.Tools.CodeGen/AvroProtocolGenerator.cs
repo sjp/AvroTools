@@ -80,14 +80,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         generatedRecord = generatedRecord
             .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(protocol.Doc));
 
-        var document = CompilationUnit()
-            .WithMembers(
-                SingletonList<MemberDeclarationSyntax>(
-                    namespaceDeclaration
-                        .WithMembers(
-                            SingletonList<MemberDeclarationSyntax>(generatedRecord))));
-
-        return SyntaxUtilities.Format(document);
+        return SyntaxUtilities.GenerateDocument(namespaceDeclaration, generatedRecord);
     }
 
     /// <summary>

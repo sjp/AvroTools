@@ -95,6 +95,8 @@ internal static class AvroFixedGeneratorTests
         var result = fixedGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
+#nullable enable
+
 namespace org.apache.avro.test
 {
     /// <summary>
@@ -135,6 +137,8 @@ namespace org.apache.avro.test
         var result = fixedGenerator.Generate(schema, TestNamespace);
 
         const string expected = $$"""
+#nullable enable
+
 namespace {{TestNamespace}}
 {
     public class MD5 : global::Avro.Specific.SpecificFixed

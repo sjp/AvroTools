@@ -134,14 +134,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         generatedType = generatedType
             .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
 
-        var document = CompilationUnit()
-            .WithMembers(
-                SingletonList<MemberDeclarationSyntax>(
-                    namespaceDeclaration
-                        .WithMembers(
-                            SingletonList<MemberDeclarationSyntax>(generatedType))));
-
-        return SyntaxUtilities.Format(document);
+        return SyntaxUtilities.GenerateDocument(namespaceDeclaration, generatedType);
     }
 
     private static IEnumerable<MemberDeclarationSyntax> BuildField(Field field, string propertyName, string backingFieldName, string containingNamespace, CodeGenOptions options)
@@ -357,9 +350,13 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             .Concat([GenerateGetDefaultCaseStatement()])
             .ToList();
 
+        // The return type is nullable because a field whose schema admits null returns one. The
+        // member being implemented is not nullable-annotated, so declaring it this way narrows
+        // nothing for a caller and spares the generated body a suppression on every optional field.
         return MethodDeclaration(
-                PredefinedType(
-                    Token(SyntaxKind.ObjectKeyword)),
+                NullableType(
+                    PredefinedType(
+                        Token(SyntaxKind.ObjectKeyword))),
                 Identifier(nameof(ISpecificRecord.Get)))
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
             .WithParameterList(parameterList)

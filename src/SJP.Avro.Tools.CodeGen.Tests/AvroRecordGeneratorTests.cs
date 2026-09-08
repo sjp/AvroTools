@@ -177,6 +177,8 @@ internal static class AvroRecordGeneratorTests
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
+#nullable enable
+
 namespace avro.examples.baseball
 {
     public record Player : global::Avro.Specific.ISpecificRecord
@@ -202,7 +204,7 @@ namespace avro.examples.baseball
 
         public global::System.Collections.Generic.IDictionary<string, global::avro.examples.baseball.Position> positionLookup { get; set; } = default!;
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var playerField = (PlayerField)fieldPos;
             return playerField switch
@@ -324,6 +326,8 @@ namespace avro.examples.baseball
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
+#nullable enable
+
 namespace avro.examples.baseball
 {
     public class Player : global::Avro.Specific.SpecificException
@@ -349,7 +353,7 @@ namespace avro.examples.baseball
 
         public global::System.Collections.Generic.IDictionary<string, global::avro.examples.baseball.Position> positionLookup { get; set; } = default!;
 
-        public override object Get(int fieldPos)
+        public override object? Get(int fieldPos)
         {
             var playerField = (PlayerField)fieldPos;
             return playerField switch
@@ -476,6 +480,8 @@ namespace avro.examples.baseball
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
+#nullable enable
+
 namespace avro.test.protocol
 {
     public record RefersToOthers : global::Avro.Specific.ISpecificRecord
@@ -494,7 +500,7 @@ namespace avro.test.protocol
 
         public global::avro.test.protocol.FixedInThisNamespace thisFixed { get; set; } = default!;
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var refersToOthersField = (RefersToOthersField)fieldPos;
             return refersToOthersField switch
@@ -570,6 +576,8 @@ namespace avro.test.protocol
         var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(RequiredProperties: true));
 
         const string expected = """
+#nullable enable
+
 namespace Test.Avro.Namespace
 {
     public record Widget : global::Avro.Specific.ISpecificRecord
@@ -586,7 +594,7 @@ namespace Test.Avro.Namespace
 
         public int count { get; set; }
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var widgetField = (WidgetField)fieldPos;
             return widgetField switch
@@ -656,6 +664,8 @@ namespace Test.Avro.Namespace
         var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(InitOnlyProperties: true));
 
         const string expected = """
+#nullable enable
+
 namespace Test.Avro.Namespace
 {
     public record Widget : global::Avro.Specific.ISpecificRecord
@@ -676,7 +686,7 @@ namespace Test.Avro.Namespace
 
         public string? nickname { get => _nickname; init => _nickname = value; }
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var widgetField = (WidgetField)fieldPos;
             return widgetField switch
@@ -741,6 +751,8 @@ namespace Test.Avro.Namespace
         var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(RequiredProperties: true, InitOnlyProperties: true));
 
         const string expected = """
+#nullable enable
+
 namespace Test.Avro.Namespace
 {
     public record Widget : global::Avro.Specific.ISpecificRecord
@@ -761,7 +773,7 @@ namespace Test.Avro.Namespace
 
         public string? nickname { get => _nickname; init => _nickname = value; }
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var widgetField = (WidgetField)fieldPos;
             return widgetField switch

@@ -99,12 +99,37 @@ internal static class SyntaxUtilities
     private static readonly SyntaxToken XmlNewline = XmlTextNewLine(GeneratedNewLine);
 
     /// <summary>
-    /// Formats a generated compilation unit into C# source text.
+    /// The directive every generated file opens with. Generated code is nullable-annotated: an
+    /// optional field is typed <c>string?</c>, a required reference-typed one is initialised with
+    /// <c>default!</c>. Outside a nullable context an annotation is a warning in its own right, so
+    /// the file enables the context itself rather than depending on the settings of whichever
+    /// project it is compiled into.
     /// </summary>
-    /// <param name="document">The compilation unit to format.</param>
-    /// <returns>The formatted source text of <paramref name="document"/>.</returns>
-    public static string Format(CompilationUnitSyntax document)
+    private static readonly SyntaxTriviaList NullableContextDirective = TriviaList(
+        Trivia(
+            NullableDirectiveTrivia(
+                Token(SyntaxKind.EnableKeyword),
+                isActive: true)),
+        LineFeed,
+        LineFeed);
+
+    /// <summary>
+    /// Assembles a generated file from the namespace it declares and the single type that
+    /// namespace holds, and formats it as C# source text.
+    /// </summary>
+    /// <param name="namespaceDeclaration">The namespace the generated type is declared in.</param>
+    /// <param name="generatedType">The generated type.</param>
+    /// <returns>The formatted source text of the file.</returns>
+    public static string GenerateDocument(NamespaceDeclarationSyntax namespaceDeclaration, MemberDeclarationSyntax generatedType)
     {
+        var document = CompilationUnit()
+            .WithMembers(
+                SingletonList<MemberDeclarationSyntax>(
+                    namespaceDeclaration
+                        .WithMembers(
+                            SingletonList(generatedType))))
+            .WithLeadingTrivia(NullableContextDirective);
+
         using var workspace = new AdhocWorkspace();
 
         var options = workspace.Options

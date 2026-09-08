@@ -385,6 +385,8 @@ internal static class AvroProtocolGeneratorTests
         var result = protocolGenerator.Generate(protocol, TestNamespace);
 
         const string expected = """
+#nullable enable
+
 namespace org.apache.avro.test
 {
     /// <summary>
@@ -651,6 +653,8 @@ namespace org.apache.avro.test
         var result = protocolGenerator.Generate(protocol, TestNamespace);
 
         const string expected = """
+#nullable enable
+
 namespace org.apache.avro.test
 {
     /// <summary>

@@ -1,6 +1,5 @@
-using System;
-using System.Collections.Frozen;
-using System.Collections.Generic;
+﻿using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -17,11 +16,21 @@ namespace SJP.Avro.Tools.CodeGen.Tests;
 internal static class GeneratedSourceCompiler
 {
     /// <summary>
-    /// Compiles one or more generated source files into a single assembly and loads it.
+    /// Compiles one or more generated source files into a single assembly and loads it, as a
+    /// project that has not enabled nullable reference types would.
     /// </summary>
     /// <param name="sources">Generated C# source files, which may refer to each other.</param>
     /// <returns>The loaded assembly.</returns>
-    public static Assembly Compile(params string[] sources)
+    public static Assembly Compile(params string[] sources) =>
+        Compile(NullableContextOptions.Disable, sources);
+
+    /// <summary>
+    /// Compiles one or more source files into a single assembly and loads it.
+    /// </summary>
+    /// <param name="nullableContextOptions">The project-level nullable context to compile under.</param>
+    /// <param name="sources">C# source files, which may refer to each other.</param>
+    /// <returns>The loaded assembly.</returns>
+    public static Assembly Compile(NullableContextOptions nullableContextOptions, params string[] sources)
     {
         var syntaxTrees = Array.ConvertAll(
             sources,
@@ -32,24 +41,21 @@ internal static class GeneratedSourceCompiler
             .Select(a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
             .ToList();
 
+        // Warnings are errors here so that generated code is held to what a consuming project that
+        // builds with TreatWarningsAsErrors demands of it: no member hiding an inherited one, and
+        // no nullability complaint.
         var compilation = CSharpCompilation.Create(
             "GeneratedAssembly_" + Guid.NewGuid().ToString("N"),
             syntaxTrees,
             references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: nullableContextOptions)
+                .WithGeneralDiagnosticOption(ReportDiagnostic.Error)
+                .WithSpecificDiagnosticOptions(TolerableDiagnosticOptions));
 
         using var assemblyStream = new MemoryStream();
         var emitResult = compilation.Emit(assemblyStream);
 
         Assert.That(emitResult.Success, Is.True, () => string.Join(Environment.NewLine, emitResult.Diagnostics.Select(static d => d.ToString())));
-
-        // A member that hides an inherited one is only a warning, but it is fatal to anyone who
-        // builds the generated code with warnings treated as errors, so it fails here too.
-        var hiddenMembers = emitResult.Diagnostics
-            .Where(static d => HidingDiagnosticIds.Contains(d.Id))
-            .ToList();
-
-        Assert.That(hiddenMembers, Is.Empty, () => string.Join(Environment.NewLine, hiddenMembers.Select(static d => d.ToString())));
 
         // Loading into the default context keeps the generated types visible to Avro's
         // ObjectCreator, which resolves specific types by name across loaded assemblies.
@@ -57,12 +63,13 @@ internal static class GeneratedSourceCompiler
     }
 
     /// <summary>
-    /// The diagnostics the compiler raises when a declared member hides one it inherits:
-    /// hiding without <c>new</c>, hiding a virtual member without <c>override</c>, and a
-    /// <c>new</c> that hides nothing.
+    /// The warnings a generated file is allowed to raise. An Avro name is carried over verbatim, so
+    /// a type may well end up named in all-lowercase ASCII (CS8981); that is a deliberate part of
+    /// keeping the schema's own names, not a defect in the generated code.
     /// </summary>
-    private static readonly FrozenSet<string> HidingDiagnosticIds =
-        new HashSet<string>(StringComparer.Ordinal) { "CS0108", "CS0109", "CS0114" }.ToFrozenSet();
+    private static readonly ImmutableDictionary<string, ReportDiagnostic> TolerableDiagnosticOptions =
+        ImmutableDictionary<string, ReportDiagnostic>.Empty
+            .Add("CS8981", ReportDiagnostic.Warn);
 
     /// <summary>
     /// Compiles generated source and returns one of the types it declares.

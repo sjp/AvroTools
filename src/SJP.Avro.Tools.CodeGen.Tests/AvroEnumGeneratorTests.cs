@@ -134,7 +134,9 @@ internal static class AvroEnumGeneratorTests
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
-        const string expected = @"namespace avro.examples.baseball
+        const string expected = @"#nullable enable
+
+namespace avro.examples.baseball
 {
     /// <summary>
     /// Test documentation
@@ -183,7 +185,9 @@ internal static class AvroEnumGeneratorTests
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
-        const string expected = @$"namespace {TestNamespace}
+        const string expected = @$"#nullable enable
+
+namespace {TestNamespace}
 {{
     public enum Position
     {{
@@ -232,7 +236,9 @@ internal static class AvroEnumGeneratorTests
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
-        const string expected = @"namespace avro.examples.baseball
+        const string expected = @"#nullable enable
+
+namespace avro.examples.baseball
 {
     /// <summary>
     /// Test documentation

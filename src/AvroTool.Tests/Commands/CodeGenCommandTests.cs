@@ -155,6 +155,8 @@ internal class CodeGenCommandTests
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
+#nullable enable
+
 namespace SJP.Avro.CodeGen.Test
 {
     public record TestRecord : global::Avro.Specific.ISpecificRecord
@@ -167,7 +169,7 @@ namespace SJP.Avro.CodeGen.Test
 
         public string LastName { get; set; } = default!;
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var testRecordField = (TestRecordField)fieldPos;
             return testRecordField switch
@@ -224,6 +226,8 @@ namespace SJP.Avro.CodeGen.Test
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
+#nullable enable
+
 namespace SJP.Avro.CodeGen.Test
 {
     public abstract record TestProtocol : global::Avro.Specific.ISpecificProtocol
@@ -272,6 +276,8 @@ namespace SJP.Avro.CodeGen.Test
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
+#nullable enable
+
 namespace SJP.Avro.CodeGen.Test
 {
     public abstract record TestProtocol : global::Avro.Specific.ISpecificProtocol
@@ -320,6 +326,8 @@ namespace SJP.Avro.CodeGen.Test
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
+#nullable enable
+
 namespace SJP.Avro.CodeGen.Test
 {
     public record TestRecord : global::Avro.Specific.ISpecificRecord
@@ -332,7 +340,7 @@ namespace SJP.Avro.CodeGen.Test
 
         public string LastName { get; set; } = default!;
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var testRecordField = (TestRecordField)fieldPos;
             return testRecordField switch
@@ -430,6 +438,8 @@ namespace SJP.Avro.CodeGen.Test
         var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestRecord.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string ExpectedPairVolumeFileContents = """
+#nullable enable
+
 namespace TestNamespace
 {
     public record PairVolume : global::Avro.Specific.ISpecificRecord
@@ -442,7 +452,7 @@ namespace TestNamespace
 
         public double? negative2 { get; set; }
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var pairVolumeField = (PairVolumeField)fieldPos;
             return pairVolumeField switch
@@ -479,6 +489,8 @@ namespace TestNamespace
 """;
 
         const string ExpectedDatumFileContents = """
+#nullable enable
+
 namespace TestNamespace
 {
     public record Datum : global::Avro.Specific.ISpecificRecord
@@ -493,7 +505,7 @@ namespace TestNamespace
 
         public global::TestNamespace.PairVolume pairVolumes { get; set; } = default!;
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var datumField = (DatumField)fieldPos;
             return datumField switch
@@ -535,6 +547,8 @@ namespace TestNamespace
 """;
 
         const string ExpectedTestRecordFileContents = """
+#nullable enable
+
 namespace TestNamespace
 {
     public record TestRecord : global::Avro.Specific.ISpecificRecord
@@ -545,7 +559,7 @@ namespace TestNamespace
 
         public global::System.Collections.Generic.IList<global::TestNamespace.Datum> data { get; set; } = default!;
 
-        public object Get(int fieldPos)
+        public object? Get(int fieldPos)
         {
             var testRecordField = (TestRecordField)fieldPos;
             return testRecordField switch

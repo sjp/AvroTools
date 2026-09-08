@@ -77,14 +77,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
         generatedClass = generatedClass
             .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
 
-        var document = CompilationUnit()
-            .WithMembers(
-                SingletonList<MemberDeclarationSyntax>(
-                    namespaceDeclaration
-                        .WithMembers(
-                            SingletonList<MemberDeclarationSyntax>(generatedClass))));
-
-        return SyntaxUtilities.Format(document);
+        return SyntaxUtilities.GenerateDocument(namespaceDeclaration, generatedClass);
     }
 
     /// <summary>

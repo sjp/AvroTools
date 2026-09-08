@@ -55,13 +55,6 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
         generatedEnum = generatedEnum
             .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
 
-        var document = CompilationUnit()
-            .WithMembers(
-                SingletonList<MemberDeclarationSyntax>(
-                    namespaceDeclaration
-                        .WithMembers(
-                            SingletonList<MemberDeclarationSyntax>(generatedEnum))));
-
-        return SyntaxUtilities.Format(document);
+        return SyntaxUtilities.GenerateDocument(namespaceDeclaration, generatedEnum);
     }
 }
