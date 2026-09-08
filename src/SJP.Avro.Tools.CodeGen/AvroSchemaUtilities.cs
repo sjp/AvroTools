@@ -100,8 +100,13 @@ internal static class AvroSchemaUtilities
         // Values nested inside a collection are handed to and from Avro element by element, so
         // they keep the representation the runtime uses rather than a converted one.
         var value = GetFieldType(arraySchema.ItemSchema, convertDecimals: false);
+
+        // An array is typed by its interface, not by List<T>. Avro builds the container for an
+        // array nested inside another array, a map or a union as a List<IList<T>> or a
+        // Dictionary<string, IList<T>>, and generic collections are invariant, so a member typed
+        // List<List<T>> could not be cast to or from what the runtime actually hands over.
         return GenericName(
-            Identifier(nameof(System.Collections.Generic.List<>)))
+            Identifier(nameof(IList<>)))
             .WithTypeArgumentList(
                 TypeArgumentList(
                     SingletonSeparatedList(value)));

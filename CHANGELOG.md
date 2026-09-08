@@ -13,6 +13,11 @@ version out of this file and fails if there is no section for it.
 
 ### Changed
 
+- `codegen` types an `array` as `IList<T>` rather than `List<T>`. A `List<T>` still satisfies
+  the property, so records are constructed the same way, but an array nested inside another
+  array, a map or a union now matches the `List<IList<T>>` and `Dictionary<string, IList<T>>`
+  containers `Apache.Avro` builds, which a `List<List<T>>` property could be cast neither to
+  nor from.
 - `compat` and `diff` name a type the way a schema document does — `int`, `enum`, `string`
   — in their messages, their `--json` values and the locations they report, and `compat`
   gives the full name of a named type a reader union has no branch for.

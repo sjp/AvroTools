@@ -204,7 +204,7 @@ namespace avro.examples.baseball
 
         public decimal test_num { get; set; }
 
-        public List<Position> position { get; set; } = default!;
+        public IList<Position> position { get; set; } = default!;
 
         public IDictionary<string, Position> positionLookup { get; set; } = default!;
 
@@ -245,7 +245,7 @@ namespace avro.examples.baseball
                     test_num = AvroDecimal.ToDecimal((AvroDecimal)fieldValue);
                     break;
                 case PlayerField.position:
-                    position = (List<Position>)fieldValue;
+                    position = (IList<Position>)fieldValue;
                     break;
                 case PlayerField.positionLookup:
                     positionLookup = (IDictionary<string, Position>)fieldValue;
@@ -357,7 +357,7 @@ namespace avro.examples.baseball
 
         public decimal test_num { get; set; }
 
-        public List<Position> position { get; set; } = default!;
+        public IList<Position> position { get; set; } = default!;
 
         public IDictionary<string, Position> positionLookup { get; set; } = default!;
 
@@ -398,7 +398,7 @@ namespace avro.examples.baseball
                     test_num = AvroDecimal.ToDecimal((AvroDecimal)fieldValue);
                     break;
                 case PlayerField.position:
-                    position = (List<Position>)fieldValue;
+                    position = (IList<Position>)fieldValue;
                     break;
                 case PlayerField.positionLookup:
                     positionLookup = (IDictionary<string, Position>)fieldValue;

@@ -514,9 +514,9 @@ internal static class GeneratedCodeCompilationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(generatedType.GetProperty("amounts")!.PropertyType, Is.EqualTo(typeof(List<AvroDecimal>)));
+            Assert.That(generatedType.GetProperty("amounts")!.PropertyType, Is.EqualTo(typeof(IList<AvroDecimal>)));
             Assert.That(generatedType.GetProperty("amountsByName")!.PropertyType, Is.EqualTo(typeof(IDictionary<string, AvroDecimal>)));
-            Assert.That(((List<AvroDecimal>)deserialized.Get(0)).ConvertAll(AvroDecimal.ToDecimal), Is.EqualTo(new[] { 1.25m, 2.50m }));
+            Assert.That(((IList<AvroDecimal>)deserialized.Get(0)).Select(AvroDecimal.ToDecimal), Is.EqualTo(new[] { 1.25m, 2.50m }));
             Assert.That(AvroDecimal.ToDecimal(((IDictionary<string, AvroDecimal>)deserialized.Get(1))["fee"]), Is.EqualTo(3.75m));
         }
     }
@@ -563,6 +563,81 @@ internal static class GeneratedCodeCompilationTests
             Assert.That(generatedType.GetProperty("v")!.PropertyType, Is.EqualTo(typeof(object)));
             Assert.That(((ISpecificRecord)deserialized.Get(0)).Schema.Fullname, Is.EqualTo($"{TestNamespace}.{branchName}"));
             Assert.That(((ISpecificRecord)deserialized.Get(0)).Get(0), Is.EqualTo(branch.Get(0)));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenCollectionsNestedInsideCollections_RoundTripThroughSpecificDatumReader()
+    {
+        // Avro builds the container for a nested array out of the element's interface type: an
+        // array of arrays arrives as List<IList<int>> and a map of arrays as
+        // Dictionary<string, IList<int>>. Generic collections are invariant, so members typed
+        // List<List<int>> would fail the cast in both Put and Get.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledNestedCollectionWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "grid", "type" : { "type" : "array", "items" : { "type" : "array", "items" : "int" } } },
+    { "name" : "rowsByName", "type" : { "type" : "map", "values" : { "type" : "array", "items" : "int" } } },
+    { "name" : "optionalRows", "type" : { "type" : "array", "items" : [ "null", { "type" : "array", "items" : "int" } ] } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledNestedCollectionWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, new List<IList<int>> { new List<int> { 1, 2 }, new List<int> { 3 } });
+        widget.Put(1, new Dictionary<string, IList<int>> { ["first"] = new List<int> { 4, 5 } });
+        widget.Put(2, new List<IList<int>> { new List<int> { 6 }, null! });
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("grid")!.PropertyType, Is.EqualTo(typeof(IList<IList<int>>)));
+            Assert.That(generatedType.GetProperty("rowsByName")!.PropertyType, Is.EqualTo(typeof(IDictionary<string, IList<int>>)));
+            Assert.That(generatedType.GetProperty("optionalRows")!.PropertyType, Is.EqualTo(typeof(IList<IList<int>>)));
+
+            Assert.That(((IList<IList<int>>)deserialized.Get(0)).Select(row => row.ToArray()), Is.EqualTo(new[] { new[] { 1, 2 }, new[] { 3 } }));
+            Assert.That(((IDictionary<string, IList<int>>)deserialized.Get(1))["first"], Is.EqualTo(new[] { 4, 5 }));
+            Assert.That(((IList<IList<int>>)deserialized.Get(2)).Select(row => row?.ToArray()), Is.EqualTo(new[] { new[] { 6 }, null }));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenCollectionsNestedInsideCollections_ReadTheGenericRepresentationBack()
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledGenericNestedCollectionWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "grid", "type" : { "type" : "array", "items" : { "type" : "array", "items" : "int" } } },
+    { "name" : "rowsByName", "type" : { "type" : "map", "values" : { "type" : "array", "items" : "int" } } }
+  ]
+}
+""");
+
+        GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledGenericNestedCollectionWidget");
+
+        var written = new GenericRecord(schema);
+        written.Add("grid", new object[] { new object[] { 1, 2 }, new object[] { 3 } });
+        written.Add("rowsByName", new Dictionary<string, object> { ["first"] = new object[] { 4, 5 } });
+
+        var deserialized = WriteGenericReadSpecific(schema, written);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(((IList<IList<int>>)deserialized.Get(0)).Select(row => row.ToArray()), Is.EqualTo(new[] { new[] { 1, 2 }, new[] { 3 } }));
+            Assert.That(((IDictionary<string, IList<int>>)deserialized.Get(1))["first"], Is.EqualTo(new[] { 4, 5 }));
         }
     }
 

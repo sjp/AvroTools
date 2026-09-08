@@ -587,7 +587,7 @@ namespace TestNamespace
 
         public AvroSchema Schema { get; } = _schema;
 
-        public List<Datum> data { get; set; } = default!;
+        public IList<Datum> data { get; set; } = default!;
 
         public object Get(int fieldPos)
         {
@@ -605,7 +605,7 @@ namespace TestNamespace
             switch (testRecordField)
             {
                 case TestRecordField.data:
-                    data = (List<Datum>)fieldValue;
+                    data = (IList<Datum>)fieldValue;
                     break;
                 default:
                     throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");

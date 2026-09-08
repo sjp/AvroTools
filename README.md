@@ -305,10 +305,17 @@ Each Avro type maps onto a C# type as follows:
 | `null` | `object` |
 | `enum` | the generated `enum` |
 | `record`, `error`, `fixed` | the generated type |
-| `array` | `List<T>` |
+| `array` | `IList<T>` |
 | `map` | `IDictionary<string, T>` |
 | `["null", T]` | the mapping of `T`, annotated nullable (`T?`) |
 | any other union | `object`, annotated nullable (`object?`) when it has a `null` branch |
+
+An `array` is typed by its interface rather than by `List<T>`. `Apache.Avro` builds
+the container for an array nested inside another array, a map or a union out of the
+element's interface type — a `List<IList<T>>` or a `Dictionary<string, IList<T>>` —
+and generic collections are invariant, so a member typed `List<List<T>>` could be
+cast neither to nor from what the runtime hands over. A `List<T>` still satisfies an
+`IList<T>` member, so records are constructed the same way as before.
 
 Logical types map onto their natural C# counterparts, whatever type backs them:
 
@@ -331,7 +338,7 @@ Because `Apache.Avro` exchanges decimal values as `AvroDecimal`, the generated
 an optional (`["null", ...]`) decimal field, which are exposed as `decimal` and
 `decimal?` respectively. Decimals nested inside an array or a map are not
 converted element by element: those properties are typed
-`List<AvroDecimal>` and `IDictionary<string, AvroDecimal>` and are handed to
+`IList<AvroDecimal>` and `IDictionary<string, AvroDecimal>` and are handed to
 Avro as-is.
 
 A logical type may be backed by a named `fixed` rather than a primitive — a

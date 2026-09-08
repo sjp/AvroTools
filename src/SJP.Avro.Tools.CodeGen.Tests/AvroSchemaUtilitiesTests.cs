@@ -89,7 +89,7 @@ internal static class AvroSchemaUtilitiesTests
     [TestCase(""" { "type" : "fixed", "name" : "F", "size" : 4 } """, "F")]
     [TestCase(""" { "type" : "record", "name" : "A", "fields" : [] } """, "A")]
     [TestCase(""" { "type" : "error", "name" : "Oops", "fields" : [] } """, "Oops")]
-    [TestCase(""" { "type" : "array", "items" : "string" } """, "List<string>")]
+    [TestCase(""" { "type" : "array", "items" : "string" } """, "IList<string>")]
     [TestCase(""" { "type" : "map", "values" : "int" } """, "IDictionary<string,int>")]
     [TestCase(""" [ "null", "int" ] """, "int?")]
     [TestCase(""" [ "null", "string" ] """, "string?")]
@@ -112,9 +112,24 @@ internal static class AvroSchemaUtilitiesTests
         Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
     }
 
+    // Avro builds the container for a nested array out of the element's interface type — a
+    // List<IList<T>> for an array of arrays, a Dictionary<string, IList<T>> for a map of arrays —
+    // and generic collections are invariant, so an array is typed by its interface throughout.
+    [TestCase(""" { "type" : "array", "items" : { "type" : "array", "items" : "int" } } """, "IList<IList<int>>")]
+    [TestCase(""" { "type" : "map", "values" : { "type" : "array", "items" : "int" } } """, "IDictionary<string,IList<int>>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "map", "values" : "int" } } """, "IList<IDictionary<string,int>>")]
+    [TestCase(""" { "type" : "array", "items" : [ "null", { "type" : "array", "items" : "int" } ] } """, "IList<IList<int>?>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "array", "items" : { "type" : "array", "items" : "int" } } } """, "IList<IList<IList<int>>>")]
+    public static void GetFieldType_GivenNestedCollection_TypesEachArrayByItsInterface(string json, string expectedType)
+    {
+        var schema = Schema.Parse(json);
+
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
+    }
+
     // A decimal reached through a collection keeps the representation Avro hands to and
     // from the collection's elements, so it is not converted to 'decimal'.
-    [TestCase(""" { "type" : "array", "items" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "List<AvroDecimal>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "IList<AvroDecimal>")]
     [TestCase(""" { "type" : "map", "values" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "IDictionary<string,AvroDecimal>")]
     public static void GetFieldType_GivenCollectionOfDecimals_ReturnsUnconvertedElementType(string json, string expectedType)
     {
@@ -145,7 +160,7 @@ internal static class AvroSchemaUtilitiesTests
     [TestCase(""" { "type" : "long", "logicalType" : "made-up" } """, "long")]
     [TestCase(""" { "type" : "string", "logicalType" : "made-up" } """, "string")]
     [TestCase(""" [ "null", { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } ] """, "D?")]
-    [TestCase(""" { "type" : "array", "items" : { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } } """, "List<D>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } } """, "IList<D>")]
     public static void GetFieldType_GivenLogicalTypeAvroDoesNotImplement_ReturnsTypeOfBackingSchema(string json, string expectedType)
     {
         var schema = Schema.Parse(json);
