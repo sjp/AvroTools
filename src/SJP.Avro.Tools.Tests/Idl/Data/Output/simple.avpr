@@ -124,14 +124,14 @@
         },
         {
           "name": "prop",
-          "type": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "foo.foo.bar": 42,
-            "foo.foo.foo": "3foo"
-          },
+          "type": [
+            "null",
+            {
+              "type": "string",
+              "foo.foo.bar": 42,
+              "foo.foo.foo": "3foo"
+            }
+          ],
           "default": null
         },
         {

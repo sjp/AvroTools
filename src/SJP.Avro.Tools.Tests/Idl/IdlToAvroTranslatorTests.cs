@@ -167,6 +167,29 @@ internal class IdlToAvroTranslatorTests
     }
 
     [Test]
+    public async Task Translate_GivenOptionalFieldWithAnnotation_AttachesAnnotationToTheNonNullBranch()
+    {
+        const string idl = "protocol P { record R { @logicalType(\"timestamp-micros\") long? ts = null; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var type = result.Json.SelectToken("types[0].fields[0].type");
+        Assert.That(type?[0]?.Value<string>(), Is.EqualTo("null"));
+        Assert.That(type?[1]?["type"]?.Value<string>(), Is.EqualTo("long"));
+        Assert.That(type?[1]?["logicalType"]?.Value<string>(), Is.EqualTo("timestamp-micros"));
+    }
+
+    [Test]
+    public void Translate_GivenAnnotationOnAUnionType_ThrowsInvalidOperationException()
+    {
+        const string idl = "protocol P { record R { @foo(\"bar\") union { null, string } u; } }";
+
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+
+        Assert.That(thrown.Message, Does.Contain("union"));
+    }
+
+    [Test]
     public void Translate_GivenTextThatCannotBeTokenised_ThrowsWithPosition()
     {
         const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";

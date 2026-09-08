@@ -534,6 +534,14 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (properties.Count == 0)
             return typeToken;
 
+        if (typeToken is JArray unionArray)
+        {
+            if (context.plainType().unionType() != null)
+                throw new InvalidOperationException("Annotations cannot be applied to a union type; annotate the individual branches instead.");
+
+            return ApplyAnnotationsToNullableBranch(unionArray, properties);
+        }
+
         if (typeToken is JObject obj)
         {
             foreach (var prop in properties)
@@ -554,6 +562,34 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             wrapper[propName] = prop.Value;
         }
         return wrapper;
+    }
+
+    private static JArray ApplyAnnotationsToNullableBranch(JArray unionArray, Dictionary<string, JToken> properties)
+    {
+        var result = new JArray();
+
+        foreach (var branch in unionArray)
+        {
+            if (branch.Type == JTokenType.String && branch.Value<string>() == "null")
+            {
+                result.Add(branch);
+                continue;
+            }
+
+            var branchObj = branch is JObject existing
+                ? existing
+                : new JObject { ["type"] = branch };
+
+            foreach (var prop in properties)
+            {
+                var propName = IdlName.EscapeName(prop.Key);
+                branchObj[propName] = prop.Value;
+            }
+
+            result.Add(branchObj);
+        }
+
+        return result;
     }
 
     private JToken TranslatePlainType(IdlParser.PlainTypeContext context, IdlParsingContext parsingContext, JToken? defaultValue = null)
