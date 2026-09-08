@@ -861,7 +861,7 @@ namespace TestNamespace
     }
 
     [Test]
-    public async Task ExecuteAsync_GivenSchemaWithFixedBackedDecimal_GeneratesTheFixedType()
+    public async Task ExecuteAsync_GivenSchemaWithFixedBackedDecimal_ReportsTheFailureAndWritesNothing()
     {
         const string input = """
 {
@@ -890,21 +890,12 @@ namespace TestNamespace
 
         var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
         var result = await _app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--overwrite", "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
-        var moneyFilePath = Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Money.cs");
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.Zero);
-            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Invoice.cs")), Is.True);
-            Assert.That(File.Exists(moneyFilePath), Is.True);
-        }
-
-        var moneyFileContents = await File.ReadAllTextAsync(moneyFilePath, TestContext.CurrentContext.CancellationToken);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(moneyFileContents, Does.Contain("public class Money : SpecificFixed"));
-            Assert.That(moneyFileContents, Does.Contain("public static uint FixedSize { get; } = 8;"));
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Invoice.cs")), Is.False);
+            Assert.That(File.Exists(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Money.cs")), Is.False);
         }
     }
 

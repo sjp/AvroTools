@@ -38,7 +38,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 
         var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
-        var protocolField = AvroSchemaUtilities.CreateProtocolDefinition(protocol.ToString());
+        var protocolField = AvroSchemaUtilities.CreateProtocolDefinition(AvroSchemaUtilities.ToPortableJson(protocol.ToString()));
         var protocolProperty = AvroSchemaUtilities.CreateProtocolProperty();
 
         var requestMethod = BuildRequestMethod(protocol);

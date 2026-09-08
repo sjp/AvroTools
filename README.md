@@ -335,12 +335,23 @@ converted element by element: those properties are typed
 Avro as-is.
 
 A logical type may be backed by a named `fixed` rather than a primitive — a
-`decimal` stored in a `fixed`, or a `duration`. The named type is generated
+`duration`, or a `decimal` stored in a `fixed`. The named type is generated
 alongside the record that uses it, and `idl2schemata` writes an `.avsc` for it
 the same as for any other named type. A `duration` field is typed as that
 generated `fixed` and round trips through the specific API as the raw 12 bytes.
-A fixed-backed `decimal`, however, is still typed as `decimal` and throws when
-written or read back; avoid it until the generator converts it correctly.
+
+A `decimal` stored in a `fixed` is refused, and the input it appears in is
+reported as a failure. `Apache.Avro` exchanges such a value as a generic fixed,
+which its specific writer rejects and its specific reader cannot hand to a
+generated class, so no property type could carry it; storing the decimal in
+`bytes` works throughout. Note that the `decimal` itself is what is unsupported —
+a plain `fixed`, and any other logical type over one, are generated as usual.
+
+The schema each generated type embeds is written the way the Avro specification
+defines a logical type, with `logicalType` and its attributes on the type they
+apply to. `Apache.Avro` writes a logical type over a named type as a wrapper
+around it — `{ "type": { "type": "fixed", ... }, "logicalType": "duration" }` —
+which most Avro implementations cannot parse, so that form is never emitted.
 
 Avro names admit every C# keyword, so a name that is one is emitted verbatim with
 an `@` prefix (`@class`, `@event`, `@void`). The prefix is purely lexical: the

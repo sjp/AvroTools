@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Avro;
 using Avro.Util;
 using Microsoft.CodeAnalysis;
@@ -60,9 +63,7 @@ internal static class AvroSchemaUtilities
 
         return logicalSchema.LogicalTypeName switch
         {
-            DecimalLogicalTypeName => convertDecimals
-                ? PredefinedType(Token(SyntaxKind.DecimalKeyword))
-                : IdentifierName(nameof(AvroDecimal)),
+            DecimalLogicalTypeName => ResolveDecimalType(logicalSchema, convertDecimals),
             "date" => IdentifierName(nameof(DateTime)),
             "time-millis" => IdentifierName(nameof(TimeSpan)),
             "time-micros" => IdentifierName(nameof(TimeSpan)),
@@ -73,6 +74,25 @@ internal static class AvroSchemaUtilities
             "uuid" => IdentifierName(nameof(Guid)),
             _ => throw new ArgumentOutOfRangeException($"Unable to resolve a type for logicalType of '{logicalSchema.Name}'")
         };
+    }
+
+    private static TypeSyntax ResolveDecimalType(LogicalSchema decimalSchema, bool convertDecimals)
+    {
+        // Avro turns a decimal stored in a 'fixed' into a generic fixed on the way out and hands one
+        // back on the way in, and its specific writer and reader accept neither, so no member type
+        // can carry such a value across the ISpecificRecord boundary. Refusing the schema is better
+        // than emitting code that throws the first time it is written or read.
+        if (decimalSchema.BaseSchema is FixedSchema backingFixed)
+        {
+            throw new NotSupportedException(
+                $"The decimal backed by the fixed type '{backingFixed.Fullname}' cannot be generated. "
+                + "Apache.Avro exchanges a fixed-backed decimal as a generic fixed, which its specific "
+                + "writer and reader both reject. Store the decimal in 'bytes' instead.");
+        }
+
+        return convertDecimals
+            ? PredefinedType(Token(SyntaxKind.DecimalKeyword))
+            : IdentifierName(nameof(AvroDecimal));
     }
 
     private static TypeSyntax ResolveArrayType(ArraySchema arraySchema)
@@ -215,6 +235,74 @@ internal static class AvroSchemaUtilities
             Schema.Type.Double,
             Schema.Type.Enumeration
         ];
+
+    /// <summary>
+    /// Rewrites the JSON of a schema or protocol into the shape the Avro specification defines for
+    /// a logical type. <c>Apache.Avro</c> writes a logical type backed by a named type as a wrapper
+    /// around it — <c>{ "type": { "type": "fixed", ... }, "logicalType": "duration" }</c> — which
+    /// most Avro implementations cannot parse, while the specification puts the logical attributes
+    /// on the type itself. JSON containing no such wrapper is returned exactly as it was given.
+    /// </summary>
+    /// <param name="json">The JSON text of a schema or a protocol.</param>
+    /// <returns>The same document with every logical type written in its portable form.</returns>
+    public static string ToPortableJson(string json)
+    {
+        var flattened = false;
+        var rewritten = FlattenLogicalTypes(JsonNode.Parse(json), ref flattened);
+
+        return flattened
+            ? rewritten!.ToJsonString(PortableJsonOptions)
+            : json;
+    }
+
+    private static JsonNode? FlattenLogicalTypes(JsonNode? node, ref bool flattened)
+    {
+        if (node is JsonArray array)
+        {
+            var branches = new JsonArray();
+            foreach (var branch in array)
+                branches.Add(FlattenLogicalTypes(branch, ref flattened));
+
+            return branches;
+        }
+
+        if (node is not JsonObject obj)
+            return node?.DeepClone();
+
+        var rewritten = new JsonObject();
+        foreach (var (name, value) in obj)
+            rewritten[name] = FlattenLogicalTypes(value, ref flattened);
+
+        // A wrapper holds the logical attributes and the type they apply to, nothing else. A record
+        // field also pairs a 'type' with further attributes, but it is always named, so a custom
+        // 'logicalType' attribute on a field is never mistaken for a wrapper.
+        if (rewritten["logicalType"] is not JsonValue
+            || rewritten["type"] is not JsonObject baseType
+            || rewritten.ContainsKey("name"))
+        {
+            return rewritten;
+        }
+
+        flattened = true;
+
+        var merged = (JsonObject)baseType.DeepClone();
+        foreach (var (name, value) in rewritten)
+        {
+            if (!string.Equals(name, "type", StringComparison.Ordinal))
+                merged[name] = value?.DeepClone();
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    /// Matches how <c>Apache.Avro</c> writes a schema: no indentation, and no escaping beyond what
+    /// JSON itself requires, so a name or a doc comment outside ASCII stays readable.
+    /// </summary>
+    private static readonly JsonSerializerOptions PortableJsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     public static FieldDeclarationSyntax CreateProtocolDefinition(string json)
     {

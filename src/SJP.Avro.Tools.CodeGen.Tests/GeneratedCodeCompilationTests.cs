@@ -432,75 +432,56 @@ internal static class GeneratedCodeCompilationTests
         }
     }
 
-    [Test]
-    public static void Generate_GivenFixedBackedDecimal_ProducesConvertingPropertyAndItsFixedType()
+    [TestCase(""" { "type" : "fixed", "name" : "CompiledMoney", "size" : 8, "logicalType" : "decimal", "precision" : 10, "scale" : 2 } """)]
+    [TestCase(""" [ "null", { "type" : "fixed", "name" : "CompiledMoney", "size" : 8, "logicalType" : "decimal", "precision" : 10, "scale" : 2 } ] """)]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "fixed", "name" : "CompiledMoney", "size" : 8, "logicalType" : "decimal", "precision" : 10, "scale" : 2 } } """)]
+    public static void Generate_GivenFixedBackedDecimal_ThrowsRatherThanEmittingUnusableCode(string fieldType)
     {
-        // A decimal backed by a fixed hides a named type behind the logical type wrapper. The
-        // field is still exchanged as an AvroDecimal, exactly as a bytes-backed decimal is.
+        // Avro converts a decimal stored in a fixed to and from a generic fixed, which its specific
+        // writer rejects ("Fixed object is not derived from SpecificFixed") and which its specific
+        // reader cannot cast to the generated class. No generated member type can bridge that, so
+        // the schema is refused instead of producing code that throws on first use.
         var schema = (RecordSchema)Schema.Parse($$"""
 {
   "type" : "record",
   "name" : "CompiledFixedDecimalWidget",
   "namespace" : "{{TestNamespace}}",
   "fields" : [
-    { "name" : "amount", "type" : { "type" : "fixed", "name" : "CompiledMoney", "size" : 8, "logicalType" : "decimal", "precision" : 10, "scale" : 2 } }
+    { "name" : "amount", "type" : {{fieldType}} }
   ]
 }
 """);
 
-        var fixedSchema = (FixedSchema)((LogicalSchema)schema.Fields[0].Schema).BaseSchema;
-        var assembly = GeneratedSourceCompiler.Compile(
-            new AvroFixedGenerator().Generate(fixedSchema, TestNamespace),
-            new AvroRecordGenerator().Generate(schema, TestNamespace));
+        var exception = Assert.Throws<NotSupportedException>(
+            () => new AvroRecordGenerator().Generate(schema, TestNamespace));
 
-        var generatedType = assembly.GetType($"{TestNamespace}.CompiledFixedDecimalWidget")!;
-        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
-        widget.Put(0, new AvroDecimal(1.25m));
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(fixedSchema.Fullname, Is.EqualTo($"{TestNamespace}.CompiledMoney"));
-            Assert.That(assembly.GetType($"{TestNamespace}.CompiledMoney"), Is.Not.Null);
-            Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(decimal)));
-            Assert.That(generatedType.GetProperty("amount")!.GetValue(widget), Is.EqualTo(1.25m));
-            Assert.That(AvroDecimal.ToDecimal((AvroDecimal)widget.Get(0)), Is.EqualTo(1.25m));
-        }
+        Assert.That(exception!.Message, Does.Contain($"{TestNamespace}.CompiledMoney"));
     }
 
-    [TestCase(true)]
-    [TestCase(false)]
-    public static void Generate_GivenNullableFixedBackedDecimal_ReadsThroughSpecificDatumReader(bool hasValue)
+    [Test]
+    public static void Generate_GivenLogicalTypeBackedByFixed_EmbedsTheSchemaInItsPortableForm()
     {
-        // Reading the field means instantiating the fixed behind the logical type, which the
-        // specific reader resolves by name across the loaded assemblies.
+        // Avro writes a logical type over a named type as a wrapper around it, a spelling most
+        // Avro implementations reject. The embedded schema carries the logical attributes on the
+        // fixed itself, which is what the specification defines and what Avro parses back.
         var schema = (RecordSchema)Schema.Parse($$"""
 {
   "type" : "record",
-  "name" : "CompiledNullableFixedDecimalWidget",
+  "name" : "CompiledPortableDurationWidget",
   "namespace" : "{{TestNamespace}}",
   "fields" : [
-    { "name" : "amount", "type" : [ "null", { "type" : "fixed", "name" : "CompiledNullableMoney", "size" : 8, "logicalType" : "decimal", "precision" : 10, "scale" : 2 } ] }
+    { "name" : "elapsed", "type" : { "type" : "fixed", "name" : "CompiledPortableDuration", "size" : 12, "logicalType" : "duration" } }
   ]
 }
 """);
 
-        var branchSchema = ((UnionSchema)schema.Fields[0].Schema).Schemas.OfType<LogicalSchema>().Single();
-        var assembly = GeneratedSourceCompiler.Compile(
-            new AvroFixedGenerator().Generate((FixedSchema)branchSchema.BaseSchema, TestNamespace),
-            new AvroRecordGenerator().Generate(schema, TestNamespace));
-
-        var generatedType = assembly.GetType($"{TestNamespace}.CompiledNullableFixedDecimalWidget")!;
-
-        var written = new GenericRecord(schema);
-        written.Add("amount", hasValue ? new AvroDecimal(1.25m) : null!);
-
-        var deserialized = WriteGenericReadSpecific(schema, written);
+        var source = new AvroRecordGenerator().Generate(schema, TestNamespace);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(decimal?)));
-            Assert.That(deserialized.Schema.Fullname, Is.EqualTo($"{TestNamespace}.CompiledNullableFixedDecimalWidget"));
-            Assert.That(deserialized.Get(0) is AvroDecimal d ? AvroDecimal.ToDecimal(d) : (decimal?)null, Is.EqualTo(hasValue ? (decimal?)1.25m : null));
+            Assert.That(source, Does.Contain(
+                """{\"type\":\"fixed\",\"name\":\"CompiledPortableDuration\",\"namespace\":\"Test.Avro.Compilation\",\"size\":12,\"logicalType\":\"duration\"}"""));
+            Assert.That(source, Does.Not.Contain("""{\"type\":{\"type\":\"fixed"""));
         }
     }
 

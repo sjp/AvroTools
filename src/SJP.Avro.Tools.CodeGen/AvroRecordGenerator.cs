@@ -52,7 +52,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             ParseName("Avro.Schema"));
         usingStatements.Add(schemaAlias);
 
-        var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString());
+        var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(AvroSchemaUtilities.ToPortableJson(schema.ToString()));
         var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty();
 
         if (isError)

@@ -19,6 +19,14 @@ version out of this file and fails if there is no section for it.
 
 ### Fixed
 
+- `codegen` reports a `decimal` stored in a `fixed` as unsupported instead of generating code
+  that cannot be used. `Apache.Avro` exchanges such a value as a generic fixed, which its
+  specific writer rejects and its specific reader cannot hand to a generated class, so the
+  generated property threw the first time it was written or read.
+- `codegen` embeds a schema with `logicalType` written on the type it applies to, as the Avro
+  specification defines. A logical type over a named type was embedded in the wrapper form
+  `{ "type": { "type": "fixed", ... }, "logicalType": "duration" }`, which most Avro
+  implementations cannot parse.
 - `codegen` keeps an enum's symbols in schema order and gives each one the ordinal that
   order implies. Symbols were previously reordered to put a schema-declared default first,
   which made every generated value disagree with the position Avro encodes, so data written
