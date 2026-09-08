@@ -492,4 +492,184 @@ internal static class SchemaCompatibilityTests
         var result = Check(reader, writer);
         Assert.That(result.Incompatibilities.Single().Type, Is.EqualTo(SchemaIncompatibilityType.TypeMismatch));
     }
+
+    [Test]
+    public static void Check_GivenReaderFieldAddedWithAnExplicitNullDefault_IsCompatible()
+    {
+        // A JSON null is a default value like any other: it is what the reader populates the field
+        // with, so the field is resolvable even though the writer never wrote it.
+        const string writer = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"},{"name":"b","type":["null","int"],"default":null}]}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenReaderFieldAddedWithNullableTypeButNoDefault_ReportsMissingDefault()
+    {
+        // A nullable type is not itself a default: with no "default" key there is nothing to
+        // populate the field with, which is what distinguishes this from an explicit null default.
+        const string writer = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"},{"name":"b","type":["null","int"]}]}""";
+
+        var result = Check(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsCompatible, Is.False);
+            Assert.That(result.Incompatibilities.Single().Type, Is.EqualTo(SchemaIncompatibilityType.ReaderFieldMissingDefaultValue));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenReaderLogicalTypeOverTheWritersBaseType_IsCompatible()
+    {
+        // Logical types are annotations on a representation: resolution happens on the underlying
+        // type, so annotating one side changes nothing about whether the data can be read.
+        const string writer = "\"long\"";
+        const string reader = """{"type":"long","logicalType":"timestamp-millis"}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenDecimalPrecisionAndScaleChanged_IsCompatible()
+    {
+        // Both sides are bytes on the wire. The reinterpretation may well lose value, but it is
+        // not something schema resolution rejects.
+        const string writer = """{"type":"bytes","logicalType":"decimal","precision":9,"scale":2}""";
+        const string reader = """{"type":"bytes","logicalType":"decimal","precision":4,"scale":4}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenLogicalTypesOverIncompatibleBaseTypes_ReportsTheBaseTypeMismatch()
+    {
+        const string writer = "\"string\"";
+        const string reader = """{"type":"int","logicalType":"date"}""";
+
+        var result = Check(reader, writer);
+        var incompatibility = result.Incompatibilities.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(incompatibility.Type, Is.EqualTo(SchemaIncompatibilityType.TypeMismatch));
+            Assert.That(incompatibility.Message, Is.EqualTo("reader type: int not compatible with writer type: string"));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenReaderUnionWithABranchReadingTheNonUnionWriter_IsCompatible()
+    {
+        var result = Check("""["null","int"]""", "\"int\"");
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenReaderUnionWithNoBranchReadingTheNonUnionWriter_ReportsMissingUnionBranch()
+    {
+        var result = Check("""["null","string"]""", "\"int\"");
+        var incompatibility = result.Incompatibilities.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(incompatibility.Type, Is.EqualTo(SchemaIncompatibilityType.MissingUnionBranch));
+            Assert.That(incompatibility.Message, Is.EqualTo("reader union lacking writer type: int"));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenMissingUnionBranchInsideAField_LocatesItAtTheFieldsType()
+    {
+        const string writer = """{"type":"record","name":"R","fields":[{"name":"a","type":["null","string"]}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"a","type":["null","int"]}]}""";
+
+        var result = Check(reader, writer);
+        var incompatibility = result.Incompatibilities.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(incompatibility.Type, Is.EqualTo(SchemaIncompatibilityType.MissingUnionBranch));
+            Assert.That(incompatibility.Location, Is.EqualTo("/fields/a/type"));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenMissingEnumSymbolsInsideAField_LocatesThemAtTheEnumsSymbols()
+    {
+        const string writer = """{"type":"record","name":"R","fields":[{"name":"e","type":{"type":"enum","name":"E","symbols":["A","B"]}}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"e","type":{"type":"enum","name":"E","symbols":["A"]}}]}""";
+
+        var result = Check(reader, writer);
+        var incompatibility = result.Incompatibilities.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(incompatibility.Type, Is.EqualTo(SchemaIncompatibilityType.MissingEnumSymbols));
+            Assert.That(incompatibility.Location, Is.EqualTo("/fields/e/type/symbols"));
+            Assert.That(incompatibility.Message, Is.EqualTo("[B]"));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenFixedSizeMismatchInsideAField_LocatesItAtTheFixedsSize()
+    {
+        const string writer = """{"type":"record","name":"R","fields":[{"name":"f","type":{"type":"fixed","name":"F","size":8}}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"f","type":{"type":"fixed","name":"F","size":16}}]}""";
+
+        var result = Check(reader, writer);
+
+        Assert.That(result.Incompatibilities.Single().Location, Is.EqualTo("/fields/f/type/size"));
+    }
+
+    [Test]
+    public static void Check_GivenMapValueMismatch_ReportsTypeMismatchAtValues()
+    {
+        var result = Check("""{"type":"map","values":"int"}""", """{"type":"map","values":"string"}""");
+        var incompatibility = result.Incompatibilities.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(incompatibility.Type, Is.EqualTo(SchemaIncompatibilityType.TypeMismatch));
+            Assert.That(incompatibility.Location, Is.EqualTo("/values"));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenRecursiveSchemaWithAnIncompatibility_TerminatesAndReportsIt()
+    {
+        const string writer = """
+        {
+            "type": "record",
+            "name": "Node",
+            "fields": [
+                { "name": "value", "type": "string" },
+                { "name": "next", "type": ["null", "Node"], "default": null }
+            ]
+        }
+        """;
+        const string reader = """
+        {
+            "type": "record",
+            "name": "Node",
+            "fields": [
+                { "name": "value", "type": "int" },
+                { "name": "next", "type": ["null", "Node"], "default": null }
+            ]
+        }
+        """;
+
+        var result = Check(reader, writer);
+        var incompatibility = result.Incompatibilities.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(incompatibility.Type, Is.EqualTo(SchemaIncompatibilityType.TypeMismatch));
+            Assert.That(incompatibility.Location, Is.EqualTo("/fields/value/type"));
+        }
+    }
 }

@@ -1092,4 +1092,91 @@ internal static class SchemaDiffTests
             Assert.That(change.Location, Is.EqualTo("/fields/b"));
         }
     }
+
+    [Test]
+    public static void Compare_GivenChangeInsideArrayItems_LocatesItAtItems()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"array","items":"int"}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"array","items":"long"}}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeKindChanged));
+            Assert.That(change.Location, Is.EqualTo("/fields/a/type/items"));
+            Assert.That(change.IsValidPromotion, Is.True);
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenChangeInsideMapValues_LocatesItAtValues()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"map","values":"long"}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"map","values":"int"}}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeKindChanged));
+            Assert.That(change.Location, Is.EqualTo("/fields/a/type/values"));
+            Assert.That(change.IsValidPromotion, Is.False);
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenChangeInsideAnArrayOfMaps_LocatesItThroughBothLevels()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"array","items":{"type":"map","values":"int"}}}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":{"type":"array","items":{"type":"map","values":"string"}}}]}""";
+
+        var result = Compare(before, after);
+
+        Assert.That(result.Changes.Single().Location, Is.EqualTo("/fields/a/type/items/values"));
+    }
+
+    [Test]
+    public static void Compare_GivenEnumDefaultChanged_ReportsMetadataChangedOnlyWhenVerbose()
+    {
+        // An enum's default symbol changes how a reader resolves a symbol it does not declare, but
+        // it does not alter the schema's shape or anything a writer puts on the wire, so it is
+        // grouped with the other metadata rather than reported by default.
+        const string before = """{"type":"enum","name":"E","symbols":["A","B"],"default":"A"}""";
+        const string after = """{"type":"enum","name":"E","symbols":["A","B"],"default":"B"}""";
+
+        var quiet = Compare(before, after, verbose: false);
+        var verbose = Compare(before, after, verbose: true);
+        var change = verbose.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(quiet.IsIdentical, Is.True);
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.MetadataChanged));
+            Assert.That(change.Location, Is.EqualTo("/default"));
+            Assert.That(change.OldValue, Is.EqualTo("A"));
+            Assert.That(change.NewValue, Is.EqualTo("B"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenEnumDefaultRemoved_ReportsMetadataChangedOnlyWhenVerbose()
+    {
+        const string before = """{"type":"enum","name":"E","symbols":["A","B"],"default":"A"}""";
+        const string after = """{"type":"enum","name":"E","symbols":["A","B"]}""";
+
+        var quiet = Compare(before, after, verbose: false);
+        var verbose = Compare(before, after, verbose: true);
+        var change = verbose.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(quiet.IsIdentical, Is.True);
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.MetadataChanged));
+            Assert.That(change.OldValue, Is.EqualTo("A"));
+            Assert.That(change.NewValue, Is.Null);
+        }
+    }
 }
