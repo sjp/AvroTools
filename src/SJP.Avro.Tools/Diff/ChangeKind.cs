@@ -57,6 +57,12 @@ public enum ChangeKind
     UnionBranchRemoved,
 
     /// <summary>
+    /// A union declares the branches common to both schemas in a different order. Branch order
+    /// fixes the index each branch is written under, so it is part of the schema's meaning.
+    /// </summary>
+    UnionBranchesReordered,
+
+    /// <summary>
     /// The schema at a location was replaced by a structurally different type: either the Avro
     /// type tag differs (e.g. record vs enum), or both sides are named schemas with different
     /// names and no alias linking them.

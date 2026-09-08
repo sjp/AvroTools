@@ -288,27 +288,69 @@ public static class SchemaDiff
 
         private void CompareUnion(List<SchemaChange> sink, UnionSchema before, UnionSchema after, string location)
         {
-            var beforeByKey = new Dictionary<string, Schema>();
-            foreach (var branch in before.Schemas)
-                beforeByKey.TryAdd(BranchKey(branch), branch);
+            var beforeByKey = BranchesByKey(before);
+            var afterByKey = BranchesByKey(after);
 
-            var afterByKey = new Dictionary<string, Schema>();
-            foreach (var branch in after.Schemas)
-                afterByKey.TryAdd(BranchKey(branch), branch);
-
-            foreach (var entry in afterByKey)
+            foreach (var (key, afterBranch) in afterByKey)
             {
-                if (beforeByKey.TryGetValue(entry.Key, out var beforeBranch))
-                    sink.AddRange(Calculate(beforeBranch, entry.Value, Append(location, entry.Key)));
+                if (beforeByKey.TryGetValue(key, out var beforeBranch))
+                    sink.AddRange(Calculate(beforeBranch, afterBranch, Append(location, key)));
                 else
-                    sink.Add(new SchemaChange(ChangeKind.UnionBranchAdded, location, $"branch added: {DescribeBranch(entry.Value)}"));
+                    sink.Add(new SchemaChange(ChangeKind.UnionBranchAdded, location, $"branch added: {DescribeBranch(afterBranch)}"));
             }
 
-            foreach (var entry in beforeByKey)
+            foreach (var (key, beforeBranch) in beforeByKey)
             {
-                if (!afterByKey.ContainsKey(entry.Key))
-                    sink.Add(new SchemaChange(ChangeKind.UnionBranchRemoved, location, $"branch removed: {DescribeBranch(entry.Value)}"));
+                if (!afterByKey.ContainsKey(key))
+                    sink.Add(new SchemaChange(ChangeKind.UnionBranchRemoved, location, $"branch removed: {DescribeBranch(beforeBranch)}"));
             }
+
+            CompareUnionBranchOrder(sink, beforeByKey, afterByKey, location);
+        }
+
+        /// <summary>
+        /// Reports a change to the order in which a union declares its branches. The order is part
+        /// of the schema's meaning: it fixes the index each branch is written under in binary
+        /// encoding, it is preserved in the parsing canonical form and therefore in the
+        /// fingerprint, and it decides which branch a default value has to belong to. Only the
+        /// branches present on both sides are compared, so the shift that inevitably follows a
+        /// branch being added or removed is left to the addition or removal to describe.
+        /// </summary>
+        private static void CompareUnionBranchOrder(
+            List<SchemaChange> sink,
+            OrderedDictionary<string, Schema> beforeByKey,
+            OrderedDictionary<string, Schema> afterByKey,
+            string location)
+        {
+            var beforeCommon = beforeByKey.Keys.Where(afterByKey.ContainsKey);
+            var afterCommon = afterByKey.Keys.Where(beforeByKey.ContainsKey);
+
+            if (beforeCommon.SequenceEqual(afterCommon, StringComparer.Ordinal))
+                return;
+
+            var oldOrder = string.Join(", ", beforeByKey.Values.Select(DescribeBranch));
+            var newOrder = string.Join(", ", afterByKey.Values.Select(DescribeBranch));
+
+            sink.Add(new SchemaChange(
+                ChangeKind.UnionBranchesReordered,
+                location,
+                $"branch order changed from [{oldOrder}] to [{newOrder}]",
+                oldValue: oldOrder,
+                newValue: newOrder));
+        }
+
+        /// <summary>
+        /// The branches of a union, keyed for matching and kept in the order they are declared. A
+        /// key that appears more than once keeps its first branch, so that every key names exactly
+        /// one branch on each side of the comparison.
+        /// </summary>
+        private static OrderedDictionary<string, Schema> BranchesByKey(UnionSchema union)
+        {
+            var branches = new OrderedDictionary<string, Schema>(union.Count, StringComparer.Ordinal);
+            foreach (var branch in union.Schemas)
+                branches.TryAdd(BranchKey(branch), branch);
+
+            return branches;
         }
 
         // Branches are matched on their underlying representation, so that a branch which gains or

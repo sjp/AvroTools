@@ -483,6 +483,73 @@ internal static class SchemaDiffTests
     }
 
     [Test]
+    public static void Compare_GivenUnionBranchesReordered_ReportsUnionBranchesReordered()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":["null","string"]}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":["string","null"]}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.UnionBranchesReordered));
+            Assert.That(change.Location, Is.EqualTo("/fields/a/type"));
+            Assert.That(change.OldValue, Is.EqualTo("NULL, STRING"));
+            Assert.That(change.NewValue, Is.EqualTo("STRING, NULL"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenUnionBranchesReorderedAndBranchAdded_ReportsBoth()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":["null","string"]}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":["string","int","null"]}]}""";
+
+        var result = Compare(before, after);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Changes.Select(c => c.Kind), Is.EquivalentTo(new[]
+            {
+                ChangeKind.UnionBranchAdded,
+                ChangeKind.UnionBranchesReordered,
+            }));
+            Assert.That(
+                result.Changes.Single(c => c.Kind == ChangeKind.UnionBranchesReordered).NewValue,
+                Is.EqualTo("STRING, INT, NULL"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenUnionBranchAddedWithoutReordering_ReportsOnlyTheAddition()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":["null","string"]}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":["int","null","string"]}]}""";
+
+        var result = Compare(before, after);
+
+        Assert.That(result.Changes.Single().Kind, Is.EqualTo(ChangeKind.UnionBranchAdded));
+    }
+
+    [Test]
+    public static void Compare_GivenNamedUnionBranchesReordered_DescribesBranchesByName()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":[{"type":"enum","name":"E","symbols":["A"]},{"type":"fixed","name":"F","size":4}]}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":[{"type":"fixed","name":"F","size":4},{"type":"enum","name":"E","symbols":["A"]}]}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.UnionBranchesReordered));
+            Assert.That(change.OldValue, Is.EqualTo("E, F"));
+            Assert.That(change.NewValue, Is.EqualTo("F, E"));
+        }
+    }
+
+    [Test]
     public static void Compare_GivenDocChanged_OnlyReportedWhenVerbose()
     {
         const string before = """{"type":"record","name":"R","doc":"old","fields":[{"name":"a","type":"int"}]}""";
