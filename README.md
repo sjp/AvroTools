@@ -921,3 +921,13 @@ foreach (var check in result.Checks.Where(c => !c.Result.IsCompatible))
         Console.WriteLine($"{check.Direction}: {incompatibility.Location}: {incompatibility.Message}");
 }
 ```
+
+## License
+
+MIT, as set out in [LICENSE](https://github.com/sjp/AvroTools/blob/master/LICENSE).
+
+The Avro IDL grammar, and the lexer and parser generated from it, come from Apache Avro
+and are used under the Apache License 2.0. That licence and the accompanying attribution
+are reproduced in
+[THIRD-PARTY-NOTICES.md](https://github.com/sjp/AvroTools/blob/master/THIRD-PARTY-NOTICES.md),
+which also ships in the packages.

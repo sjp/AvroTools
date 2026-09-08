@@ -130,3 +130,7 @@ var json = AvroJsonWriter.Encode(schema, record);
 ## License
 
 MIT. The project lives at [github.com/sjp/AvroTools](https://github.com/sjp/AvroTools).
+
+The Avro IDL grammar, and the lexer and parser generated from it, come from Apache Avro
+and are used under the Apache License 2.0. That licence and the accompanying attribution
+are reproduced in the `THIRD-PARTY-NOTICES.md` file included in this package.

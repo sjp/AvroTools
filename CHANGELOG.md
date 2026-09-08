@@ -20,6 +20,10 @@ version out of this file and fails if there is no section for it.
   defines, so a schema compiled from IDL can be handed straight to the code generator or to
   that library's readers and writers. The README has a "Using the libraries" section covering
   each of them.
+- The `SJP.AvroTool` and `SJP.Avro.Tools` packages carry a `THIRD-PARTY-NOTICES.md` file
+  alongside the README. The Avro IDL grammar, and the lexer and parser generated from it,
+  come from Apache Avro, so the notice credits that project and reproduces the Apache
+  License 2.0 those files are used under.
 
 ### Changed
 
