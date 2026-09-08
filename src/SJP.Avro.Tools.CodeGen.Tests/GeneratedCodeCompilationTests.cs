@@ -270,6 +270,105 @@ internal static class GeneratedCodeCompilationTests
     }
 
     [Test]
+    public static void Generate_GivenDateAndTimeLogicalTypes_RoundTripThroughSpecificDatumReader()
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledTemporalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "day", "type" : { "type" : "int", "logicalType" : "date" } },
+    { "name" : "timeMillis", "type" : { "type" : "int", "logicalType" : "time-millis" } },
+    { "name" : "timeMicros", "type" : { "type" : "long", "logicalType" : "time-micros" } },
+    { "name" : "stampMillis", "type" : { "type" : "long", "logicalType" : "timestamp-millis" } },
+    { "name" : "stampMicros", "type" : { "type" : "long", "logicalType" : "timestamp-micros" } },
+    { "name" : "localStampMillis", "type" : { "type" : "long", "logicalType" : "local-timestamp-millis" } },
+    { "name" : "localStampMicros", "type" : { "type" : "long", "logicalType" : "local-timestamp-micros" } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledTemporalWidget");
+
+        var day = new DateTime(2024, 5, 17, 0, 0, 0, DateTimeKind.Utc);
+        var timeOfDay = new TimeSpan(0, 13, 45, 30, 250);
+        var stamp = new DateTime(2024, 5, 17, 13, 45, 30, DateTimeKind.Utc);
+        var localStamp = DateTime.SpecifyKind(new DateTime(2024, 5, 17, 13, 45, 30), DateTimeKind.Local);
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, day);
+        widget.Put(1, timeOfDay);
+        widget.Put(2, timeOfDay);
+        widget.Put(3, stamp);
+        widget.Put(4, stamp);
+        widget.Put(5, localStamp);
+        widget.Put(6, localStamp);
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("day")!.PropertyType, Is.EqualTo(typeof(DateTime)));
+            Assert.That(generatedType.GetProperty("timeMillis")!.PropertyType, Is.EqualTo(typeof(TimeSpan)));
+            Assert.That(generatedType.GetProperty("timeMicros")!.PropertyType, Is.EqualTo(typeof(TimeSpan)));
+            Assert.That(generatedType.GetProperty("stampMillis")!.PropertyType, Is.EqualTo(typeof(DateTime)));
+            Assert.That(generatedType.GetProperty("stampMicros")!.PropertyType, Is.EqualTo(typeof(DateTime)));
+            Assert.That(generatedType.GetProperty("localStampMillis")!.PropertyType, Is.EqualTo(typeof(DateTime)));
+            Assert.That(generatedType.GetProperty("localStampMicros")!.PropertyType, Is.EqualTo(typeof(DateTime)));
+            Assert.That(deserialized.Get(0), Is.EqualTo(day));
+            Assert.That(deserialized.Get(1), Is.EqualTo(timeOfDay));
+            Assert.That(deserialized.Get(2), Is.EqualTo(timeOfDay));
+            Assert.That(deserialized.Get(3), Is.EqualTo(stamp));
+            Assert.That(deserialized.Get(4), Is.EqualTo(stamp));
+            Assert.That(deserialized.Get(5), Is.EqualTo(localStamp));
+            Assert.That(deserialized.Get(6), Is.EqualTo(localStamp));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenDurationLogicalType_RoundTripsThroughSpecificDatumReaderAsItsFixedType()
+    {
+        // Avro implements no conversion for 'duration', so its values travel as the 12-byte fixed
+        // backing it and the generated property has to be typed as that fixed rather than as a
+        // TimeSpan the runtime would never hand over.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledDurationWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "elapsed", "type" : { "type" : "fixed", "name" : "CompiledDuration", "size" : 12, "logicalType" : "duration" } }
+  ]
+}
+""");
+
+        var fixedSchema = (FixedSchema)((LogicalSchema)schema.Fields[0].Schema).BaseSchema;
+        var assembly = GeneratedSourceCompiler.Compile(
+            new AvroFixedGenerator().Generate(fixedSchema, TestNamespace),
+            new AvroRecordGenerator().Generate(schema, TestNamespace));
+
+        var generatedType = assembly.GetType($"{TestNamespace}.CompiledDurationWidget")!;
+        var durationType = assembly.GetType($"{TestNamespace}.CompiledDuration")!;
+
+        var elapsed = (GenericFixed)Activator.CreateInstance(durationType)!;
+        elapsed.Value = [1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0];
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, elapsed);
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("elapsed")!.PropertyType, Is.EqualTo(durationType));
+            Assert.That(((GenericFixed)deserialized.Get(0)).Value, Is.EqualTo(elapsed.Value));
+        }
+    }
+
+    [Test]
     public static void Generate_GivenDecimalWithoutScale_RoundTripsThroughSpecificDatumReaderAtScaleZero()
     {
         // 'scale' is optional in Avro and defaults to zero.

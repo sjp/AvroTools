@@ -316,12 +316,15 @@ Logical types map onto their natural C# counterparts, whatever type backs them:
 |--------------|---------|
 | `uuid` | `Guid` |
 | `date`, `timestamp-millis`, `timestamp-micros`, `local-timestamp-millis`, `local-timestamp-micros` | `DateTime` |
-| `time-millis`, `time-micros`, `duration` | `TimeSpan` |
+| `time-millis`, `time-micros` | `TimeSpan` |
 | `decimal` | `decimal` (`AvroDecimal` inside an `array` or `map`, see below) |
 
-A logical type outside that list is reported as a failure for that input rather than
-being generated as its backing type. A `decimal` that omits `scale` is generated with
-a scale of `0`, as the Avro specification requires.
+`Apache.Avro` implements exactly those logical types and hands the value of any other
+one — `duration`, a `*-nanos` variant, or one specific to your own tooling — through
+untouched. Such a field is generated as the type backing it, which is what the
+runtime writes and reads: a `duration` becomes the generated 12-byte `fixed`, and a
+`{ "type": "long", "logicalType": "my-thing" }` becomes a `long`. A `decimal` that
+omits `scale` is generated with a scale of `0`, as the Avro specification requires.
 
 Because `Apache.Avro` exchanges decimal values as `AvroDecimal`, the generated
 `Get` and `Put` convert them. That conversion applies to a decimal field and to
@@ -334,12 +337,10 @@ Avro as-is.
 A logical type may be backed by a named `fixed` rather than a primitive — a
 `decimal` stored in a `fixed`, or a `duration`. The named type is generated
 alongside the record that uses it, and `idl2schemata` writes an `.avsc` for it
-the same as for any other named type, but neither case is usable through
-`Apache.Avro`'s specific API today: a fixed-backed `decimal` throws when
-written or read back, and a `duration` field is generated as `TimeSpan` even
-though the library has no `duration` logical type, so it is written and read
-as the raw 12-byte `fixed` instead. Avoid both until the generator either
-converts them correctly or reports them as unsupported.
+the same as for any other named type. A `duration` field is typed as that
+generated `fixed` and round trips through the specific API as the raw 12 bytes.
+A fixed-backed `decimal`, however, is still typed as `decimal` and throws when
+written or read back; avoid it until the generator converts it correctly.
 
 Avro names admit every C# keyword, so a name that is one is emitted verbatim with
 an `@` prefix (`@class`, `@event`, `@void`). The prefix is purely lexical: the

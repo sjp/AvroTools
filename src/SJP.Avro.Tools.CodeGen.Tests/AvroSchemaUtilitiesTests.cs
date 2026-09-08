@@ -1,5 +1,4 @@
-﻿using System;
-using Avro;
+﻿using Avro;
 using NUnit.Framework;
 
 namespace SJP.Avro.Tools.CodeGen.Tests;
@@ -40,6 +39,8 @@ internal static class AvroSchemaUtilitiesTests
     [TestCase(""" { "type" : "int", "logicalType" : "date" } """)]
     [TestCase(""" { "type" : "string", "logicalType" : "uuid" } """)]
     [TestCase(""" { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } """)]
+    // A logical type Avro does not implement takes the answer from the type backing it.
+    [TestCase(""" { "type" : "long", "logicalType" : "made-up" } """)]
     public static void IsValueType_GivenSchemaMappedOntoAValueType_ReturnsTrue(string json)
     {
         var schema = Schema.Parse(json);
@@ -54,6 +55,8 @@ internal static class AvroSchemaUtilitiesTests
     [TestCase(""" { "type" : "map", "values" : "int" } """)]
     [TestCase(""" { "type" : "fixed", "name" : "F", "size" : 4 } """)]
     [TestCase(""" { "type" : "record", "name" : "A", "fields" : [] } """)]
+    [TestCase(""" { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } """)]
+    [TestCase(""" { "type" : "string", "logicalType" : "made-up" } """)]
     public static void IsValueType_GivenSchemaMappedOntoAReferenceType_ReturnsFalse(string json)
     {
         var schema = Schema.Parse(json);
@@ -99,7 +102,6 @@ internal static class AvroSchemaUtilitiesTests
     [TestCase(""" { "type" : "long", "logicalType" : "timestamp-micros" } """, "DateTime")]
     [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-millis" } """, "DateTime")]
     [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-micros" } """, "DateTime")]
-    [TestCase(""" { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } """, "TimeSpan")]
     [TestCase(""" { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } """, "decimal")]
     [TestCase(""" [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } ] """, "decimal?")]
     public static void GetFieldType_GivenSchema_ReturnsDocumentedCsharpType(string json, string expectedType)
@@ -120,11 +122,18 @@ internal static class AvroSchemaUtilitiesTests
         Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
     }
 
-    [Test]
-    public static void GetFieldType_GivenUnrecognisedLogicalType_ThrowsArgumentOutOfRangeException()
+    // Avro implements a fixed set of logical types and hands every other one through as the type
+    // backing it, so that backing type is what the generated member has to be typed as. 'duration'
+    // is one of those: the specification defines it, but the library has no conversion for it.
+    [TestCase(""" { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } """, "D")]
+    [TestCase(""" { "type" : "long", "logicalType" : "made-up" } """, "long")]
+    [TestCase(""" { "type" : "string", "logicalType" : "made-up" } """, "string")]
+    [TestCase(""" [ "null", { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } ] """, "D?")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } } """, "List<D>")]
+    public static void GetFieldType_GivenLogicalTypeAvroDoesNotImplement_ReturnsTypeOfBackingSchema(string json, string expectedType)
     {
-        var schema = Schema.Parse(""" { "type" : "long", "logicalType" : "made-up" } """);
+        var schema = Schema.Parse(json);
 
-        Assert.That(() => AvroSchemaUtilities.GetFieldType(schema), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
     }
 }

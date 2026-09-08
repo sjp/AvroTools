@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Avro;
+using Avro.Util;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -51,6 +52,12 @@ internal static class AvroSchemaUtilities
 
     private static TypeSyntax ResolveLogicalType(LogicalSchema logicalSchema, bool convertDecimals)
     {
+        // A logical type Avro does not implement is carried through untouched: values are handed
+        // to and from the generated code as the type that backs the logical type, so that is what
+        // the member has to be typed as.
+        if (logicalSchema.LogicalType is UnknownLogicalType)
+            return GetSimpleFieldType(logicalSchema.BaseSchema, convertDecimals);
+
         return logicalSchema.LogicalTypeName switch
         {
             DecimalLogicalTypeName => convertDecimals
@@ -63,7 +70,6 @@ internal static class AvroSchemaUtilities
             "timestamp-micros" => IdentifierName(nameof(DateTime)),
             "local-timestamp-millis" => IdentifierName(nameof(DateTime)),
             "local-timestamp-micros" => IdentifierName(nameof(DateTime)),
-            "duration" => IdentifierName(nameof(TimeSpan)),
             "uuid" => IdentifierName(nameof(Guid)),
             _ => throw new ArgumentOutOfRangeException($"Unable to resolve a type for logicalType of '{logicalSchema.Name}'")
         };
@@ -178,7 +184,11 @@ internal static class AvroSchemaUtilities
             return true;
 
         if (schema is LogicalSchema logicalSchema)
-            return ValueTypeLogicalTypeNames.Contains(logicalSchema.LogicalTypeName);
+        {
+            return logicalSchema.LogicalType is UnknownLogicalType
+                ? IsValueType(logicalSchema.BaseSchema)
+                : ValueTypeLogicalTypeNames.Contains(logicalSchema.LogicalTypeName);
+        }
 
         return false;
     }
@@ -193,7 +203,6 @@ internal static class AvroSchemaUtilities
             "timestamp-micros",
             "local-timestamp-millis",
             "local-timestamp-micros",
-            "duration",
             "uuid"
         ];
 

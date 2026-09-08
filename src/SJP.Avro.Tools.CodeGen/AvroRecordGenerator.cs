@@ -156,6 +156,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
             MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
             UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
+            LogicalSchema logicalSchema => GetNamespacesForType(logicalSchema.BaseSchema),
             NamedSchema namedSchema => namedSchema.Namespace != null ? [namedSchema.Namespace] : Array.Empty<string>(),
             _ => []
         };
