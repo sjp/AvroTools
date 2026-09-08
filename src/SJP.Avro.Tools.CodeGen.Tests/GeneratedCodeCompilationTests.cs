@@ -272,6 +272,46 @@ internal static class GeneratedCodeCompilationTests
     }
 
     [Test]
+    public static void Generate_GivenProtocol_ReportsAMessageNameItDoesNotDeclare()
+    {
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "DispatchService",
+  "namespace" : "{{TestNamespace}}",
+  "types" : [ ],
+  "messages" : {
+    "ping" : {
+      "request" : [ ],
+      "response" : "null"
+    }
+  }
+}
+""");
+
+        var protocolSource = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+
+        // The generated type is abstract, so a concrete one is compiled alongside it to call into.
+        var implementationSource = $$"""
+namespace {{TestNamespace}}
+{
+    public sealed record DispatchServiceImpl : DispatchService
+    {
+        public override void ping()
+        {
+        }
+    }
+}
+""";
+
+        var assembly = GeneratedSourceCompiler.Compile(protocolSource, implementationSource);
+        var service = (ISpecificProtocol)Activator.CreateInstance(assembly.GetType($"{TestNamespace}.DispatchServiceImpl")!)!;
+
+        Assert.That(
+            () => service.Request(null!, "absent", [], null!),
+            Throws.TypeOf<AvroRuntimeException>().With.Message.Contains("absent"));
+    }
+
+    [Test]
     public static void Generate_GivenUuidLogicalType_RoundTripsThroughSpecificDatumReaderAsGuid()
     {
         var schema = (RecordSchema)Schema.Parse($$"""

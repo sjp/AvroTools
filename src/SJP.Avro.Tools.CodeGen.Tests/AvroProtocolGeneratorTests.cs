@@ -121,7 +121,7 @@ internal static class AvroProtocolGeneratorTests
     }
 
     [Test]
-    public static void Generate_GivenNoMessages_ReturnsEmptyString()
+    public static void Generate_GivenNoMessages_ReturnsNull()
     {
         var protocolGenerator = new AvroProtocolGenerator();
 
@@ -176,7 +176,7 @@ internal static class AvroProtocolGeneratorTests
 
         var result = protocolGenerator.Generate(protocol, TestNamespace);
 
-        Assert.That(result, Is.Empty);
+        Assert.That(result, Is.Null);
     }
 
     [Test]
@@ -420,6 +420,8 @@ namespace org.apache.avro.test
                 case "ping":
                     requestor.Request<object>(messageName, args, callback);
                     break;
+                default:
+                    throw new global::Avro.AvroRuntimeException("Unknown message " + messageName + " in Request()");
             }
         }
 
@@ -437,6 +439,7 @@ namespace org.apache.avro.test
 
         public abstract byte[] echoBytes(byte[] data);
 
+        /// <exception cref="global::org.apache.avro.test.TestError"/>
         public abstract void error();
 
         public abstract void ping();
@@ -690,6 +693,8 @@ namespace org.apache.avro.test
                 case "ping":
                     requestor.Request<object>(messageName, args, callback);
                     break;
+                default:
+                    throw new global::Avro.AvroRuntimeException("Unknown message " + messageName + " in Request()");
             }
         }
 
@@ -707,6 +712,7 @@ namespace org.apache.avro.test
 
         public abstract byte[] echoBytes(byte[] data);
 
+        /// <exception cref="global::org.apache.avro.test.TestError"/>
         public abstract void error();
 
         public abstract void ping();

@@ -43,6 +43,33 @@ internal static class CsharpValidationTests
     }
 
     [Test]
+    [TestCase(null, false)]
+    [TestCase("", false)]
+    [TestCase("   ", false)]
+    [TestCase("A", true)]
+    [TestCase("_A", true)]
+    [TestCase("A1", true)]
+    [TestCase("1A", false)]
+    [TestCase("A B", false)]
+    [TestCase("A.B", false)]
+    [TestCase("my-ns", false)]
+    [TestCase("foo-bar", false)]
+    [TestCase("A!", false)]
+    [TestCase("Ünïcödé", true)]
+    // A keyword is escaped where it is emitted, so it is usable as it stands.
+    [TestCase("class", true)]
+    [TestCase("record", true)]
+    // An escape is not something an Avro name may carry in the first place.
+    [TestCase("@class", false)]
+    [TestCase("@", false)]
+    public static void IsValidCsharpIdentifier_GivenVariousInputs_ReturnsExpectedResult(string input, bool expected)
+    {
+        var result = CsharpValidation.IsValidCsharpIdentifier(input);
+
+        Assert.That(result, Is.EqualTo(expected));
+    }
+
+    [Test]
     public static void IsValidCsharpNamespace_GivenLongInvalidInput_CompletesQuickly()
     {
         var input = new string('a', 2000) + "!";

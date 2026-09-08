@@ -255,6 +255,14 @@ Generated /home/sjp/repos/AvroTools/TestRecord.cs
 > identifier; a part that is a C# keyword has to be escaped, as in
 > `--namespace @class.Models`.
 
+A namespace declared by the input itself has to satisfy the same rule, as does a
+protocol's own name. Avro constrains neither — `"namespace": "my-ns"` and
+`"protocol": "my-service"` are both accepted by an Avro parser — while generated
+code spells each name exactly as the input does. A name C# has no way to write is
+reported up front, alongside the input it was found in, and that input is skipped
+rather than producing source that does not compile. Every other declared name is a
+legal Avro name, which is always a legal C# identifier.
+
 Each named type (record, error, enum, fixed) and each protocol is written to
 `<fullname>.cs` — its Avro namespace and name joined with a dot, so
 `TestRecord` above becomes `org.foo.TestRecord.cs` once it declares
@@ -357,6 +365,13 @@ A protocol message carries every value in the representation `Apache.Avro` uses,
 because the requestor packs the arguments and unpacks the response with no
 generated code in between to convert them. A `decimal` parameter or response is
 therefore typed `AvroDecimal`, and an optional one `AvroDecimal?`.
+
+A message that declares `errors` carries an `<exception>` documentation tag for
+each of them on its generated method, so the error types a caller has to handle
+are visible from the signature. The generated `Request` dispatch throws an
+`AvroRuntimeException` naming any message the protocol does not declare, rather
+than returning without requesting anything and leaving the caller waiting on a
+response that never comes.
 
 A logical type may be backed by a named `fixed` rather than a primitive — a
 `duration`, or a `decimal` stored in a `fixed`. The named type is generated

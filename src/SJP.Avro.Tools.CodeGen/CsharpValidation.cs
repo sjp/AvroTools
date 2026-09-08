@@ -27,6 +27,20 @@ public static class CsharpValidation
     }
 
     /// <summary>
+    /// Determines whether a name declared by an Avro definition can be used as a C# identifier as
+    /// it stands. A keyword is not an obstacle here, unlike in a namespace supplied by hand:
+    /// generated code escapes a name that is one with a leading <c>@</c>. A character C# does not
+    /// admit in an identifier at all has no such remedy.
+    /// </summary>
+    /// <param name="input">A string to test.</param>
+    /// <returns><c>true</c> if the input string can be used as a C# identifier; otherwise, <c>false</c>.</returns>
+    public static bool IsValidCsharpIdentifier(string input)
+    {
+        return !string.IsNullOrWhiteSpace(input)
+            && SyntaxFacts.IsValidIdentifier(input);
+    }
+
+    /// <summary>
     /// Determines whether one dot-separated piece of a namespace is a legal C# identifier. Keywords
     /// are only permitted when they are escaped with a leading <c>@</c>.
     /// </summary>

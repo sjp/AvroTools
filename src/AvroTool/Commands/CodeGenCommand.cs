@@ -212,6 +212,22 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 }
             }
 
+            // Avro accepts names C# has no way to spell, and generated code carries every declared
+            // name over as it stands. Reporting them all together is more use than emitting source
+            // that will not compile, one file at a time.
+            var unusableNames = new List<string>();
+            if (generatesProtocol)
+                unusableNames.AddRange(AvroNameValidation.FindUnusableNames(protocol!));
+            foreach (var namedType in namedTypes)
+                unusableNames.AddRange(AvroNameValidation.FindUnusableNames(namedType));
+
+            if (unusableNames.Count > 0)
+            {
+                var names = string.Join(", ", unusableNames.Distinct(StringComparer.Ordinal).Select(static n => $"'{n}'"));
+                _console.MarkupLineInterpolated($"[red]Unable to generate C# files from '{source}': {names} cannot be expressed as a C# name. Rename in the schema.[/]");
+                return false;
+            }
+
             // Generate every output this input produces before writing any of it, so collisions
             // within the input and with other inputs (and pre-existing files without --overwrite)
             // are settled while the output directory is still untouched.
@@ -221,14 +237,17 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
                 var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
                 var protocolOutput = protocolGenerator.Generate(protocol!, settings.BaseNamespace, codeGenOptions);
 
-                var protocolFullName = string.IsNullOrWhiteSpace(protocol!.Namespace)
-                    ? protocol.Name
-                    : $"{protocol.Namespace}.{protocol.Name}";
+                if (!string.IsNullOrWhiteSpace(protocolOutput))
+                {
+                    var protocolFullName = string.IsNullOrWhiteSpace(protocol!.Namespace)
+                        ? protocol.Name
+                        : $"{protocol.Namespace}.{protocol.Name}";
 
-                reservations.Add(new OutputReservation(
-                    Path.Combine(outputDir.FullName, protocolFullName + ".cs"),
-                    $"protocol '{protocol.Name}'",
-                    protocolOutput));
+                    reservations.Add(new OutputReservation(
+                        Path.Combine(outputDir.FullName, protocolFullName + ".cs"),
+                        $"protocol '{protocol.Name}'",
+                        protocolOutput));
+                }
             }
 
             foreach (var namedType in namedTypes)

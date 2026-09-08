@@ -142,10 +142,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     {
         var fieldIsNullable = AvroSchemaUtilities.IsNullable(field.Schema);
 
-        if (!SyntaxUtilities.TypeSyntaxMap.TryGetValue(field.Schema.Tag, out var columnTypeSyntax))
-        {
-            columnTypeSyntax = AvroSchemaUtilities.GetFieldType(field.Schema, containingNamespace);
-        }
+        var columnTypeSyntax = AvroSchemaUtilities.GetFieldType(field.Schema, containingNamespace);
 
         var isNotNullRefType = !fieldIsNullable && !AvroSchemaUtilities.IsValueType(field.Schema);
         var isRequired = options.RequiredProperties && !fieldIsNullable && field.DefaultValue == null;

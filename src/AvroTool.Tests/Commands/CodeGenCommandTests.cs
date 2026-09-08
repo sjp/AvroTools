@@ -22,6 +22,8 @@ internal class CodeGenCommandTests
     private const string TestNamespace = "SJP.Avro.CodeGen.Test";
 
     private const string InvalidNameSchemaJson = """{"type":"record","name":"weird-name","fields":[]}""";
+    private const string InvalidNamespaceSchemaJson = """{"type":"record","name":"Widget","namespace":"weird-ns","fields":[]}""";
+    private const string InvalidNameProtocolJson = """{"protocol":"weird-protocol","namespace":"ns","types":[],"messages":{"go":{"request":[],"response":"null"}}}""";
     private const string MalformedIdl = "protocol TestProtocol { record TestRecord { string a } }";
     private const string IdlWithMissingImport = """protocol TestProtocol { import idl "absent.avdl"; }""";
 
@@ -246,6 +248,8 @@ namespace SJP.Avro.CodeGen.Test
                 case "void":
                     requestor.Request<object>(messageName, args, callback);
                     break;
+                default:
+                    throw new global::Avro.AvroRuntimeException("Unknown message " + messageName + " in Request()");
             }
         }
 
@@ -296,6 +300,8 @@ namespace SJP.Avro.CodeGen.Test
                 case "void":
                     requestor.Request<object>(messageName, args, callback);
                     break;
+                default:
+                    throw new global::Avro.AvroRuntimeException("Unknown message " + messageName + " in Request()");
             }
         }
 
@@ -1150,6 +1156,48 @@ namespace TestNamespace
             Assert.That(console.Output, Does.Contain("invalid.avsc"));
             Assert.That(console.Output, Does.Contain("could not be parsed as a JSON schema"));
             Assert.That(console.Output, Does.Contain("weird-name"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenSchemaWithNamespaceCsharpCannotSpell_ReportsItWithoutWritingOutput()
+    {
+        var (app, console) = CreateAppWithRealParsers();
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "namespace.avsc"));
+        await File.WriteAllTextAsync(sourceFile.FullName, InvalidNamespaceSchemaJson, TestContext.CurrentContext.CancellationToken);
+
+        var outputDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "out"));
+        var result = await app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("namespace.avsc"));
+            Assert.That(console.Output, Does.Contain("weird-ns"));
+            Assert.That(console.Output, Does.Contain("cannot be expressed as a C# name"));
+            Assert.That(outputDir.GetFiles(), Is.Empty);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenProtocolNameCsharpCannotSpell_ReportsItWithoutWritingOutput()
+    {
+        var (app, console) = CreateAppWithRealParsers();
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "protocol.avpr"));
+        await File.WriteAllTextAsync(sourceFile.FullName, InvalidNameProtocolJson, TestContext.CurrentContext.CancellationToken);
+
+        var outputDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "out"));
+        var result = await app.RunAsync([sourceFile.FullName, "-n", TestNamespace, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("protocol.avpr"));
+            Assert.That(console.Output, Does.Contain("weird-protocol"));
+            Assert.That(console.Output, Does.Contain("cannot be expressed as a C# name"));
+            Assert.That(outputDir.GetFiles(), Is.Empty);
         }
     }
 

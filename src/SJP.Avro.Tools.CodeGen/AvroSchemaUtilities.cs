@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -309,28 +310,25 @@ internal static class AvroSchemaUtilities
         return false;
     }
 
-    private static readonly IEnumerable<string> ValueTypeLogicalTypeNames =
-    [
-            "decimal",
-            "date",
-            "time-millis",
-            "time-micros",
-            "timestamp-millis",
-            "timestamp-micros",
-            "local-timestamp-millis",
-            "local-timestamp-micros",
-            "uuid"
-        ];
+    private static readonly FrozenSet<string> ValueTypeLogicalTypeNames = FrozenSet.Create(
+        StringComparer.Ordinal,
+        DecimalLogicalTypeName,
+        "date",
+        "time-millis",
+        "time-micros",
+        "timestamp-millis",
+        "timestamp-micros",
+        "local-timestamp-millis",
+        "local-timestamp-micros",
+        "uuid");
 
-    private static readonly IEnumerable<Schema.Type> ValueTypes =
-    [
-            Schema.Type.Boolean,
-            Schema.Type.Int,
-            Schema.Type.Long,
-            Schema.Type.Float,
-            Schema.Type.Double,
-            Schema.Type.Enumeration
-        ];
+    private static readonly FrozenSet<Schema.Type> ValueTypes = FrozenSet.Create(
+        Schema.Type.Boolean,
+        Schema.Type.Int,
+        Schema.Type.Long,
+        Schema.Type.Float,
+        Schema.Type.Double,
+        Schema.Type.Enumeration);
 
     /// <summary>
     /// Rewrites the JSON of a schema or protocol into the shape the Avro specification defines for

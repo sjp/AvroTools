@@ -40,9 +40,20 @@ version out of this file and fails if there is no section for it.
 - `compat` and `diff` name a type the way a schema document does — `int`, `enum`, `string`
   — in their messages, their `--json` values and the locations they report, and `compat`
   gives the full name of a named type a reader union has no branch for.
+- `codegen` documents the errors a protocol message declares, with an `<exception>` tag
+  naming each of them on the generated method. The `errors` an Avro message declares were
+  dropped, so nothing in the generated protocol said which types a caller has to handle.
 
 ### Fixed
 
+- `codegen` reports a namespace, or a protocol name, that C# has no way to write — such as
+  `my-ns` or `my-service` — naming it alongside the input it was found in, and skips that
+  input. Avro constrains neither, and generated code spells each name exactly as the input
+  does, so such an input previously produced source that did not compile.
+- The `Request` dispatch `codegen` generates for a protocol throws an `AvroRuntimeException`
+  naming a message the protocol does not declare, as `Get` and `Put` do for a field position
+  a record does not have. An unknown message name previously returned without requesting
+  anything, leaving the caller waiting on a response that was never asked for.
 - `codegen` accepts a `doc` that is empty, whitespace, or made up only of the asterisks that
   prefix each line of a block comment. Such a documentation string describes nothing, so the
   generated member simply carries no documentation comment; generation for the whole input

@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.CodeAnalysis.Options;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen;
@@ -20,22 +21,48 @@ internal static class SyntaxUtilities
     /// </summary>
     /// <param name="comment">A comment, if any.</param>
     /// <returns>Syntax nodes that represent the comment, or no trivia when the comment is empty.</returns>
-    public static SyntaxTriviaList BuildCommentTrivia(string? comment)
+    public static SyntaxTriviaList BuildCommentTrivia(string? comment) => BuildCommentTrivia(comment, []);
+
+    /// <summary>
+    /// Constructs a documentation comment definition for use with Roslyn, naming the exceptions a
+    /// member is declared to raise alongside its description. A member with neither documents
+    /// nothing, so it produces no trivia.
+    /// </summary>
+    /// <param name="comment">A comment, if any.</param>
+    /// <param name="exceptionTypes">The types the member is declared to raise, if any.</param>
+    /// <returns>Syntax nodes that represent the comment, or no trivia when there is nothing to say.</returns>
+    public static SyntaxTriviaList BuildCommentTrivia(string? comment, IReadOnlyCollection<NameSyntax> exceptionTypes)
     {
         var commentLines = GetLines(comment);
-        if (commentLines.Count == 0)
+        if (commentLines.Count == 0 && exceptionTypes.Count == 0)
             return TriviaList();
 
-        var commentNodes = commentLines.Count > 1
-            ? commentLines.SelectMany(static l => new XmlNodeSyntax[] { XmlParaElement(XmlText(l)), XmlText(XmlNewline) }).ToArray()
-            : [XmlText(XmlTextLiteral(commentLines.Single()), XmlNewline)];
-        // add a newline after the summary element
-        var formattedCommentNodes = new XmlNodeSyntax[] { XmlText(XmlNewline) }.Concat(commentNodes).ToArray();
+        var documentationNodes = new List<XmlNodeSyntax>();
+
+        if (commentLines.Count > 0)
+        {
+            var commentNodes = commentLines.Count > 1
+                ? commentLines.SelectMany(static l => new XmlNodeSyntax[] { XmlParaElement(XmlText(l)), XmlText(XmlNewline) }).ToArray()
+                : [XmlText(XmlTextLiteral(commentLines.Single()), XmlNewline)];
+            // add a newline after the summary element
+            var formattedCommentNodes = new XmlNodeSyntax[] { XmlText(XmlNewline) }.Concat(commentNodes).ToArray();
+
+            documentationNodes.Add(XmlSummaryElement(formattedCommentNodes));
+        }
+
+        foreach (var exceptionType in exceptionTypes)
+        {
+            if (documentationNodes.Count > 0)
+                documentationNodes.Add(XmlText(XmlNewline));
+
+            documentationNodes.Add(
+                XmlEmptyElement(XmlName("exception"))
+                    .AddAttributes(XmlCrefAttribute(TypeCref(exceptionType))));
+        }
 
         return TriviaList(
             Trivia(
-                DocumentationComment(
-                    XmlSummaryElement(formattedCommentNodes))),
+                DocumentationComment([.. documentationNodes])),
             ElasticCarriageReturnLineFeed
         );
     }
@@ -130,13 +157,18 @@ internal static class SyntaxUtilities
                             SingletonList(generatedType))))
             .WithLeadingTrivia(NullableContextDirective);
 
-        using var workspace = new AdhocWorkspace();
-
-        var options = workspace.Options
-            .WithChangedOption(FormattingOptions.NewLine, LanguageNames.CSharp, GeneratedNewLine);
-
-        return Formatter.Format(document, workspace, options).ToFullString();
+        return Formatter.Format(document, FormattingWorkspace, FormatterOptions).ToFullString();
     }
+
+    /// <summary>
+    /// The workspace the formatter runs against. It holds no documents and is never written to:
+    /// it exists only to supply the language services <see cref="Formatter"/> needs, so one
+    /// instance serves every generated file rather than each paying to construct its own.
+    /// </summary>
+    private static readonly AdhocWorkspace FormattingWorkspace = new();
+
+    private static readonly OptionSet FormatterOptions = FormattingWorkspace.Options
+        .WithChangedOption(FormattingOptions.NewLine, LanguageNames.CSharp, GeneratedNewLine);
 
     /// <summary>
     /// Determines the namespace to declare generated code in. An Avro type's own namespace is

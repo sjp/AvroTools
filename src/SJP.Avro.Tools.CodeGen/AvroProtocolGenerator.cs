@@ -21,17 +21,18 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     /// <param name="protocol">A definition of an Avro protocol.</param>
     /// <param name="baseNamespace">The base namespace to use (when one is absent).</param>
     /// <param name="options">Ignored. Protocols generate abstract methods rather than properties, so output style options have no effect.</param>
-    /// <returns>A string representing a C# file containing a class definition. Empty when no messages are present in the protocol.</returns>
+    /// <returns>A string representing a C# file containing a class definition, or <c>null</c> when the protocol declares no messages and so has nothing to generate.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="protocol"/> is <c>null</c> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace and <paramref name="protocol"/> does not declare a namespace.</exception>
-    public string Generate(Protocol protocol, string baseNamespace, CodeGenOptions? options = null)
+    public string? Generate(Protocol protocol, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(protocol);
         ArgumentNullException.ThrowIfNull(baseNamespace);
 
-        // no messages to generate
+        // A protocol without messages declares only types, each of which is generated in its own
+        // right. There is no service to generate, which is not the same as generating an empty one.
         if (protocol.Messages.Count == 0)
-            return string.Empty;
+            return null;
 
         var ns = SyntaxUtilities.ResolveNamespace(protocol.Namespace, baseNamespace, protocol.Name);
 
@@ -166,7 +167,40 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                     SwitchStatement(
                         IdentifierName("messageName"))
                     .WithSections(
-                        List(messageCases))));
+                        List(messageCases.Append(BuildUnknownMessageCase())))));
+    }
+
+    /// <summary>
+    /// Builds the branch taken by a message name the protocol does not declare. Silently doing
+    /// nothing would leave the caller waiting on a response that is never requested, so the
+    /// unknown name is reported the same way a record reports a field index it does not have.
+    /// </summary>
+    private static SwitchSectionSyntax BuildUnknownMessageCase()
+    {
+        return SwitchSection()
+            .WithLabels(
+                SingletonList<SwitchLabelSyntax>(
+                    DefaultSwitchLabel()))
+            .WithStatements(
+                SingletonList<StatementSyntax>(
+                    ThrowStatement(
+                        ObjectCreationExpression(
+                            SyntaxUtilities.GlobalName(typeof(AvroRuntimeException)))
+                        .WithArgumentList(
+                            ArgumentList(
+                                SingletonSeparatedList(
+                                    Argument(
+                                        BinaryExpression(
+                                            SyntaxKind.AddExpression,
+                                            BinaryExpression(
+                                                SyntaxKind.AddExpression,
+                                                LiteralExpression(
+                                                    SyntaxKind.StringLiteralExpression,
+                                                    Literal("Unknown message ")),
+                                                IdentifierName("messageName")),
+                                            LiteralExpression(
+                                                SyntaxKind.StringLiteralExpression,
+                                                Literal($" in {nameof(ISpecificProtocol.Request)}()"))))))))));
     }
 
     private static SwitchSectionSyntax BuildRequestMethodCase(Message message, string containingNamespace)
@@ -232,9 +266,27 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));
 
         method = method
-            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(message.Doc));
+            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(message.Doc, GetDeclaredErrors(message, containingNamespace)));
 
         return method;
+    }
+
+    /// <summary>
+    /// Names the error types a message declares, so that the generated method documents them. The
+    /// errors are part of the protocol rather than of the C# signature: an implementation raises
+    /// them and a caller handles them, but nothing in the method declaration says so on its own.
+    /// </summary>
+    private static IReadOnlyCollection<NameSyntax> GetDeclaredErrors(Message message, string containingNamespace)
+    {
+        if (message.Error == null)
+            return [];
+
+        return message.Error.Schemas
+            .OfType<RecordSchema>()
+            .Select(e => SyntaxUtilities.GlobalName(
+                SyntaxUtilities.ResolveNamespace(e.Namespace, containingNamespace, e.Fullname),
+                SyntaxUtilities.SafeIdentifierName(e.Name)))
+            .ToList();
     }
 
     /// <summary>
