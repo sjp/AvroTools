@@ -38,14 +38,27 @@ public static class SchemaCompatibility
     /// reader/writer pair is independent of where it appears, so results are memoised per pair.
     /// A pair still being computed is treated as compatible, which terminates recursive schemas
     /// (a recursive type is compatible with itself), as in the Avro specification's resolution.
+    /// A result that rests on that assumption being made about a pair other than itself is not
+    /// memoised, because it is only the answer for positions beneath that other pair; reached
+    /// from anywhere else, the pair is walked again and reports everything it finds there.
     /// Memoised incompatibilities carry locations relative to the pair they were found in, so a
     /// type reached from several places reports the same findings once at each of those places,
     /// each with its own path.
     /// </summary>
     private sealed class Checker
     {
-        // null value => the pair is currently being computed (recursion guard).
-        private readonly Dictionary<SchemaPair, List<Incompatibility>?> _memo = [];
+        private readonly Dictionary<SchemaPair, List<Incompatibility>> _memo = [];
+
+        /// <summary>The pairs currently being computed, each mapped to its depth on the stack.</summary>
+        private readonly Dictionary<SchemaPair, int> _inFlight = [];
+
+        /// <summary>
+        /// The shallowest in-flight pair the computation in progress has assumed compatible,
+        /// or <see cref="int.MaxValue"/> when it has assumed nothing. A result that rests on an
+        /// assumption about a pair further up the stack is only valid beneath that pair, so it
+        /// must not be memoised: reached from elsewhere, the same pair can have more to report.
+        /// </summary>
+        private int _assumedDepth = int.MaxValue;
 
         private static readonly List<Incompatibility> None = [];
 
@@ -64,14 +77,39 @@ public static class SchemaCompatibility
 
             var pair = new SchemaPair(reader, writer);
             if (_memo.TryGetValue(pair, out var cached))
-                return cached ?? None; // null => recursion in progress => assume compatible
+                return cached;
 
-            _memo[pair] = null;
+            if (_inFlight.TryGetValue(pair, out var inFlightDepth))
+            {
+                // Recursion: assume the pair compatible, and record what that assumption rests on.
+                _assumedDepth = Math.Min(_assumedDepth, inFlightDepth);
+                return None;
+            }
+
+            var depth = _inFlight.Count;
+            _inFlight[pair] = depth;
+
+            var callerAssumedDepth = _assumedDepth;
+            _assumedDepth = int.MaxValue;
 
             var sink = new List<Incompatibility>();
             Compute(sink, reader, writer, RelativeRoot);
 
-            _memo[pair] = sink;
+            var assumedDepth = _assumedDepth;
+            _inFlight.Remove(pair);
+
+            // An assumption about this pair itself is resolved here: the result is the fixed point
+            // for a type that is compatible with itself, and holds wherever the pair is reached.
+            if (assumedDepth >= depth)
+            {
+                _memo[pair] = sink;
+                _assumedDepth = callerAssumedDepth;
+            }
+            else
+            {
+                _assumedDepth = Math.Min(callerAssumedDepth, assumedDepth);
+            }
+
             return sink;
         }
 

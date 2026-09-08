@@ -44,15 +44,28 @@ public static class SchemaDiff
     /// so an in-flight pair only ever short-circuits the single reentrant call that found it still
     /// in progress: the outer call keeps walking and its real (possibly non-empty) result is what
     /// gets memoised. This terminates recursive schemas (e.g. a record containing an array of
-    /// itself) without suppressing genuine differences found on the way down. Memoised changes
-    /// carry locations relative to the pair they were found in, so a type reached from several
-    /// places reports the same changes once at each of those places, each with its own path.
+    /// itself) without suppressing genuine differences found on the way down. A result that was
+    /// itself short-circuited by a pair other than itself is not memoised, because it is only the
+    /// answer for positions beneath that other pair; reached from anywhere else, the pair is
+    /// walked again and reports everything it finds there. Memoised changes carry locations
+    /// relative to the pair they were found in, so a type reached from several places reports the
+    /// same changes once at each of those places, each with its own path.
     /// </summary>
     private sealed class Differ
     {
         private readonly bool _includeMetadata;
         private readonly Dictionary<SchemaPair, List<SchemaChange>> _memo = [];
-        private readonly HashSet<SchemaPair> _inFlight = [];
+
+        /// <summary>The pairs currently being computed, each mapped to its depth on the stack.</summary>
+        private readonly Dictionary<SchemaPair, int> _inFlight = [];
+
+        /// <summary>
+        /// The shallowest in-flight pair the computation in progress short-circuited on, or
+        /// <see cref="int.MaxValue"/> when it short-circuited on none. A result that stopped at a
+        /// pair further up the stack is only complete beneath that pair, so it must not be
+        /// memoised: reached from elsewhere, the same pair can have more to report.
+        /// </summary>
+        private int _truncatedAtDepth = int.MaxValue;
 
         public Differ(bool includeMetadata)
         {
@@ -89,14 +102,38 @@ public static class SchemaDiff
             if (_memo.TryGetValue(pair, out var cached))
                 return cached;
 
-            if (!_inFlight.Add(pair))
-                return []; // recursion in progress at this pair; the outer call owns the real result
+            if (_inFlight.TryGetValue(pair, out var inFlightDepth))
+            {
+                // Recursion in progress at this pair; the outer call owns the real result. Record
+                // how far up the stack that call is, so nothing truncated by it is memoised.
+                _truncatedAtDepth = Math.Min(_truncatedAtDepth, inFlightDepth);
+                return [];
+            }
+
+            var depth = _inFlight.Count;
+            _inFlight[pair] = depth;
+
+            var callerTruncatedAtDepth = _truncatedAtDepth;
+            _truncatedAtDepth = int.MaxValue;
 
             var sink = new List<SchemaChange>();
             Compute(sink, before, after, RelativeRoot);
 
+            var truncatedAtDepth = _truncatedAtDepth;
             _inFlight.Remove(pair);
-            _memo[pair] = sink;
+
+            // A short circuit back to this pair itself is resolved here: this call is the outer one
+            // that owns the real result, and that result holds wherever the pair is reached.
+            if (truncatedAtDepth >= depth)
+            {
+                _memo[pair] = sink;
+                _truncatedAtDepth = callerTruncatedAtDepth;
+            }
+            else
+            {
+                _truncatedAtDepth = Math.Min(callerTruncatedAtDepth, truncatedAtDepth);
+            }
+
             return sink;
         }
 

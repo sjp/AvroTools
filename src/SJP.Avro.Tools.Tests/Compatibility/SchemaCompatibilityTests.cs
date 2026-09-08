@@ -351,6 +351,68 @@ internal static class SchemaCompatibilityTests
     }
 
     [Test]
+    public static void Check_GivenTypeReachedThroughRecursion_ReportsIncompatibilityAtEachLocation()
+    {
+        // "X" is first reached inside "B", where the walk stops at the recursion back into "B" and
+        // so cannot see the mismatch below it. Reached again as Root's own field, where "B" is not
+        // being walked, everything under it must still be reported.
+        const string writer = """
+        {
+            "type": "record",
+            "name": "Root",
+            "fields": [
+                {
+                    "name": "b",
+                    "type": {
+                        "type": "record",
+                        "name": "B",
+                        "fields": [
+                            { "name": "a", "type": { "type": "record", "name": "X", "fields": [{ "name": "r", "type": "B" }] } },
+                            { "name": "d", "type": "string" }
+                        ]
+                    }
+                },
+                { "name": "x", "type": "X" }
+            ]
+        }
+        """;
+        const string reader = """
+        {
+            "type": "record",
+            "name": "Root",
+            "fields": [
+                {
+                    "name": "b",
+                    "type": {
+                        "type": "record",
+                        "name": "B",
+                        "fields": [
+                            { "name": "a", "type": { "type": "record", "name": "X", "fields": [{ "name": "r", "type": "B" }] } },
+                            { "name": "d", "type": "int" }
+                        ]
+                    }
+                },
+                { "name": "x", "type": "X" }
+            ]
+        }
+        """;
+
+        var result = Check(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                result.Incompatibilities.Select(i => i.Type),
+                Is.All.EqualTo(SchemaIncompatibilityType.TypeMismatch));
+            Assert.That(result.Incompatibilities.Select(i => i.Location), Is.EquivalentTo(new[]
+            {
+                "/fields/b/type/fields/d/type",
+                "/fields/x/type/fields/r/type/fields/d/type",
+            }));
+        }
+    }
+
+    [Test]
     public static void Check_GivenReaderRecordAndWriterErrorOfSameShape_IsCompatible()
     {
         const string writer = """{"type":"error","name":"R","fields":[{"name":"a","type":"int"}]}""";

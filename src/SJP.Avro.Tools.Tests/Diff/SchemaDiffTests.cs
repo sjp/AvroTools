@@ -845,6 +845,66 @@ internal static class SchemaDiffTests
     }
 
     [Test]
+    public static void Compare_GivenTypeReachedThroughRecursion_ReportsChangeAtEachLocation()
+    {
+        // "X" is first reached inside "B", where the walk stops at the recursion back into "B" and
+        // so cannot see the change below it. Reached again as Root's own field, where "B" is not
+        // being walked, everything under it must still be reported.
+        const string before = """
+        {
+            "type": "record",
+            "name": "Root",
+            "fields": [
+                {
+                    "name": "b",
+                    "type": {
+                        "type": "record",
+                        "name": "B",
+                        "fields": [
+                            { "name": "a", "type": { "type": "record", "name": "X", "fields": [{ "name": "r", "type": "B" }] } },
+                            { "name": "d", "type": "int" }
+                        ]
+                    }
+                },
+                { "name": "x", "type": "X" }
+            ]
+        }
+        """;
+        const string after = """
+        {
+            "type": "record",
+            "name": "Root",
+            "fields": [
+                {
+                    "name": "b",
+                    "type": {
+                        "type": "record",
+                        "name": "B",
+                        "fields": [
+                            { "name": "a", "type": { "type": "record", "name": "X", "fields": [{ "name": "r", "type": "B" }] } },
+                            { "name": "d", "type": "string" }
+                        ]
+                    }
+                },
+                { "name": "x", "type": "X" }
+            ]
+        }
+        """;
+
+        var result = Compare(before, after);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Changes.Select(c => c.Kind), Is.All.EqualTo(ChangeKind.FieldTypeChanged));
+            Assert.That(result.Changes.Select(c => c.Location), Is.EquivalentTo(new[]
+            {
+                "/fields/b/type/fields/d/type",
+                "/fields/x/type/fields/r/type/fields/d/type",
+            }));
+        }
+    }
+
+    [Test]
     public static void Compare_GivenTypeUsedByTwoFields_ReportsChangeAtEachFieldsLocation()
     {
         const string before = """
