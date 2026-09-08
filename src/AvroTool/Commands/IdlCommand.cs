@@ -100,7 +100,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
                 return ErrorCode.Error;
 
             var baseDirectory = InputSource.ImportBaseDirectory(true, null);
-            var ok = await ProcessAsync(content, InputSource.StandardInputName, baseDirectory, settings, outputDir, collector, cancellationToken);
+            var ok = await ProcessAsync(content, InputSource.StandardInputName, baseDirectory, null, settings, outputDir, collector, cancellationToken);
             return ok ? ErrorCode.Success : ErrorCode.Error;
         }
 
@@ -129,7 +129,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             if (content != null)
             {
                 var baseDirectory = InputSource.ImportBaseDirectory(false, file);
-                ok = await ProcessAsync(content, file, baseDirectory, settings, outputDir, collector, cancellationToken);
+                ok = await ProcessAsync(content, file, baseDirectory, file, settings, outputDir, collector, cancellationToken);
             }
 
             if (!ok)
@@ -147,6 +147,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         string idlContent,
         string source,
         string baseDirectory,
+        string? sourcePath,
         Settings settings,
         DirectoryInfo outputDir,
         OutputCollector collector,
@@ -155,7 +156,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         IdlParseResult parsed;
         try
         {
-            parsed = await _idlTranslator.Translate(idlContent, baseDirectory, cancellationToken);
+            parsed = await _idlTranslator.Translate(idlContent, baseDirectory, sourcePath, cancellationToken);
         }
         catch (Exception ex)
         {

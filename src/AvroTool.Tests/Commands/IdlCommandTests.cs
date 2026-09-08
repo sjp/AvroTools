@@ -92,7 +92,7 @@ internal class IdlCommandTests
         _parseResult = IdlParseResult.Protocol(AvroProtocol.Parse(SimpleTestProtocolJson));
         _idlTranslator = new Mock<IIdlToAvroTranslator>(MockBehavior.Strict);
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _parseResult);
 
         _streams = new TestStandardStreams();
@@ -263,8 +263,8 @@ internal class IdlCommandTests
     {
         string capturedBaseDirectory = null;
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback((string _, string baseDirectory, CancellationToken _) => capturedBaseDirectory = baseDirectory)
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((string _, string baseDirectory, string _, CancellationToken _) => capturedBaseDirectory = baseDirectory)
             .ReturnsAsync(() => _parseResult);
 
         var sourceDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "sub"));
@@ -285,8 +285,8 @@ internal class IdlCommandTests
     {
         string capturedBaseDirectory = null;
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback((string _, string baseDirectory, CancellationToken _) => capturedBaseDirectory = baseDirectory)
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((string _, string baseDirectory, string _, CancellationToken _) => capturedBaseDirectory = baseDirectory)
             .ReturnsAsync(() => _parseResult);
 
         _streams.StandardInputText = SimpleTestIdl;
@@ -306,7 +306,7 @@ internal class IdlCommandTests
         const string input = "%";
 
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("something went wrong"));
 
         var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
@@ -430,8 +430,8 @@ internal class IdlCommandTests
     private void SetupTranslatorToParseProtocolFromContent()
     {
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string content, string _, CancellationToken __) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, string _, string __, CancellationToken ___) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
     }
 
     [Test]
@@ -501,8 +501,8 @@ internal class IdlCommandTests
         // one file that represents them both.
         const string conflictingProtocolJson = @"{""protocol"":""ProtocolOne"",""types"":[{""type"":""record"",""name"":""Other"",""fields"":[]}],""messages"":{}}";
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string content, string _, CancellationToken __) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, string _, string __, CancellationToken ___) => IdlParseResult.Protocol(AvroProtocol.Parse(content)));
 
         var one = Path.Combine(_tempDir.DirectoryPath, "one.avdl");
         var two = Path.Combine(_tempDir.DirectoryPath, "two.avdl");
@@ -544,8 +544,8 @@ internal class IdlCommandTests
     public async Task ExecuteAsync_GivenFailFastAndFailingFirstInput_DoesNotProcessRest()
     {
         _idlTranslator
-            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string content, string _, CancellationToken __) =>
+            .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string content, string _, string __, CancellationToken ___) =>
                 content.Contains("BAD")
                     ? throw new InvalidOperationException("bad input")
                     : IdlParseResult.Protocol(AvroProtocol.Parse(content)));

@@ -161,10 +161,21 @@ internal class IdlImportResolutionTests
         Assert.That(thrown.Message, Does.Contain("Failed to import IDL"));
     }
 
+    [Test]
+    public async Task Translate_GivenImportCycleThatLeadsBackToTheRoot_DoesNotRedeclareTheRootsTypes()
+    {
+        _tempDir.WriteFile(Path.Combine("sub", "b.avdl"), "protocol B { import idl \"a.avdl\"; record RB { string y; } }");
+        var main = _tempDir.WriteFile(Path.Combine("sub", "a.avdl"), "protocol A { import idl \"b.avdl\"; record RA { string x; } }");
+
+        var result = await Translate(main);
+
+        Assert.That(TypeNames(result), Is.EqualTo(new[] { "RB", "RA" }));
+    }
+
     private Task<IdlParseResult> Translate(string filePath)
     {
         var content = File.ReadAllText(filePath);
-        return _translator.Translate(content, Path.GetDirectoryName(filePath), TestContext.CurrentContext.CancellationToken);
+        return _translator.Translate(content, Path.GetDirectoryName(filePath), filePath, TestContext.CurrentContext.CancellationToken);
     }
 
     private static IEnumerable<string> TypeNames(IdlParseResult result) =>
