@@ -210,6 +210,50 @@ internal class IdlToAvroTranslatorTests
         Assert.That(thrown.Message, Does.Contain("Syntax error at line 1:54"));
     }
 
+    [Test]
+    public async Task Translate_GivenSelfRecursiveSchemaWithoutSchemaStatement_ReferencesItselfByName()
+    {
+        const string idl = "namespace s; record Node { string v; array<Node> children; }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var itemsType = result.Json.SelectToken("fields[1].type.items");
+        Assert.That(itemsType?.Value<string>(), Is.EqualTo("Node"));
+    }
+
+    [Test]
+    public async Task Translate_GivenSelfRecursiveSchemaWithSchemaStatement_ReferencesItselfByName()
+    {
+        const string idl = "namespace s; schema Node; record Node { string v; array<Node> children; }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var itemsType = result.Json.SelectToken("fields[1].type.items");
+        Assert.That(itemsType?.Value<string>(), Is.EqualTo("Node"));
+    }
+
+    [Test]
+    public async Task Translate_GivenMutuallyRecursiveSchemaWithoutSchemaStatement_ReferencesTheOtherTypeByName()
+    {
+        const string idl = "record A { B b; } record B { A a; }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var innerFieldType = result.Json.SelectToken("fields[0].type.fields[0].type");
+        Assert.That(innerFieldType?.Value<string>(), Is.EqualTo("A"));
+    }
+
+    [Test]
+    public async Task Translate_GivenMutuallyRecursiveSchemaWithSchemaStatement_ReferencesTheOtherTypeByName()
+    {
+        const string idl = "schema A; record A { B b; } record B { A a; }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var innerFieldType = result.Json.SelectToken("fields[0].type.fields[0].type");
+        Assert.That(innerFieldType?.Value<string>(), Is.EqualTo("A"));
+    }
+
     private static IEnumerable<object[]> IdlInputOutputFilenames()
     {
         var resourceNames = EmbeddedResource.GetEmbeddedResourceNames().ToHashSet(StringComparer.Ordinal);

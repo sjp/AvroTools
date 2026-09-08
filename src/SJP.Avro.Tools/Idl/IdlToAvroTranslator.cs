@@ -167,6 +167,11 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         else if (context._namedSchemas.Count > 0)
         {
             var schema = context._namedSchemas[0];
+
+            var fullName = GetDeclaredSchemaFullName(schema, parsingContext);
+            if (!string.IsNullOrEmpty(fullName))
+                parsingContext.ProcessedSchemas.Add(fullName);
+
             mainSchemaJson = TranslateNamedSchema(schema, parsingContext);
         }
         else
