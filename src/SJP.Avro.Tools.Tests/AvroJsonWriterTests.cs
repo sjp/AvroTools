@@ -9,6 +9,12 @@ namespace SJP.Avro.Tools.Tests;
 internal static class AvroJsonWriterTests
 {
     [Test]
+    public static void Encode_GivenNullSchema_ThrowsArgumentNullException()
+    {
+        Assert.That(() => AvroJsonWriter.Encode(null!, 1), Throws.ArgumentNullException);
+    }
+
+    [Test]
     public static void Encode_GivenPrimitiveInUnion_WrapsWithTypeName()
     {
         const string schemaJson = """

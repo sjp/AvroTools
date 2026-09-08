@@ -99,7 +99,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         if (total < 2)
             return ValidationResult.Error("At least two schema files must be provided.");
 
-        if (!IsTransitive(mode) && total != 2)
+        if (!SchemaCompatibility.IsTransitive(mode) && total != 2)
             return ValidationResult.Error($"The '{settings.Mode}' mode compares exactly two schemas. Use a '*-transitive' mode to check a candidate against a chain of versions.");
 
         if (settings.FromStandardInput)
@@ -137,10 +137,10 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
             sources.Add(source);
         }
 
-        List<CompatibilityCheck> checks;
+        CompatibilityModeResult comparison;
         try
         {
-            checks = RunChecks(mode, sources);
+            comparison = SchemaCompatibility.Check(mode, sources.ConvertAll(s => s.Schema));
         }
         catch (Exception ex)
         {
@@ -149,14 +149,12 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
             return ErrorCode.ComparisonError;
         }
 
-        var compatible = checks.All(c => c.Result.IsCompatible);
-
         if (settings.Json)
-            await WriteJsonAsync(settings.Mode, compatible, checks, cancellationToken);
+            await WriteJsonAsync(settings.Mode, comparison, sources, cancellationToken);
         else
-            WriteHuman(compatible, checks);
+            WriteHuman(comparison, sources);
 
-        return compatible ? ErrorCode.Success : ErrorCode.Difference;
+        return comparison.IsCompatible ? ErrorCode.Success : ErrorCode.Difference;
     }
 
     /// <summary>
@@ -175,79 +173,49 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
     }
 
     /// <summary>
-    /// Expands the requested mode into the individual reader/writer checks. The first schema is the
-    /// anchor: the reader for backward directions and the writer for forward directions. The
-    /// remaining schemas are the writers (backward) or readers (forward) it is compared against.
-    /// </summary>
-    private static List<CompatibilityCheck> RunChecks(CompatibilityMode mode, IReadOnlyList<SchemaSource> sources)
-    {
-        var anchor = sources[0];
-        var others = sources.Skip(1);
-        var checks = new List<CompatibilityCheck>();
-
-        var wantBackward = mode is CompatibilityMode.Backward or CompatibilityMode.BackwardTransitive or CompatibilityMode.Full or CompatibilityMode.FullTransitive;
-        var wantForward = mode is CompatibilityMode.Forward or CompatibilityMode.ForwardTransitive or CompatibilityMode.Full or CompatibilityMode.FullTransitive;
-
-        foreach (var other in others)
-        {
-            if (wantBackward)
-            {
-                // Backward: the anchor is the reader; it must read data written with the other schema.
-                var result = SchemaCompatibility.CheckReaderWriterCompatibility(anchor.Schema, other.Schema);
-                checks.Add(new CompatibilityCheck("backward", anchor, other, result));
-            }
-
-            if (wantForward)
-            {
-                // Forward: the anchor is the writer; the other schema (an older reader) must read it.
-                var result = SchemaCompatibility.CheckReaderWriterCompatibility(other.Schema, anchor.Schema);
-                checks.Add(new CompatibilityCheck("forward", other, anchor, result));
-            }
-        }
-
-        return checks;
-    }
-
-    /// <summary>
     /// Writes the report of every check that was run. It is the answer the user asked for, so it
     /// goes to standard output where a redirect or a pipeline can pick it up, alongside the
     /// <c>--json</c> form of the same information.
     /// </summary>
-    /// <param name="compatible">Whether every check passed.</param>
-    /// <param name="checks">The checks that were run.</param>
-    private void WriteHuman(bool compatible, IReadOnlyList<CompatibilityCheck> checks)
+    /// <param name="comparison">The checks that were run, and whether all of them passed.</param>
+    /// <param name="sources">The schemas that were compared, in the order they were given.</param>
+    private void WriteHuman(CompatibilityModeResult comparison, IReadOnlyList<SchemaSource> sources)
     {
-        foreach (var check in checks)
+        foreach (var check in comparison.Checks)
         {
+            var direction = DirectionName(check.Direction);
+            var reader = sources[check.ReaderIndex].Source;
+            var writer = sources[check.WriterIndex].Source;
+
             if (check.Result.IsCompatible)
             {
-                _output.MarkupLineInterpolated($"[green]COMPATIBLE[/] ({check.Direction}) reader '{check.Reader.Source}' can read writer '{check.Writer.Source}'");
+                _output.MarkupLineInterpolated($"[green]COMPATIBLE[/] ({direction}) reader '{reader}' can read writer '{writer}'");
             }
             else
             {
-                _output.MarkupLineInterpolated($"[red]INCOMPATIBLE[/] ({check.Direction}) reader '{check.Reader.Source}' cannot read writer '{check.Writer.Source}'");
+                _output.MarkupLineInterpolated($"[red]INCOMPATIBLE[/] ({direction}) reader '{reader}' cannot read writer '{writer}'");
                 foreach (var incompatibility in check.Result.Incompatibilities)
                     _output.MarkupLineInterpolated($"    [yellow]{NamingConventions.ToUpperSnake(incompatibility.Type)}[/] at {incompatibility.Location}: {incompatibility.Message}");
             }
         }
 
-        if (compatible)
+        if (comparison.IsCompatible)
             _output.MarkupLine("[green]Schemas are compatible.[/]");
         else
             _output.MarkupLine("[red]Schemas are not compatible.[/]");
     }
 
-    private async Task WriteJsonAsync(string mode, bool compatible, IReadOnlyList<CompatibilityCheck> checks, CancellationToken cancellationToken)
+    private async Task WriteJsonAsync(string mode, CompatibilityModeResult comparison, IReadOnlyList<SchemaSource> sources, CancellationToken cancellationToken)
     {
         var payload = new
         {
             mode,
-            compatible,
-            checks = checks.Select(check => new
+            compatible = comparison.IsCompatible,
+            checks = comparison.Checks.Select(check => new
             {
-                direction = check.Direction,
-                reader = check.Reader.Source,
-                writer = check.Writer.Source,
+                direction = DirectionName(check.Direction),
+                reader = sources[check.ReaderIndex].Source,
+                writer = sources[check.WriterIndex].Source,
                 compatible = check.Result.IsCompatible,
                 incompatibilities = check.Result.Incompatibilities.Select(incompatibility => new
                 {
@@ -262,8 +230,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         await _streams.Output.WriteLineAsync(json.AsMemory(), cancellationToken);
     }
 
-    private static bool IsTransitive(CompatibilityMode mode) =>
-        mode is CompatibilityMode.BackwardTransitive or CompatibilityMode.ForwardTransitive or CompatibilityMode.FullTransitive;
-
-    private sealed record CompatibilityCheck(string Direction, SchemaSource Reader, SchemaSource Writer, SchemaCompatibilityResult Result);
+    /// <summary>The direction as it is spelled in the report, matching the mode names the command accepts.</summary>
+    private static string DirectionName(CompatibilityDirection direction) =>
+        direction.ToString().ToLowerInvariant();
 }

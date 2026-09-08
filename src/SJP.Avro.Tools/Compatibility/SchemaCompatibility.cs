@@ -33,6 +33,73 @@ public static class SchemaCompatibility
     }
 
     /// <summary>
+    /// Checks a set of schemas under a compatibility mode. The first schema is the candidate and
+    /// the rest are the versions it is checked against, most recent first. A backward direction
+    /// makes the candidate the reader of data written with an earlier version; a forward direction
+    /// makes it the writer whose data an earlier version must read; <see cref="CompatibilityMode.Full"/>
+    /// requires both. The non-transitive modes look only at the single version supplied, while the
+    /// transitive modes repeat the same comparison against every version given.
+    /// </summary>
+    /// <param name="mode">The mode describing which directions must hold, and over how many versions.</param>
+    /// <param name="schemas">The candidate schema followed by the versions to check it against.</param>
+    /// <returns>Every comparison the mode called for, and whether all of them passed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="schemas"/> is <c>null</c>, or one of its entries is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="mode"/> is not a defined mode, fewer than two schemas were given, or a non-transitive mode was given more than two.</exception>
+    public static CompatibilityModeResult Check(CompatibilityMode mode, IReadOnlyList<Schema> schemas)
+    {
+        if (!Enum.IsDefined(mode))
+            throw new ArgumentException($"The {nameof(CompatibilityMode)} provided must be a valid enum.", nameof(mode));
+
+        ArgumentNullException.ThrowIfNull(schemas);
+
+        if (schemas.Count < 2)
+            throw new ArgumentException("At least two schemas must be provided: a candidate and at least one version to check it against.", nameof(schemas));
+
+        if (!IsTransitive(mode) && schemas.Count != 2)
+            throw new ArgumentException($"The {mode} mode compares exactly two schemas. Use a transitive mode to check a candidate against a chain of versions.", nameof(schemas));
+
+        for (var i = 0; i < schemas.Count; i++)
+        {
+            if (schemas[i] == null)
+                throw new ArgumentNullException(nameof(schemas), $"A null schema was provided at position {i}.");
+        }
+
+        var wantBackward = mode is CompatibilityMode.Backward or CompatibilityMode.BackwardTransitive or CompatibilityMode.Full or CompatibilityMode.FullTransitive;
+        var wantForward = mode is CompatibilityMode.Forward or CompatibilityMode.ForwardTransitive or CompatibilityMode.Full or CompatibilityMode.FullTransitive;
+
+        var candidate = schemas[0];
+        var checks = new List<CompatibilityCheck>();
+
+        for (var i = 1; i < schemas.Count; i++)
+        {
+            var other = schemas[i];
+
+            if (wantBackward)
+            {
+                var result = CheckReaderWriterCompatibility(candidate, other);
+                checks.Add(new CompatibilityCheck(CompatibilityDirection.Backward, 0, i, candidate, other, result));
+            }
+
+            if (wantForward)
+            {
+                var result = CheckReaderWriterCompatibility(other, candidate);
+                checks.Add(new CompatibilityCheck(CompatibilityDirection.Forward, i, 0, other, candidate, result));
+            }
+        }
+
+        return new CompatibilityModeResult(mode, checks);
+    }
+
+    /// <summary>
+    /// Whether a mode checks the candidate against every version supplied rather than only the
+    /// most recent one.
+    /// </summary>
+    /// <param name="mode">The mode to classify.</param>
+    /// <returns><c>true</c> for the transitive modes, otherwise <c>false</c>.</returns>
+    public static bool IsTransitive(CompatibilityMode mode) =>
+        mode is CompatibilityMode.BackwardTransitive or CompatibilityMode.ForwardTransitive or CompatibilityMode.FullTransitive;
+
+    /// <summary>
     /// The recursion state for a single top-level compatibility check. Compatibility of a
     /// reader/writer pair is independent of where it appears, so results are memoised per pair.
     /// A pair still being computed is treated as compatible, which terminates recursive schemas
