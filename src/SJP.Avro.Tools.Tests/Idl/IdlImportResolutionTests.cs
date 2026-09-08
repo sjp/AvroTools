@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
 
@@ -85,6 +86,68 @@ internal class IdlImportResolutionTests
         var result = await _translator.Translate(idl, Path.Combine(_tempDir.DirectoryPath, "sub"), TestContext.CurrentContext.CancellationToken);
 
         Assert.That(TypeNames(result), Is.EqualTo(new[] { "nested.InnerRecord", "Outer" }));
+    }
+
+    [Test]
+    public async Task Translate_GivenImportedMessageReferencingRecordAndError_QualifiesReferencesAgainstSourceNamespace()
+    {
+        _tempDir.WriteFile(
+            Path.Combine("sub", "inner.avdl"),
+            """
+            @namespace("ns")
+            protocol Inner {
+              record Rec { int x; }
+              error Oops { string msg; }
+              Rec get(Rec r) throws Oops;
+            }
+            """);
+        var main = _tempDir.WriteFile(Path.Combine("sub", "main.avdl"), "protocol Outer { import idl \"inner.avdl\"; }");
+
+        var result = await Translate(main);
+
+        Assert.That(result.Json.SelectToken("messages.get.request[0].type")?.Value<string>(), Is.EqualTo("ns.Rec"));
+        Assert.That(result.Json.SelectToken("messages.get.response")?.Value<string>(), Is.EqualTo("ns.Rec"));
+        Assert.That(result.Json.SelectToken("messages.get.errors[0]")?.Value<string>(), Is.EqualTo("ns.Oops"));
+    }
+
+    [Test]
+    public async Task Translate_GivenImportedMessageReferencingRecordAndErrorWithImporterInDifferentNamespace_QualifiesReferencesAgainstSourceNamespace()
+    {
+        _tempDir.WriteFile(
+            Path.Combine("sub", "inner.avdl"),
+            """
+            @namespace("ns")
+            protocol Inner {
+              record Rec { int x; }
+              error Oops { string msg; }
+              Rec get(Rec r) throws Oops;
+            }
+            """);
+        var main = _tempDir.WriteFile(
+            Path.Combine("sub", "main.avdl"),
+            """@namespace("other") protocol Outer { import idl "inner.avdl"; }""");
+
+        var result = await Translate(main);
+
+        Assert.That(result.Json.SelectToken("messages.get.request[0].type")?.Value<string>(), Is.EqualTo("ns.Rec"));
+        Assert.That(result.Json.SelectToken("messages.get.response")?.Value<string>(), Is.EqualTo("ns.Rec"));
+        Assert.That(result.Json.SelectToken("messages.get.errors[0]")?.Value<string>(), Is.EqualTo("ns.Oops"));
+    }
+
+    [Test]
+    public async Task Translate_GivenImportedMessageReferencingRecordWithNoSourceNamespace_LeavesReferenceBare()
+    {
+        _tempDir.WriteFile(
+            Path.Combine("sub", "inner.avdl"),
+            "protocol Inner { record Rec { int x; } Rec get(Rec r); }");
+        var main = _tempDir.WriteFile(
+            Path.Combine("sub", "main.avdl"),
+            """@namespace("other") protocol Outer { import idl "inner.avdl"; }""");
+
+        var result = await Translate(main);
+
+        Assert.That(result.Json.SelectToken("messages.get.request[0].type")?.Value<string>(), Is.EqualTo("Rec"));
+        Assert.That(result.Json.SelectToken("messages.get.response")?.Value<string>(), Is.EqualTo("Rec"));
     }
 
     [Test]

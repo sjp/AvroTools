@@ -951,6 +951,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                 {
                     foreach (var prop in messagesObj.Properties())
                     {
+                        if (prop.Value is JObject message)
+                            QualifyMessageReferences(message, nestedContext.DefaultNamespace);
+
                         importedMessages[prop.Name] = prop.Value;
                     }
                 }
@@ -1024,7 +1027,12 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             if (protocolObj.TryGetValue("messages", out var messagesToken) && messagesToken is JObject messagesObj)
             {
                 foreach (var prop in messagesObj.Properties())
+                {
+                    if (prop.Value is JObject message)
+                        QualifyMessageReferences(message, protocolNamespace);
+
                     importedMessages[prop.Name] = prop.Value;
+                }
             }
         }
         catch (Exception ex)
@@ -1179,6 +1187,72 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             schema["namespace"] = inheritedNamespace;
 
         return inheritedNamespace;
+    }
+
+    /// <summary>
+    /// The keywords that appear as bare strings in a request, response or errors list without naming a
+    /// type declared elsewhere: primitive type names and the "type" discriminator of array, map and
+    /// named-schema wrappers.
+    /// </summary>
+    private static readonly HashSet<string> ReservedTypeKeywords = new(StringComparer.Ordinal)
+    {
+        "null", "boolean", "int", "long", "float", "double", "string", "bytes",
+        "array", "map", "enum", "fixed", "record", "error"
+    };
+
+    /// <summary>
+    /// Qualifies the bare type references in an imported message's request, response and errors against
+    /// the namespace of the document the message came from, so the message still resolves once it is
+    /// copied into a document with a different (or no) namespace.
+    /// </summary>
+    private static void QualifyMessageReferences(JObject message, string? sourceNamespace)
+    {
+        if (message.TryGetValue("request", out var requestToken) && requestToken is JArray request)
+        {
+            foreach (var param in request.OfType<JObject>())
+            {
+                if (param.TryGetValue("type", out var paramType))
+                    param["type"] = QualifyTypeReference(paramType, sourceNamespace);
+            }
+        }
+
+        if (message.TryGetValue("response", out var response))
+            message["response"] = QualifyTypeReference(response, sourceNamespace);
+
+        if (message.TryGetValue("errors", out var errorsToken) && errorsToken is JArray errors)
+        {
+            for (var i = 0; i < errors.Count; i++)
+                errors[i] = QualifyTypeReference(errors[i], sourceNamespace);
+        }
+    }
+
+    private static JToken QualifyTypeReference(JToken type, string? sourceNamespace)
+    {
+        switch (type)
+        {
+            case JArray union:
+                for (var i = 0; i < union.Count; i++)
+                    union[i] = QualifyTypeReference(union[i], sourceNamespace);
+                return union;
+
+            case JObject obj:
+                if (obj.TryGetValue("type", out var innerType))
+                    obj["type"] = QualifyTypeReference(innerType, sourceNamespace);
+                if (obj.TryGetValue("items", out var items))
+                    obj["items"] = QualifyTypeReference(items, sourceNamespace);
+                if (obj.TryGetValue("values", out var values))
+                    obj["values"] = QualifyTypeReference(values, sourceNamespace);
+                return obj;
+
+            case JValue value when value.Type == JTokenType.String:
+                var name = value.ToString();
+                return string.IsNullOrEmpty(sourceNamespace) || name.Contains('.') || ReservedTypeKeywords.Contains(name)
+                    ? value
+                    : new JValue($"{sourceNamespace}.{name}");
+
+            default:
+                return type;
+        }
     }
 
     private static bool IsNamedSchema(JObject schema)

@@ -162,6 +162,40 @@ internal class ImportedProtocolNamespaceTests
         Assert.That(protocol.Types.Select(t => t.Fullname), Does.Contain("other.ns.InnerRec"));
     }
 
+    [Test]
+    public async Task Translate_GivenImportedProtocolWithMessageReferencingTypeAndError_QualifiesReferencesAgainstSourceNamespace()
+    {
+        _tempDir.WriteFile(
+            "inner.avpr",
+            """
+            {
+                "protocol": "Inner",
+                "namespace": "other.ns",
+                "types": [
+                    { "type": "record", "name": "InnerRec", "fields": [ { "name": "x", "type": "string" } ] },
+                    { "type": "error", "name": "InnerError", "fields": [ { "name": "msg", "type": "string" } ] }
+                ],
+                "messages": {
+                    "get": {
+                        "request": [ { "name": "r", "type": "InnerRec" } ],
+                        "response": "InnerRec",
+                        "errors": [ "InnerError" ]
+                    }
+                }
+            }
+            """);
+        var main = _tempDir.WriteFile(
+            "main.avdl",
+            """@namespace("my.ns") protocol Main { import protocol "inner.avpr"; }""");
+
+        var protocol = await TranslateProtocol(main);
+        var message = protocol.Messages["get"];
+
+        Assert.That(message.Request.Fields[0].Schema.Fullname, Is.EqualTo("other.ns.InnerRec"));
+        Assert.That(message.Response.Fullname, Is.EqualTo("other.ns.InnerRec"));
+        Assert.That(((UnionSchema)message.Error).Schemas.Select(s => s.Fullname), Does.Contain("other.ns.InnerError"));
+    }
+
     private async Task<Protocol> TranslateProtocol(string filePath)
     {
         var content = await File.ReadAllTextAsync(filePath, TestContext.CurrentContext.CancellationToken);
