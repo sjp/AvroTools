@@ -1455,4 +1455,241 @@ namespace {{TestNamespace}}
 
         Assert.That(() => generator.Generate(schema, TestNamespace), Throws.TypeOf<NotSupportedException>());
     }
+
+    [Test]
+    public static void Generate_GivenRecordWithoutFields_ProducesCompilableRecordThatRoundTrips()
+    {
+        // A record may declare no fields at all, which leaves the field position enum empty and
+        // every Get and Put out of range.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledEmptyWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : []
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledEmptyWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(deserialized.Schema.Fullname, Is.EqualTo($"{TestNamespace}.CompiledEmptyWidget"));
+            Assert.That(() => widget.Get(0), Throws.TypeOf<AvroRuntimeException>());
+            Assert.That(() => widget.Put(0, 1), Throws.TypeOf<AvroRuntimeException>());
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenRecursiveRecord_RoundTripsANestedChainThroughSpecificDatumReader()
+    {
+        // A record may refer to itself, directly through a union branch and indirectly through a
+        // collection, so the generated type has to name itself before it is finished being declared.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledNode",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "label", "type" : "string" },
+    { "name" : "next", "type" : [ "null", "CompiledNode" ] },
+    { "name" : "children", "type" : { "type" : "array", "items" : "CompiledNode" } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledNode");
+
+        // The generated list is typed by the record itself, which only exists once compiled.
+        var nodeListType = typeof(List<>).MakeGenericType(generatedType);
+
+        var leaf = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        leaf.Put(0, "leaf");
+        leaf.Put(1, null);
+        leaf.Put(2, Activator.CreateInstance(nodeListType));
+
+        var child = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        child.Put(0, "child");
+        child.Put(1, null);
+        child.Put(2, Activator.CreateInstance(nodeListType));
+
+        var children = (System.Collections.IList)Activator.CreateInstance(nodeListType)!;
+        children.Add(child);
+
+        var root = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        root.Put(0, "root");
+        root.Put(1, leaf);
+        root.Put(2, children);
+
+        var deserialized = RoundTrip(schema, root);
+        var deserializedNext = (ISpecificRecord)deserialized.Get(1);
+        var deserializedChildren = ((System.Collections.IEnumerable)deserialized.Get(2)).Cast<ISpecificRecord>();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("next")!.PropertyType, Is.EqualTo(generatedType));
+            Assert.That(deserialized.Get(0), Is.EqualTo("root"));
+            Assert.That(deserializedNext.Get(0), Is.EqualTo("leaf"));
+            Assert.That(deserializedNext.Get(1), Is.Null);
+            Assert.That(deserializedChildren.Select(static c => c.Get(0)), Is.EqualTo(new[] { "child" }));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenProtocolTypesReferringToEachOther_ProducesCompilableFilesThatRoundTrip()
+    {
+        // Each type a protocol declares is generated into a file of its own, and a record that
+        // refers to a sibling names it in full, so the files only compile as a set.
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "CompiledLinkedService",
+  "namespace" : "{{TestNamespace}}",
+  "types" : [
+    { "type" : "enum", "name" : "CompiledLinkedKind", "symbols" : [ "First", "Second" ] },
+    { "type" : "fixed", "name" : "CompiledLinkedHash", "size" : 4 },
+    { "type" : "record", "name" : "CompiledLinkedInner", "fields" : [ { "name" : "value", "type" : "int" } ] },
+    { "type" : "record", "name" : "CompiledLinkedOuter", "fields" : [
+      { "name" : "inner", "type" : "CompiledLinkedInner" },
+      { "name" : "kind", "type" : "CompiledLinkedKind" },
+      { "name" : "hash", "type" : "CompiledLinkedHash" }
+    ] }
+  ],
+  "messages" : {
+    "exchange" : {
+      "request" : [ { "name" : "outer", "type" : "CompiledLinkedOuter" } ],
+      "response" : "CompiledLinkedInner"
+    }
+  }
+}
+""");
+
+        var recordGenerator = new AvroRecordGenerator();
+        var innerSchema = (RecordSchema)protocol.Types.Single(static t => t.Name == "CompiledLinkedInner");
+        var outerSchema = (RecordSchema)protocol.Types.Single(static t => t.Name == "CompiledLinkedOuter");
+
+        var assembly = GeneratedSourceCompiler.Compile(
+            new AvroEnumGenerator().Generate((EnumSchema)protocol.Types.Single(static t => t.Name == "CompiledLinkedKind"), TestNamespace),
+            new AvroFixedGenerator().Generate((FixedSchema)protocol.Types.Single(static t => t.Name == "CompiledLinkedHash"), TestNamespace),
+            recordGenerator.Generate(innerSchema, TestNamespace),
+            recordGenerator.Generate(outerSchema, TestNamespace),
+            new AvroProtocolGenerator().Generate(protocol, TestNamespace));
+
+        var outerType = assembly.GetType($"{TestNamespace}.CompiledLinkedOuter")!;
+        var innerType = assembly.GetType($"{TestNamespace}.CompiledLinkedInner")!;
+        var kindType = assembly.GetType($"{TestNamespace}.CompiledLinkedKind")!;
+        var hashType = assembly.GetType($"{TestNamespace}.CompiledLinkedHash")!;
+
+        var inner = (ISpecificRecord)Activator.CreateInstance(innerType)!;
+        inner.Put(0, 11);
+
+        var hash = (GenericFixed)Activator.CreateInstance(hashType)!;
+        hash.Value = [1, 2, 3, 4];
+
+        var outer = (ISpecificRecord)Activator.CreateInstance(outerType)!;
+        outer.Put(0, inner);
+        outer.Put(1, Enum.Parse(kindType, "Second"));
+        outer.Put(2, hash);
+
+        var deserialized = RoundTrip(outerSchema, outer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(outerType.GetProperty("inner")!.PropertyType, Is.EqualTo(innerType));
+            Assert.That(assembly.GetType($"{TestNamespace}.CompiledLinkedService")!.GetMethod("exchange"), Is.Not.Null);
+            Assert.That(((ISpecificRecord)deserialized.Get(0)).Get(0), Is.EqualTo(11));
+            Assert.That(deserialized.Get(1), Is.EqualTo(Enum.Parse(kindType, "Second")));
+            Assert.That(((GenericFixed)deserialized.Get(2)).Value, Is.EqualTo(hash.Value));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenDocumentationContainingXmlSyntax_ProducesWellFormedDocComments()
+    {
+        // A doc comes from the schema verbatim and may hold anything, including the characters
+        // that end an XML element or a CDATA section. Compiled with documentation comments
+        // diagnosed, anything left unescaped is reported rather than passed through.
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "CompiledDocumentedService",
+  "namespace" : "{{TestNamespace}}",
+  "doc" : "a < b & c ]]> d",
+  "types" : [
+    {
+      "type" : "enum",
+      "name" : "CompiledDocumentedKind",
+      "doc" : "if x < y && y > z then </summary>",
+      "symbols" : [ "First", "Second" ]
+    },
+    {
+      "type" : "record",
+      "name" : "CompiledDocumentedWidget",
+      "doc" : "a < b & c ]]> d",
+      "fields" : [
+        { "name" : "value", "type" : "int", "doc" : "<not-a-tag> & \"quoted\" 'text'" }
+      ]
+    }
+  ],
+  "messages" : {
+    "send" : {
+      "doc" : "sends a <widget> & waits",
+      "request" : [ { "name" : "widget", "type" : "CompiledDocumentedWidget" } ],
+      "response" : "null"
+    }
+  }
+}
+""");
+
+        var recordSource = new AvroRecordGenerator().Generate((RecordSchema)protocol.Types.Single(static t => t.Name == "CompiledDocumentedWidget"), TestNamespace);
+        var enumSource = new AvroEnumGenerator().Generate((EnumSchema)protocol.Types.Single(static t => t.Name == "CompiledDocumentedKind"), TestNamespace);
+        var protocolSource = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+
+        var assembly = GeneratedSourceCompiler.CompileWithDocumentationDiagnostics(enumSource, recordSource, protocolSource);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(assembly.GetType($"{TestNamespace}.CompiledDocumentedWidget"), Is.Not.Null);
+            Assert.That(recordSource, Does.Contain("a &lt; b &amp; c ]]&gt; d"));
+            Assert.That(recordSource, Does.Contain("&lt;not-a-tag&gt; &amp; \"quoted\" 'text'"));
+            Assert.That(enumSource, Does.Contain("&lt;/summary&gt;"));
+            Assert.That(protocolSource, Does.Contain("sends a &lt;widget&gt; &amp; waits"));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenEmptyDocumentation_ProducesCompilableCodeWithoutDocComments()
+    {
+        // A doc that is empty or only whitespace documents nothing, so no summary is emitted at
+        // all rather than an empty one.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledUndocumentedWidget",
+  "namespace" : "{{TestNamespace}}",
+  "doc" : "",
+  "fields" : [
+    { "name" : "value", "type" : "int", "doc" : "   " },
+    { "name" : "hash", "type" : { "type" : "fixed", "name" : "CompiledUndocumentedHash", "size" : 4, "doc" : "\t" } }
+  ]
+}
+""");
+
+        var recordSource = new AvroRecordGenerator().Generate(schema, TestNamespace);
+        var fixedSource = new AvroFixedGenerator().Generate((FixedSchema)schema.Fields[1].Schema, TestNamespace);
+
+        var assembly = GeneratedSourceCompiler.CompileWithDocumentationDiagnostics(fixedSource, recordSource);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(assembly.GetType($"{TestNamespace}.CompiledUndocumentedWidget"), Is.Not.Null);
+            Assert.That(recordSource, Does.Not.Contain("<summary>"));
+            Assert.That(fixedSource, Does.Not.Contain("<summary>"));
+        }
+    }
 }

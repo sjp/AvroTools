@@ -30,11 +30,24 @@ internal static class GeneratedSourceCompiler
     /// <param name="nullableContextOptions">The project-level nullable context to compile under.</param>
     /// <param name="sources">C# source files, which may refer to each other.</param>
     /// <returns>The loaded assembly.</returns>
-    public static Assembly Compile(NullableContextOptions nullableContextOptions, params string[] sources)
+    public static Assembly Compile(NullableContextOptions nullableContextOptions, params string[] sources) =>
+        Compile(nullableContextOptions, DocumentationMode.Parse, sources);
+
+    /// <summary>
+    /// Compiles one or more generated source files with their documentation comments diagnosed
+    /// rather than merely parsed, so that a doc comment which is not well-formed XML is reported
+    /// instead of silently accepted.
+    /// </summary>
+    /// <param name="sources">Generated C# source files, which may refer to each other.</param>
+    /// <returns>The loaded assembly.</returns>
+    public static Assembly CompileWithDocumentationDiagnostics(params string[] sources) =>
+        Compile(NullableContextOptions.Disable, DocumentationMode.Diagnose, sources);
+
+    private static Assembly Compile(NullableContextOptions nullableContextOptions, DocumentationMode documentationMode, params string[] sources)
     {
         var syntaxTrees = Array.ConvertAll(
             sources,
-            source => CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)));
+            source => CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest, documentationMode)));
 
         var references = AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
@@ -65,11 +78,16 @@ internal static class GeneratedSourceCompiler
     /// <summary>
     /// The warnings a generated file is allowed to raise. An Avro name is carried over verbatim, so
     /// a type may well end up named in all-lowercase ASCII (CS8981); that is a deliberate part of
-    /// keeping the schema's own names, not a defect in the generated code.
+    /// keeping the schema's own names, not a defect in the generated code. A schema documents only
+    /// what its author chose to document, so an undocumented member (CS1591) or one whose summary
+    /// says nothing about its parameters (CS1573) is likewise expected; malformed XML in a doc
+    /// comment is not, and stays an error.
     /// </summary>
     private static readonly ImmutableDictionary<string, ReportDiagnostic> TolerableDiagnosticOptions =
         ImmutableDictionary<string, ReportDiagnostic>.Empty
-            .Add("CS8981", ReportDiagnostic.Warn);
+            .Add("CS8981", ReportDiagnostic.Warn)
+            .Add("CS1591", ReportDiagnostic.Warn)
+            .Add("CS1573", ReportDiagnostic.Warn);
 
     /// <summary>
     /// Compiles generated source and returns one of the types it declares.
