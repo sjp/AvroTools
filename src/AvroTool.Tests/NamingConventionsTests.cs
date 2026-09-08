@@ -23,7 +23,7 @@ internal static class NamingConventionsTests
     [TestCase("  Backward-Transitive  ", "backwardtransitive")]
     [TestCase("", "")]
     [TestCase(null, "")]
-    public static void NormaliseOption_GivenVaryingSpellings_ReturnsCanonicalForm(string value, string expected)
+    public static void NormaliseOption_GivenVaryingSpellings_ReturnsCanonicalForm(string? value, string expected)
     {
         Assert.That(NamingConventions.NormaliseOption(value), Is.EqualTo(expected));
     }

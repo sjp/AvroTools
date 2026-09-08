@@ -109,12 +109,12 @@ public static class IdlJson
         switch (node)
         {
             case JValue { Type: JTokenType.String } value:
-            {
-                var name = value.Value<string>();
-                if (!string.IsNullOrEmpty(name) && TryResolveNamedSchema(name, namespaceContext, namedSchemas, out _, out var referenced))
-                    Walk(referenced, namedSchemas, visited, results, namespaceContext);
-                return;
-            }
+                {
+                    var name = value.Value<string>();
+                    if (!string.IsNullOrEmpty(name) && TryResolveNamedSchema(name, namespaceContext, namedSchemas, out _, out var referenced))
+                        Walk(referenced, namedSchemas, visited, results, namespaceContext);
+                    return;
+                }
 
             case JArray union:
                 foreach (var branch in union)
@@ -122,37 +122,37 @@ public static class IdlJson
                 return;
 
             case JObject obj:
-            {
-                var kind = GetKind(obj);
-                if (kind != null && NamedSchemaKinds.Contains(kind))
                 {
-                    var fullName = GetFullName(obj);
-                    if (!visited.Add(fullName))
-                        return;
-
-                    results.Add(obj);
-
-                    if (kind is "record" or "error" && obj["fields"] is JArray fields)
+                    var kind = GetKind(obj);
+                    if (kind != null && NamedSchemaKinds.Contains(kind))
                     {
-                        var nestedNamespace = GetNamespace(fullName);
-                        foreach (var field in fields.OfType<JObject>())
-                            Walk(field["type"], namedSchemas, visited, results, nestedNamespace);
+                        var fullName = GetFullName(obj);
+                        if (!visited.Add(fullName))
+                            return;
+
+                        results.Add(obj);
+
+                        if (kind is "record" or "error" && obj["fields"] is JArray fields)
+                        {
+                            var nestedNamespace = GetNamespace(fullName);
+                            foreach (var field in fields.OfType<JObject>())
+                                Walk(field["type"], namedSchemas, visited, results, nestedNamespace);
+                        }
+
+                        return;
                     }
+
+                    if (obj["items"] is { } items)
+                        Walk(items, namedSchemas, visited, results, namespaceContext);
+
+                    if (obj["values"] is { } values)
+                        Walk(values, namedSchemas, visited, results, namespaceContext);
+
+                    if (obj["type"] is { } wrapped)
+                        Walk(wrapped, namedSchemas, visited, results, namespaceContext);
 
                     return;
                 }
-
-                if (obj["items"] is { } items)
-                    Walk(items, namedSchemas, visited, results, namespaceContext);
-
-                if (obj["values"] is { } values)
-                    Walk(values, namedSchemas, visited, results, namespaceContext);
-
-                if (obj["type"] is { } wrapped)
-                    Walk(wrapped, namedSchemas, visited, results, namespaceContext);
-
-                return;
-            }
         }
     }
 
@@ -209,27 +209,27 @@ public static class IdlJson
         switch (node)
         {
             case JValue { Type: JTokenType.String } value:
-            {
-                var name = value.Value<string>();
-                if (string.IsNullOrEmpty(name)
-                    || !TryResolveNamedSchema(name, namespaceContext, namedSchemas, out var fullName, out var target)
-                    || !written.Add(fullName))
                 {
-                    return node;
+                    var name = value.Value<string>();
+                    if (string.IsNullOrEmpty(name)
+                        || !TryResolveNamedSchema(name, namespaceContext, namedSchemas, out var fullName, out var target)
+                        || !written.Add(fullName))
+                    {
+                        return node;
+                    }
+
+                    var clone = (JObject)target.DeepClone();
+                    InlineChildren(clone, namedSchemas, written, GetNamespace(fullName));
+                    return clone;
                 }
 
-                var clone = (JObject)target.DeepClone();
-                InlineChildren(clone, namedSchemas, written, GetNamespace(fullName));
-                return clone;
-            }
-
             case JArray union:
-            {
-                var branches = new JArray();
-                foreach (var branch in union)
-                    branches.Add(InlineTypeRef(branch, namedSchemas, written, namespaceContext));
-                return branches;
-            }
+                {
+                    var branches = new JArray();
+                    foreach (var branch in union)
+                        branches.Add(InlineTypeRef(branch, namedSchemas, written, namespaceContext));
+                    return branches;
+                }
 
             case JObject obj:
                 InlineChildren(obj, namedSchemas, written, namespaceContext);

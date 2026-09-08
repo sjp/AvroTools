@@ -1,0 +1,7 @@
+is_global = true
+
+# Roslynator ships its analyzers switched off as a set, and turns them on from a global
+# analyzer configuration rather than from .editorconfig. Without this the package is carried
+# for a handful of rules. The rules report at their own default severities, which for most of
+# them is a suggestion, so they surface as editor hints rather than as build warnings.
+roslynator_analyzers.enabled_by_default = true

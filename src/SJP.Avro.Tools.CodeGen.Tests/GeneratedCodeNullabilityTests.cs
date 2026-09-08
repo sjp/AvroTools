@@ -125,7 +125,7 @@ internal static class GeneratedCodeNullabilityTests
 
         return
         [
-            new AvroProtocolGenerator().Generate(protocol, TestNamespace),
+            new AvroProtocolGenerator().Generate(protocol, TestNamespace)!,
             new AvroRecordGenerator().Generate((RecordSchema)protocol.Types[0], TestNamespace)
         ];
     }

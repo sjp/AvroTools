@@ -2,9 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>avrotool</AssemblyName>
-    <Nullable>enable</Nullable>
 
     <RollForward>Major</RollForward>
 
@@ -26,17 +24,16 @@
     <PackAsTool>true</PackAsTool>
     <PackageId>SJP.AvroTool</PackageId>
     <ToolCommandName>avrotool</ToolCommandName>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Spectre.Console.Analyzer" Version="1.0.0">
+    <PackageReference Include="Spectre.Console.Analyzer">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.11" />
-    <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
-    <PackageReference Include="Spectre.Console.Cli.Extensions.DependencyInjection" Version="0.28.0" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
+    <PackageReference Include="Spectre.Console.Cli" />
+    <PackageReference Include="Spectre.Console.Cli.Extensions.DependencyInjection" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,7 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <InternalsVisibleTo Include="AvroTool.Tests" />
     <!-- The assembly the mocking library generates its proxies into, so that tests can mock
          the internal interfaces the commands depend on. -->
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />

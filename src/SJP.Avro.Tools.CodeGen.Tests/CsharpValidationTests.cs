@@ -35,9 +35,9 @@ internal static class CsharpValidationTests
     [TestCase("record.var", true)]
     [TestCase("Ünïcödé.Идентификатор", true)]
     [TestCase("A!", false)]
-    public static void IsValidCsharpNamespace_GivenVariousInputs_ReturnsExpectedResult(string input, bool expected)
+    public static void IsValidCsharpNamespace_GivenVariousInputs_ReturnsExpectedResult(string? input, bool expected)
     {
-        var result = CsharpValidation.IsValidCsharpNamespace(input);
+        var result = CsharpValidation.IsValidCsharpNamespace(input!);
 
         Assert.That(result, Is.EqualTo(expected));
     }
@@ -62,9 +62,9 @@ internal static class CsharpValidationTests
     // An escape is not something an Avro name may carry in the first place.
     [TestCase("@class", false)]
     [TestCase("@", false)]
-    public static void IsValidCsharpIdentifier_GivenVariousInputs_ReturnsExpectedResult(string input, bool expected)
+    public static void IsValidCsharpIdentifier_GivenVariousInputs_ReturnsExpectedResult(string? input, bool expected)
     {
-        var result = CsharpValidation.IsValidCsharpIdentifier(input);
+        var result = CsharpValidation.IsValidCsharpIdentifier(input!);
 
         Assert.That(result, Is.EqualTo(expected));
     }

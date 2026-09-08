@@ -285,7 +285,7 @@ internal class IdlCommandTests
     [Test]
     public async Task ExecuteAsync_GivenFileInput_ResolvesImportsAgainstTheFilesDirectory()
     {
-        string capturedBaseDirectory = null;
+        string? capturedBaseDirectory = null;
         _idlTranslator
             .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback((string _, string baseDirectory, string _, CancellationToken _) => capturedBaseDirectory = baseDirectory)
@@ -307,7 +307,7 @@ internal class IdlCommandTests
     [Test]
     public async Task ExecuteAsync_GivenStdinInput_ResolvesImportsAgainstTheCurrentDirectory()
     {
-        string capturedBaseDirectory = null;
+        string? capturedBaseDirectory = null;
         _idlTranslator
             .Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback((string _, string baseDirectory, string _, CancellationToken _) => capturedBaseDirectory = baseDirectory)

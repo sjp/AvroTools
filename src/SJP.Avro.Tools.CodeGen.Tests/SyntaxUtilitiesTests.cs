@@ -21,9 +21,9 @@ internal static class SyntaxUtilitiesTests
     [TestCase("")]
     [TestCase("    ")]
     [TestCase("avro..test")]
-    public static void SafeNamespaceName_GivenMissingOrEmptySegment_ThrowsArgumentException(string input)
+    public static void SafeNamespaceName_GivenMissingOrEmptySegment_ThrowsArgumentException(string? input)
     {
-        Assert.That(() => SyntaxUtilities.SafeNamespaceName(input), Throws.InstanceOf<ArgumentException>());
+        Assert.That(() => SyntaxUtilities.SafeNamespaceName(input!), Throws.InstanceOf<ArgumentException>());
     }
 
     [TestCase(null)]
@@ -32,7 +32,7 @@ internal static class SyntaxUtilitiesTests
     [TestCase("\n\n")]
     [TestCase("*")]
     [TestCase("*\n*\n*")]
-    public static void BuildCommentTrivia_GivenCommentWithoutText_ReturnsNoTrivia(string comment)
+    public static void BuildCommentTrivia_GivenCommentWithoutText_ReturnsNoTrivia(string? comment)
     {
         Assert.That(SyntaxUtilities.BuildCommentTrivia(comment), Is.Empty);
     }

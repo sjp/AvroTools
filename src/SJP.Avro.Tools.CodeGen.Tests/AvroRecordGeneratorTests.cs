@@ -71,9 +71,9 @@ internal static class AvroRecordGeneratorTests
 }
 """);
 
-        var schema = protocol.Types.Last() as RecordSchema;
+        var schema = (RecordSchema)protocol.Types.Last();
 
-        Assert.That(() => recordGenerator.Generate(schema, null), Throws.ArgumentNullException);
+        Assert.That(() => recordGenerator.Generate(schema, null!), Throws.ArgumentNullException);
     }
 
     [TestCase("")]
@@ -82,7 +82,7 @@ internal static class AvroRecordGeneratorTests
     {
         var recordGenerator = new AvroRecordGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (RecordSchema)Schema.Parse("""
 {
   "type" : "record",
   "name" : "Player",
@@ -91,7 +91,7 @@ internal static class AvroRecordGeneratorTests
     "type" : "int"
   } ]
 }
-""") as RecordSchema;
+""");
 
         Assert.That(() => recordGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
     }
@@ -102,7 +102,7 @@ internal static class AvroRecordGeneratorTests
     {
         var recordGenerator = new AvroRecordGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (RecordSchema)Schema.Parse("""
 {
   "type" : "record",
   "name" : "Player",
@@ -112,7 +112,7 @@ internal static class AvroRecordGeneratorTests
     "type" : "int"
   } ]
 }
-""") as RecordSchema;
+""");
 
         var result = recordGenerator.Generate(schema, baseNamespace);
 
@@ -173,7 +173,7 @@ internal static class AvroRecordGeneratorTests
 }
 """);
 
-        var schema = protocol.Types.Last() as RecordSchema;
+        var schema = (RecordSchema)protocol.Types.Last();
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
@@ -322,7 +322,7 @@ namespace avro.examples.baseball
 }
 """);
 
-        var schema = protocol.Types.Last() as RecordSchema;
+        var schema = (RecordSchema)protocol.Types.Last();
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
@@ -476,7 +476,7 @@ namespace avro.examples.baseball
 }
 """);
 
-        var schema = protocol.Types.Last() as RecordSchema;
+        var schema = (RecordSchema)protocol.Types.Last();
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """

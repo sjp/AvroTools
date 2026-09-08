@@ -258,7 +258,7 @@ internal static class GeneratedCodeCompilationTests
 
         var recordGenerator = new AvroRecordGenerator();
         var requestSource = recordGenerator.Generate((RecordSchema)protocol.Types.Single(), TestNamespace);
-        var protocolSource = protocolGenerator.Generate(protocol, TestNamespace);
+        var protocolSource = protocolGenerator.Generate(protocol, TestNamespace)!;
 
         var assembly = GeneratedSourceCompiler.Compile(requestSource, protocolSource);
         var generatedType = assembly.GetType($"{TestNamespace}.CompiledService")!;
@@ -288,7 +288,7 @@ internal static class GeneratedCodeCompilationTests
 }
 """);
 
-        var protocolSource = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var protocolSource = new AvroProtocolGenerator().Generate(protocol, TestNamespace)!;
 
         // The generated type is abstract, so a concrete one is compiled alongside it to call into.
         var implementationSource = $$"""
@@ -661,7 +661,7 @@ namespace {{TestNamespace}}
 }
 """);
 
-        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace)!;
         var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.CompiledDecimalService");
         var convert = generatedType.GetMethod("convert")!;
 
@@ -1024,7 +1024,7 @@ namespace {{TestNamespace}}
 }
 """);
 
-        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace)!;
         var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.CompiledKeywordService");
 
         using (Assert.EnterMultipleScope())
@@ -1085,7 +1085,7 @@ namespace {{TestNamespace}}
 }
 """);
 
-        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace)!;
         var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.Ping");
 
         using (Assert.EnterMultipleScope())
@@ -1296,7 +1296,7 @@ namespace {{TestNamespace}}
 """);
 
         var generatedType = GeneratedSourceCompiler.CompileAndGetType(
-            new AvroProtocolGenerator().Generate(protocol, TestNamespace),
+            new AvroProtocolGenerator().Generate(protocol, TestNamespace)!,
             $"{TestNamespace}.member.{typeName}");
 
         using (Assert.EnterMultipleScope())
@@ -1325,7 +1325,7 @@ namespace {{TestNamespace}}
 """);
 
         var generatedType = GeneratedSourceCompiler.CompileAndGetType(
-            new AvroProtocolGenerator().Generate(protocol, TestNamespace),
+            new AvroProtocolGenerator().Generate(protocol, TestNamespace)!,
             $"{TestNamespace}.CompiledMemberService_{messageName}");
 
         Assert.That(generatedType.GetMethod(messageName + "_"), Is.Not.Null);
@@ -1579,7 +1579,7 @@ namespace {{TestNamespace}}
             new AvroFixedGenerator().Generate((FixedSchema)protocol.Types.Single(static t => t.Name == "CompiledLinkedHash"), TestNamespace),
             recordGenerator.Generate(innerSchema, TestNamespace),
             recordGenerator.Generate(outerSchema, TestNamespace),
-            new AvroProtocolGenerator().Generate(protocol, TestNamespace));
+            new AvroProtocolGenerator().Generate(protocol, TestNamespace)!);
 
         var outerType = assembly.GetType($"{TestNamespace}.CompiledLinkedOuter")!;
         var innerType = assembly.GetType($"{TestNamespace}.CompiledLinkedInner")!;
@@ -1648,7 +1648,7 @@ namespace {{TestNamespace}}
 
         var recordSource = new AvroRecordGenerator().Generate((RecordSchema)protocol.Types.Single(static t => t.Name == "CompiledDocumentedWidget"), TestNamespace);
         var enumSource = new AvroEnumGenerator().Generate((EnumSchema)protocol.Types.Single(static t => t.Name == "CompiledDocumentedKind"), TestNamespace);
-        var protocolSource = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var protocolSource = new AvroProtocolGenerator().Generate(protocol, TestNamespace)!;
 
         var assembly = GeneratedSourceCompiler.CompileWithDocumentationDiagnostics(enumSource, recordSource, protocolSource);
 

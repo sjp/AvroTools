@@ -39,6 +39,14 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       working-directory: src
 
+    - name: Verify formatting
+      # CS8618 is excluded because it is raised on fields a test fixture assigns in its setup
+      # method. The build does not report it: it runs the analyser that suppresses it there,
+      # which this command does not.
+      if: matrix.os == 'ubuntu-latest'
+      run: dotnet format --verify-no-changes --no-restore --exclude-diagnostics CS8618
+      working-directory: src
+
     - name: Test
       run: dotnet test --configuration Release --no-build --verbosity normal --collect "XPlat Code Coverage" --logger trx --results-directory "${{ github.workspace }}/test-results"
       working-directory: src

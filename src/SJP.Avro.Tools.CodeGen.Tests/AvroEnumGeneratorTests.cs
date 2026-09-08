@@ -21,7 +21,7 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (EnumSchema)Schema.Parse("""
 {
     "type": "enum",
     "name": "Position",
@@ -40,9 +40,9 @@ internal static class AvroEnumGeneratorTests
         "DH"
     ]
 }
-""") as EnumSchema;
+""");
 
-        Assert.That(() => enumGenerator.Generate(schema, null), Throws.ArgumentNullException);
+        Assert.That(() => enumGenerator.Generate(schema, null!), Throws.ArgumentNullException);
     }
 
     [TestCase("")]
@@ -51,7 +51,7 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (EnumSchema)Schema.Parse("""
 {
     "type": "enum",
     "name": "Position",
@@ -69,7 +69,7 @@ internal static class AvroEnumGeneratorTests
         "DH"
     ]
 }
-""") as EnumSchema;
+""");
 
         Assert.That(() => enumGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
     }
@@ -80,7 +80,7 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (EnumSchema)Schema.Parse("""
 {
     "type": "enum",
     "name": "Position",
@@ -99,7 +99,7 @@ internal static class AvroEnumGeneratorTests
         "DH"
     ]
 }
-""") as EnumSchema;
+""");
 
         var result = enumGenerator.Generate(schema, baseNamespace);
 
@@ -111,7 +111,7 @@ internal static class AvroEnumGeneratorTests
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (EnumSchema)Schema.Parse("""
 {
     "type": "enum",
     "name": "Position",
@@ -130,7 +130,7 @@ internal static class AvroEnumGeneratorTests
         "DH"
     ]
 }
-""") as EnumSchema;
+""");
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
@@ -164,7 +164,7 @@ namespace avro.examples.baseball
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (EnumSchema)Schema.Parse("""
 {
     "type": "enum",
     "name": "Position",
@@ -181,7 +181,7 @@ namespace avro.examples.baseball
         "DH"
     ]
 }
-""") as EnumSchema;
+""");
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 
@@ -212,7 +212,7 @@ namespace {TestNamespace}
     {
         var enumGenerator = new AvroEnumGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (EnumSchema)Schema.Parse("""
 {
     "type": "enum",
     "name": "Position",
@@ -232,7 +232,7 @@ namespace {TestNamespace}
         "DH"
     ]
 }
-""") as EnumSchema;
+""");
 
         var result = enumGenerator.Generate(schema, TestNamespace);
 

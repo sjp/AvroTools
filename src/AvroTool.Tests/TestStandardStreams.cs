@@ -32,15 +32,15 @@ internal sealed class TestStandardStreams : IStandardStreams
     public string OutputText => _output.ToString();
 
     /// <inheritdoc />
-    public Task<string> ReadAllTextAsync(bool useStandardInput, string path, CancellationToken cancellationToken)
+    public Task<string> ReadAllTextAsync(bool useStandardInput, string? path, CancellationToken cancellationToken)
     {
         if (useStandardInput)
             return Task.FromResult(StandardInputText);
 
-        return File.ReadAllTextAsync(path, cancellationToken);
+        return File.ReadAllTextAsync(path!, cancellationToken);
     }
 
     /// <inheritdoc />
-    public Stream OpenRead(bool useStandardInput, string path) =>
-        useStandardInput ? new MemoryStream(StandardInputBytes, writable: false) : File.OpenRead(path);
+    public Stream OpenRead(bool useStandardInput, string? path) =>
+        useStandardInput ? new MemoryStream(StandardInputBytes, writable: false) : File.OpenRead(path!);
 }

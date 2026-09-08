@@ -180,8 +180,8 @@ record PairVolume {
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"), TestContext.CurrentContext.CancellationToken);
 
         var expectedResultFileContents = _parseResult.Match(
-            p => JsonNode.Parse(p.ToString()).ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
-            s => JsonNode.Parse(s.ToString()).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            p => JsonNode.Parse(p.ToString())!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+            s => JsonNode.Parse(s.ToString())!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
         using (Assert.EnterMultipleScope())
         {

@@ -70,7 +70,7 @@ internal static class AvroProtocolGeneratorTests
 }
 """);
 
-        Assert.That(() => protocolGenerator.Generate(protocol, null), Throws.ArgumentNullException);
+        Assert.That(() => protocolGenerator.Generate(protocol, null!), Throws.ArgumentNullException);
     }
 
     [TestCase("")]

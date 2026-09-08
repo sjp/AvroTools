@@ -21,7 +21,7 @@ internal static class AvroFixedGeneratorTests
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (FixedSchema)Schema.Parse("""
 {
     "type": "fixed",
     "name": "MD5",
@@ -30,9 +30,9 @@ internal static class AvroFixedGeneratorTests
     "size": 16,
     "foo": "bar"
 }
-""") as FixedSchema;
+""");
 
-        Assert.That(() => fixedGenerator.Generate(schema, null), Throws.ArgumentNullException);
+        Assert.That(() => fixedGenerator.Generate(schema, null!), Throws.ArgumentNullException);
     }
 
     [TestCase("")]
@@ -41,7 +41,7 @@ internal static class AvroFixedGeneratorTests
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (FixedSchema)Schema.Parse("""
 {
     "type": "fixed",
     "name": "MD5",
@@ -49,7 +49,7 @@ internal static class AvroFixedGeneratorTests
     "size": 16,
     "foo": "bar"
 }
-""") as FixedSchema;
+""");
 
         Assert.That(() => fixedGenerator.Generate(schema, baseNamespace), Throws.ArgumentException);
     }
@@ -60,7 +60,7 @@ internal static class AvroFixedGeneratorTests
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (FixedSchema)Schema.Parse("""
 {
     "type": "fixed",
     "name": "MD5",
@@ -69,7 +69,7 @@ internal static class AvroFixedGeneratorTests
     "size": 16,
     "foo": "bar"
 }
-""") as FixedSchema;
+""");
 
         var result = fixedGenerator.Generate(schema, baseNamespace);
 
@@ -81,7 +81,7 @@ internal static class AvroFixedGeneratorTests
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (FixedSchema)Schema.Parse("""
 {
     "type": "fixed",
     "name": "MD5",
@@ -90,7 +90,7 @@ internal static class AvroFixedGeneratorTests
     "size": 16,
     "foo": "bar"
 }
-""") as FixedSchema;
+""");
 
         var result = fixedGenerator.Generate(schema, TestNamespace);
 
@@ -125,14 +125,14 @@ namespace org.apache.avro.test
     {
         var fixedGenerator = new AvroFixedGenerator();
 
-        var schema = Schema.Parse("""
+        var schema = (FixedSchema)Schema.Parse("""
 {
     "type": "fixed",
     "name": "MD5",
     "size": 16,
     "foo": "bar"
 }
-""") as FixedSchema;
+""");
 
         var result = fixedGenerator.Generate(schema, TestNamespace);
 

@@ -1,10 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-
     <Description>Compiles Avro IDL to protocols and schemas, checks two schemas for compatibility under Avro's schema-evolution rules, prints a semantic diff between schema versions, and encodes Avro data as JSON. A pure C# implementation that needs no Java runtime.</Description>
     <PackageReleaseNotes>Release notes are at https://github.com/sjp/AvroTools/blob/master/CHANGELOG.md</PackageReleaseNotes>
     <PackageTags>avro;idl;apache-avro;schema;schema-evolution;compatibility;diff;json</PackageTags>
@@ -14,14 +10,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
-    <PackageReference Include="Apache.Avro" Version="1.12.2" />
-    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="10.0.11" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Antlr4.Runtime.Standard" />
+    <PackageReference Include="Apache.Avro" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SJP.Avro.Tools.Tests" />
   </ItemGroup>
 
 </Project>

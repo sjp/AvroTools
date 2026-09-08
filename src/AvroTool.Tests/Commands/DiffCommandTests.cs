@@ -7,8 +7,8 @@ using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli.Testing;
-using Spectre.Console.Testing;
 using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 
 namespace AvroTool.Tests.Commands;
 

@@ -376,7 +376,7 @@ internal static class AvroJsonWriterTests
 
         var schema = (RecordSchema)Schema.Parse(schemaJson);
         var record = new GenericRecord(schema);
-        record.Add("values", new Dictionary<string, object>
+        record.Add("values", new Dictionary<string, object?>
         {
             ["a"] = 1,
             ["b"] = "two",

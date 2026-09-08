@@ -93,7 +93,7 @@ internal class StringLiteralEscapeTests
         Assert.That(result.Match(p => p.Types.Select(t => t.Fullname).ToList(), s => [s.Fullname]), Does.Contain("nested.InnerRecord"));
     }
 
-    private async Task<string> GetFieldDefault(string idl)
+    private async Task<string?> GetFieldDefault(string idl)
     {
         var protocol = await TranslateProtocol(idl);
         var record = (RecordSchema)protocol.Types.First();

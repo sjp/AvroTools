@@ -82,7 +82,7 @@ internal static class GeneratedOutputDeterminismTests
         new AvroFixedGenerator().Generate((FixedSchema)Schema.Parse(FixedJson), TestNamespace);
 
     private static string GenerateProtocol() =>
-        new AvroProtocolGenerator().Generate(Protocol.Parse(ProtocolJson), TestNamespace);
+        new AvroProtocolGenerator().Generate(Protocol.Parse(ProtocolJson), TestNamespace)!;
 
     private static readonly Func<string>[] Generators =
         [GenerateRecord, GenerateEnum, GenerateFixed, GenerateProtocol];
