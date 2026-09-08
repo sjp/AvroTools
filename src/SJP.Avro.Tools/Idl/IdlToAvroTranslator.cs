@@ -992,6 +992,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                 {
                     foreach (var type in typesArray.OfType<JObject>())
                     {
+                        PreserveEmptyNamespaceOnImport(type, parsingContext.DefaultNamespace);
                         importedTypes.Add(type);
 
                         // Cache for reference resolution
@@ -1029,6 +1030,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
                 foreach (var transitiveType in transitiveTypes)
                 {
+                    PreserveEmptyNamespaceOnImport(transitiveType, parsingContext.DefaultNamespace);
                     importedTypes.Add(transitiveType);
 
                     var transitiveName = GetSchemaName(transitiveType, parsingContext);
@@ -1050,6 +1052,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                     {
                         schemaJson["namespace"] = nestedContext.DefaultNamespace;
                     }
+
+                    PreserveEmptyNamespaceOnImport(schemaJson, parsingContext.DefaultNamespace);
 
                     importedTypes.Add(schemaJson);
 
@@ -1092,6 +1096,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                     // types keep the namespace they had in the document they came from, which they
                     // must now state explicitly as they are moving into a differently named protocol
                     QualifyInheritedNamespaces(type, protocolNamespace);
+                    PreserveEmptyNamespaceOnImport(type, parsingContext.DefaultNamespace);
                     importedTypes.Add(type);
 
                     // Cache for reference resolution
@@ -1134,6 +1139,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             var schemaJson = await schemaReader.ReadToEndAsync(cancellationToken);
             var schemaObj = JObject.Parse(schemaJson);
 
+            PreserveEmptyNamespaceOnImport(schemaObj, parsingContext.DefaultNamespace);
             importedTypes.Add(schemaObj);
 
             // Cache for reference resolution
@@ -1267,6 +1273,24 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             schema["namespace"] = inheritedNamespace;
 
         return inheritedNamespace;
+    }
+
+    /// <summary>
+    /// Marks a top-level imported named type as having no namespace when it declares none of its own and
+    /// the document importing it does, so it keeps its original full name instead of silently inheriting
+    /// the importing document's namespace once nested inside it.
+    /// </summary>
+    private static void PreserveEmptyNamespaceOnImport(JObject type, string? importingNamespace)
+    {
+        if (!IsNamedSchema(type) || type.ContainsKey("namespace"))
+            return;
+
+        var name = type["name"]!.ToString();
+        if (name.Contains('.'))
+            return;
+
+        if (!string.IsNullOrEmpty(importingNamespace))
+            type["namespace"] = "";
     }
 
     /// <summary>
