@@ -184,12 +184,12 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private async Task<JObject> TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
-        var protocolName = context.name.GetText();
+        var (protocolName, protocolOwnNamespace) = SplitDeclaredName(context.name.GetText());
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
         var body = context.body;
 
-        parsingContext.DefaultNamespace = GetNamespaceFromProperties(properties);
+        parsingContext.DefaultNamespace = protocolOwnNamespace ?? GetNamespaceFromProperties(properties);
 
         var importedTypes = new List<JObject>();
         var importedMessages = new JObject();
@@ -287,7 +287,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// </summary>
     private string GetDeclaredSchemaFullName(IdlParser.NamedSchemaDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var localName = GetNamedSchemaName(context);
+        var (localName, ownNamespace) = SplitDeclaredName(GetNamedSchemaName(context));
 
         var schemaProperties = context.fixedDeclaration()?._schemaProperties
             ?? context.enumDeclaration()?._schemaProperties
@@ -297,11 +297,27 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             ? ns.ToString()
             : null;
 
-        var schemaNamespace = explicitNamespace ?? parsingContext.DefaultNamespace;
+        var schemaNamespace = ownNamespace ?? explicitNamespace ?? parsingContext.DefaultNamespace;
 
         return !string.IsNullOrEmpty(schemaNamespace)
             ? $"{schemaNamespace}.{localName}"
             : localName;
+    }
+
+    /// <summary>
+    /// Splits a declared name at its last <c>.</c> into the simple name that a schema is registered
+    /// under and the namespace that owns it. A declared name carries its own namespace, which
+    /// overrides both an explicit <c>@namespace</c> annotation and any namespace inherited from the
+    /// enclosing document.
+    /// </summary>
+    private static (string Name, string? Namespace) SplitDeclaredName(string rawName)
+    {
+        var name = IdlName.EscapeName(rawName);
+        var lastSeparator = name.LastIndexOf('.');
+
+        return lastSeparator > 0
+            ? (name[(lastSeparator + 1)..], name[..lastSeparator])
+            : (name, null);
     }
 
     private JObject TranslateNamedSchema(IdlParser.NamedSchemaDeclarationContext context, IdlParsingContext parsingContext)
@@ -320,7 +336,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JObject TranslateFixed(IdlParser.FixedDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var name = IdlName.EscapeName(context.name.GetText());
+        var (name, ownNamespace) = SplitDeclaredName(context.name.GetText());
         var size = IdlNumericLiteral.ParseInt32(context.size.Text);
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
@@ -332,10 +348,10 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             ["size"] = size
         };
 
-        if (properties.TryGetValue("namespace", out var explicitNamespace))
-            fixedJson["namespace"] = explicitNamespace;
-        else if (!string.IsNullOrWhiteSpace(parsingContext.DefaultNamespace))
-            fixedJson["namespace"] = parsingContext.DefaultNamespace;
+        var explicitNamespace = properties.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
+        var fixedNamespace = ownNamespace ?? explicitNamespace ?? parsingContext.DefaultNamespace;
+        if (!string.IsNullOrWhiteSpace(fixedNamespace))
+            fixedJson["namespace"] = fixedNamespace;
 
         if (!string.IsNullOrWhiteSpace(doc))
             fixedJson["doc"] = doc;
@@ -352,7 +368,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JObject TranslateEnum(IdlParser.EnumDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var name = IdlName.EscapeName(context.name.GetText());
+        var (name, ownNamespace) = SplitDeclaredName(context.name.GetText());
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
 
@@ -369,11 +385,12 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             ["symbols"] = symbols
         };
 
-        // Add namespace: use explicit if provided, otherwise use default namespace
-        if (properties.TryGetValue("namespace", out var explicitNamespace))
-            enumJson["namespace"] = explicitNamespace;
-        else if (!string.IsNullOrWhiteSpace(parsingContext.DefaultNamespace))
-            enumJson["namespace"] = parsingContext.DefaultNamespace;
+        // a declared name's own namespace takes priority, then an explicit @namespace, then the
+        // document's default namespace
+        var explicitNamespace = properties.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
+        var enumNamespace = ownNamespace ?? explicitNamespace ?? parsingContext.DefaultNamespace;
+        if (!string.IsNullOrWhiteSpace(enumNamespace))
+            enumJson["namespace"] = enumNamespace;
 
         if (!string.IsNullOrWhiteSpace(doc))
             enumJson["doc"] = doc;
@@ -395,13 +412,12 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JObject TranslateRecord(IdlParser.RecordDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var name = IdlName.EscapeName(context.name.GetText());
+        var (name, ownNamespace) = SplitDeclaredName(context.name.GetText());
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
 
-        var recordNamespace = properties.TryGetValue("namespace", out var explicitRecordNamespace)
-            ? explicitRecordNamespace.ToString()
-            : parsingContext.DefaultNamespace;
+        var explicitRecordNamespace = properties.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
+        var recordNamespace = ownNamespace ?? explicitRecordNamespace ?? parsingContext.DefaultNamespace;
 
         var previousNamespace = parsingContext.CurrentNamespace;
         parsingContext.CurrentNamespace = recordNamespace;
@@ -431,10 +447,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             ["fields"] = fields
         };
 
-        if (properties.TryGetValue("namespace", out var explicitNamespace))
-            recordJson["namespace"] = explicitNamespace;
-        else if (!string.IsNullOrWhiteSpace(parsingContext.DefaultNamespace))
-            recordJson["namespace"] = parsingContext.DefaultNamespace;
+        if (!string.IsNullOrWhiteSpace(recordNamespace))
+            recordJson["namespace"] = recordNamespace;
 
         if (!string.IsNullOrWhiteSpace(doc))
             recordJson["doc"] = doc;

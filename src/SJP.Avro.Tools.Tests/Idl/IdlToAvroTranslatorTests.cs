@@ -291,6 +291,46 @@ internal class IdlToAvroTranslatorTests
         Assert.That(fieldType?.Value<string>(), Is.EqualTo("R1"));
     }
 
+    [Test]
+    public async Task Translate_GivenDottedRecordNameReferencedByAnotherRecord_SplitsTheDeclaredNameAndResolvesTheReference()
+    {
+        const string idl = """
+            @namespace("ns")
+            protocol P {
+              record a.b.C { string s; }
+              record D { a.b.C c; }
+            }
+            """;
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var declaredName = result.Json.SelectToken("types[0].name");
+        Assert.That(declaredName?.Value<string>(), Is.EqualTo("C"));
+
+        var declaredNamespace = result.Json.SelectToken("types[0].namespace");
+        Assert.That(declaredNamespace?.Value<string>(), Is.EqualTo("a.b"));
+
+        var referenceType = result.Json.SelectToken("types[1].fields[0].type");
+        Assert.That(referenceType?.Value<string>(), Is.EqualTo("a.b.C"));
+    }
+
+    [Test]
+    public async Task Translate_GivenDottedProtocolName_SplitsTheDeclaredNameAndNamespacesTheContainedTypes()
+    {
+        const string idl = "protocol org.foo.Bar { record X {} }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var protocolName = result.Json.SelectToken("protocol");
+        Assert.That(protocolName?.Value<string>(), Is.EqualTo("Bar"));
+
+        var protocolNamespace = result.Json.SelectToken("namespace");
+        Assert.That(protocolNamespace?.Value<string>(), Is.EqualTo("org.foo"));
+
+        var typeNamespace = result.Json.SelectToken("types[0].namespace");
+        Assert.That(typeNamespace?.Value<string>(), Is.EqualTo("org.foo"));
+    }
+
     private static IEnumerable<object[]> IdlInputOutputFilenames()
     {
         var resourceNames = EmbeddedResource.GetEmbeddedResourceNames().ToHashSet(StringComparer.Ordinal);
