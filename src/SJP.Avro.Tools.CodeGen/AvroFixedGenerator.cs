@@ -5,7 +5,6 @@ using Avro.Specific;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen;
@@ -85,8 +84,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
                         .WithMembers(
                             SingletonList<MemberDeclarationSyntax>(generatedClass))));
 
-        using var workspace = new AdhocWorkspace();
-        return Formatter.Format(document, workspace).ToFullString();
+        return SyntaxUtilities.Format(document);
     }
 
     /// <summary>

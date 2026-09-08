@@ -6,7 +6,6 @@ using Avro.Specific;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen;
@@ -141,8 +140,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         .WithMembers(
                             SingletonList<MemberDeclarationSyntax>(generatedType))));
 
-        using var workspace = new AdhocWorkspace();
-        return Formatter.Format(document, workspace).ToFullString();
+        return SyntaxUtilities.Format(document);
     }
 
     private static IEnumerable<MemberDeclarationSyntax> BuildField(Field field, string propertyName, string backingFieldName, string containingNamespace, CodeGenOptions options)
@@ -699,7 +697,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     /// </summary>
     private static string GetFieldEnumName(RecordSchema recordSchema, string typeName, string schemaFieldName)
     {
-        var candidate = char.ToUpper(typeName[0])
+        var candidate = char.ToUpperInvariant(typeName[0])
             + typeName[1..]
             + "Field";
 
@@ -728,7 +726,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         IReadOnlyDictionary<string, string> propertyNames,
         IReadOnlyDictionary<string, string> backingFieldNames)
     {
-        var candidate = char.ToLower(typeName[0])
+        var candidate = char.ToLowerInvariant(typeName[0])
             + typeName[1..]
             + "Field";
 

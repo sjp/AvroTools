@@ -4,7 +4,6 @@ using Avro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SJP.Avro.Tools.CodeGen;
@@ -63,7 +62,6 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
                         .WithMembers(
                             SingletonList<MemberDeclarationSyntax>(generatedEnum))));
 
-        using var workspace = new AdhocWorkspace();
-        return Formatter.Format(document, workspace).ToFullString();
+        return SyntaxUtilities.Format(document);
     }
 }

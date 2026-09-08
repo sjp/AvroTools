@@ -88,7 +88,29 @@ internal static class SyntaxUtilities
         return paragraphs.ConvertAll(p => p.Trim());
     }
 
-    private static readonly SyntaxToken XmlNewline = XmlTextNewLine(Environment.NewLine);
+    /// <summary>
+    /// The line ending used throughout generated source. It is fixed rather than taken from the
+    /// host so that the same schema produces byte-for-byte identical output on every platform,
+    /// and generated files kept in source control do not differ between contributors.
+    /// </summary>
+    private const string GeneratedNewLine = "\n";
+
+    private static readonly SyntaxToken XmlNewline = XmlTextNewLine(GeneratedNewLine);
+
+    /// <summary>
+    /// Formats a generated compilation unit into C# source text.
+    /// </summary>
+    /// <param name="document">The compilation unit to format.</param>
+    /// <returns>The formatted source text of <paramref name="document"/>.</returns>
+    public static string Format(CompilationUnitSyntax document)
+    {
+        using var workspace = new AdhocWorkspace();
+
+        var options = workspace.Options
+            .WithChangedOption(FormattingOptions.NewLine, LanguageNames.CSharp, GeneratedNewLine);
+
+        return Formatter.Format(document, workspace, options).ToFullString();
+    }
 
     /// <summary>
     /// Determines the namespace to declare generated code in. An Avro type's own namespace is
