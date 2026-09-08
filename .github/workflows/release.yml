@@ -1,0 +1,105 @@
+# Publishes a release. Tag a commit `vX.Y.Z` and push the tag:
+#
+#     git tag v0.2.0 && git push origin v0.2.0
+#
+# The version is derived from the tag by MinVer, so nothing needs to be edited in a
+# project file first. CHANGELOG.md must already have a section for the tagged version;
+# the notes for the GitHub release are taken from it.
+#
+# Pushing to nuget.org needs a repository secret named NUGET_API_KEY holding an API key
+# scoped to the SJP.AvroTool package.
+
+name: Release
+
+permissions:
+  contents: read
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        # The whole history, so the version can be derived from the tag.
+        fetch-depth: 0
+
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Install dependencies
+      run: dotnet restore
+      working-directory: src
+
+    - name: Build
+      run: dotnet build --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
+      working-directory: src
+
+    - name: Test
+      run: dotnet test --configuration Release --no-build --verbosity normal
+      working-directory: src
+
+    - name: Pack
+      run: dotnet pack --configuration Release --no-build --output "$GITHUB_WORKSPACE/artifacts"
+      working-directory: src
+
+    - name: Check the packed version against the tag
+      run: |
+        set -euo pipefail
+        expected="artifacts/SJP.AvroTool.${GITHUB_REF_NAME#v}.nupkg"
+        if [ ! -f "$expected" ]; then
+          echo "::error::Expected $expected. Packed instead:" >&2
+          ls -1 artifacts >&2
+          exit 1
+        fi
+
+    - name: Extract the release notes
+      run: |
+        set -euo pipefail
+        version="${GITHUB_REF_NAME#v}"
+        awk -v v="$version" '
+          /^## / {
+            if (found) exit
+            rest = substr($0, 4)
+            sub(/^[ \t]+/, "", rest)
+            if (rest == v || index(rest, v " ") == 1) found = 1
+            next
+          }
+          found { print }
+        ' CHANGELOG.md > release-notes.md
+        if [ ! -s release-notes.md ] || ! grep -q '[^[:space:]]' release-notes.md; then
+          echo "::error::CHANGELOG.md has no notes under a '## $version' heading." >&2
+          exit 1
+        fi
+
+    - name: Push to NuGet
+      # The symbol package is picked up automatically from alongside each .nupkg.
+      run: |
+        set -euo pipefail
+        dotnet nuget push "artifacts/*.nupkg" \
+          --source https://api.nuget.org/v3/index.json \
+          --api-key "$NUGET_API_KEY" \
+          --skip-duplicate
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+    - name: Create the GitHub release
+      run: |
+        set -euo pipefail
+        gh release create "$GITHUB_REF_NAME" \
+          --title "$GITHUB_REF_NAME" \
+          --notes-file release-notes.md \
+          artifacts/*.nupkg artifacts/*.snupkg
+      env:
+        GH_TOKEN: ${{ github.token }}

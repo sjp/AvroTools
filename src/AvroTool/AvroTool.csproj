@@ -5,8 +5,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <RollForward>Major</RollForward>
     <AssemblyName>avrotool</AssemblyName>
-    <Version>0.1.1</Version>
     <Description>A tool for generating Avro schema, protocols and C# code from Avro IDL.</Description>
+    <PackageReleaseNotes>Release notes are at https://github.com/sjp/AvroTools/blob/master/CHANGELOG.md</PackageReleaseNotes>
     <PackageTags>avro;idl;code-generation;apache-avro;dotnet-tool</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>

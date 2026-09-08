@@ -20,10 +20,17 @@
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+        <!-- The version comes from the nearest reachable 'v' tag, so a release is cut by
+             tagging a commit rather than by editing a version into a project file. A build
+             from an untagged commit is versioned as a pre-release of the next patch. -->
+        <MinVerTagPrefix>v</MinVerTagPrefix>
+        <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.400" PrivateAssets="All"/>
+        <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All"/>
         <PackageReference Include="Roslynator.Analyzers" Version="5.0.0">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>

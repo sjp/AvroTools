@@ -17,6 +17,9 @@ jobs:
         os: [ubuntu-latest]
     steps:
     - uses: actions/checkout@v7
+      with:
+        # The whole history, so the version can be derived from the nearest tag.
+        fetch-depth: 0
 
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v6
