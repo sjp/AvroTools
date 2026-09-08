@@ -176,6 +176,74 @@ internal static class SyntaxUtilities
     }
 
     /// <summary>
+    /// Creates a name that is rooted in the global namespace, so that it binds to the intended type
+    /// whatever else is in scope. Generated code declares members named after an Avro schema, and an
+    /// Avro name may be anything at all: a type called <c>Schema</c>, a field called <c>Math</c> or
+    /// two types of the same name in different namespaces would otherwise be ambiguous with, or
+    /// shadow, the names the generated bodies rely on.
+    /// </summary>
+    /// <param name="containingNamespace">The dot-separated namespace the name lives in.</param>
+    /// <param name="name">The name within that namespace.</param>
+    /// <returns>A name of the form <c>global::containing.namespace.Name</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="containingNamespace"/> or <paramref name="name"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="containingNamespace"/> is empty or whitespace, or contains an empty segment.</exception>
+    public static NameSyntax GlobalName(string containingNamespace, SimpleNameSyntax name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(containingNamespace);
+        ArgumentNullException.ThrowIfNull(name);
+
+        var segments = containingNamespace.Split('.');
+
+        NameSyntax result = AliasQualifiedName(
+            IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+            SafeNamespaceSegment(segments[0]));
+        for (var i = 1; i < segments.Length; i++)
+            result = QualifiedName(result, SafeNamespaceSegment(segments[i]));
+
+        return QualifiedName(result, name);
+    }
+
+    /// <summary>
+    /// Creates a global name for a type the generated code refers to by way of the library it is
+    /// compiled against, as opposed to one named by an Avro schema.
+    /// </summary>
+    /// <param name="type">A non-generic type.</param>
+    /// <returns>A name of the form <c>global::containing.namespace.Name</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="type"/> is <c>null</c>.</exception>
+    public static NameSyntax GlobalName(Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        return GlobalName(type.Namespace!, IdentifierName(type.Name));
+    }
+
+    /// <summary>
+    /// Creates a global name for a constructed generic type, such as
+    /// <c>global::System.Collections.Generic.IList&lt;int&gt;</c>.
+    /// </summary>
+    /// <param name="genericTypeDefinition">An open generic type, e.g. <c>typeof(IList&lt;&gt;)</c>.</param>
+    /// <param name="typeArguments">The type arguments to construct it with.</param>
+    /// <returns>A name of the form <c>global::containing.namespace.Name&lt;arguments&gt;</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="genericTypeDefinition"/> or <paramref name="typeArguments"/> is <c>null</c>.</exception>
+    public static NameSyntax GlobalGenericName(Type genericTypeDefinition, params TypeSyntax[] typeArguments)
+    {
+        ArgumentNullException.ThrowIfNull(genericTypeDefinition);
+        ArgumentNullException.ThrowIfNull(typeArguments);
+
+        // Reflection spells the arity into the name of a generic type ("IList`1"); C# spells it out
+        // as the type argument list instead.
+        var name = genericTypeDefinition.Name;
+        var arityIndex = name.IndexOf('`', StringComparison.Ordinal);
+        if (arityIndex >= 0)
+            name = name[..arityIndex];
+
+        var genericName = GenericName(Identifier(name))
+            .WithTypeArgumentList(TypeArgumentList(SeparatedList(typeArguments)));
+
+        return GlobalName(genericTypeDefinition.Namespace!, genericName);
+    }
+
+    /// <summary>
     /// Creates an identifier name expression for a name taken from an Avro schema, escaping it
     /// where necessary in the same way as <see cref="SafeIdentifier(string)"/>.
     /// </summary>

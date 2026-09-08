@@ -177,19 +177,13 @@ internal static class AvroRecordGeneratorTests
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace avro.examples.baseball
 {
-    public record Player : ISpecificRecord
+    public record Player : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         public int number { get; set; }
 
@@ -204,9 +198,9 @@ namespace avro.examples.baseball
 
         public decimal test_num { get; set; }
 
-        public IList<Position> position { get; set; } = default!;
+        public global::System.Collections.Generic.IList<global::avro.examples.baseball.Position> position { get; set; } = default!;
 
-        public IDictionary<string, Position> positionLookup { get; set; } = default!;
+        public global::System.Collections.Generic.IDictionary<string, global::avro.examples.baseball.Position> positionLookup { get; set; } = default!;
 
         public object Get(int fieldPos)
         {
@@ -217,10 +211,10 @@ namespace avro.examples.baseball
                 PlayerField.first_name => first_name,
                 PlayerField.middle_name => middle_name,
                 PlayerField.last_name => last_name,
-                PlayerField.test_num => new AvroDecimal(Math.Round(test_num, 5, MidpointRounding.AwayFromZero) + new decimal(0, 0, 0, false, 5)),
+                PlayerField.test_num => new global::Avro.AvroDecimal(global::System.Math.Round(test_num, 5, global::System.MidpointRounding.AwayFromZero) + new decimal(0, 0, 0, false, 5)),
                 PlayerField.position => position,
                 PlayerField.positionLookup => positionLookup,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -242,16 +236,16 @@ namespace avro.examples.baseball
                     last_name = (string)fieldValue;
                     break;
                 case PlayerField.test_num:
-                    test_num = AvroDecimal.ToDecimal((AvroDecimal)fieldValue);
+                    test_num = global::Avro.AvroDecimal.ToDecimal((global::Avro.AvroDecimal)fieldValue);
                     break;
                 case PlayerField.position:
-                    position = (IList<Position>)fieldValue;
+                    position = (global::System.Collections.Generic.IList<global::avro.examples.baseball.Position>)fieldValue;
                     break;
                 case PlayerField.positionLookup:
-                    positionLookup = (IDictionary<string, Position>)fieldValue;
+                    positionLookup = (global::System.Collections.Generic.IDictionary<string, global::avro.examples.baseball.Position>)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -330,19 +324,13 @@ namespace avro.examples.baseball
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace avro.examples.baseball
 {
-    public class Player : SpecificException
+    public class Player : global::Avro.Specific.SpecificException
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"error\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"error\",\"name\":\"Player\",\"namespace\":\"avro.examples.baseball\",\"fields\":[{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"middle_name\",\"doc\":\"wololololo\",\"type\":[\"null\",\"string\"]},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"test_num\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":5}},{\"name\":\"position\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"enum\",\"name\":\"Position\",\"namespace\":\"avro.examples.baseball\",\"symbols\":[\"P\",\"C\",\"B1\",\"B2\",\"B3\",\"SS\",\"LF\",\"CF\",\"RF\",\"DH\"]}}},{\"name\":\"positionLookup\",\"type\":{\"type\":\"map\",\"values\":\"Position\"}}]}");
 
-        public override AvroSchema Schema { get; } = _schema;
+        public override global::Avro.Schema Schema { get; } = _schema;
 
         public int number { get; set; }
 
@@ -357,9 +345,9 @@ namespace avro.examples.baseball
 
         public decimal test_num { get; set; }
 
-        public IList<Position> position { get; set; } = default!;
+        public global::System.Collections.Generic.IList<global::avro.examples.baseball.Position> position { get; set; } = default!;
 
-        public IDictionary<string, Position> positionLookup { get; set; } = default!;
+        public global::System.Collections.Generic.IDictionary<string, global::avro.examples.baseball.Position> positionLookup { get; set; } = default!;
 
         public override object Get(int fieldPos)
         {
@@ -370,10 +358,10 @@ namespace avro.examples.baseball
                 PlayerField.first_name => first_name,
                 PlayerField.middle_name => middle_name,
                 PlayerField.last_name => last_name,
-                PlayerField.test_num => new AvroDecimal(Math.Round(test_num, 5, MidpointRounding.AwayFromZero) + new decimal(0, 0, 0, false, 5)),
+                PlayerField.test_num => new global::Avro.AvroDecimal(global::System.Math.Round(test_num, 5, global::System.MidpointRounding.AwayFromZero) + new decimal(0, 0, 0, false, 5)),
                 PlayerField.position => position,
                 PlayerField.positionLookup => positionLookup,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -395,16 +383,16 @@ namespace avro.examples.baseball
                     last_name = (string)fieldValue;
                     break;
                 case PlayerField.test_num:
-                    test_num = AvroDecimal.ToDecimal((AvroDecimal)fieldValue);
+                    test_num = global::Avro.AvroDecimal.ToDecimal((global::Avro.AvroDecimal)fieldValue);
                     break;
                 case PlayerField.position:
-                    position = (IList<Position>)fieldValue;
+                    position = (global::System.Collections.Generic.IList<global::avro.examples.baseball.Position>)fieldValue;
                     break;
                 case PlayerField.positionLookup:
-                    positionLookup = (IDictionary<string, Position>)fieldValue;
+                    positionLookup = (global::System.Collections.Generic.IDictionary<string, global::avro.examples.baseball.Position>)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -488,33 +476,23 @@ namespace avro.examples.baseball
         var result = recordGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using avro.test.@enum;
-using avro.test.error;
-using avro.test.@fixed;
-using avro.test.record;
-using AvroSchema = Avro.Schema;
-
 namespace avro.test.protocol
 {
-    public record RefersToOthers : ISpecificRecord
+    public record RefersToOthers : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"RefersToOthers\",\"namespace\":\"avro.test.protocol\",\"fields\":[{\"name\":\"someFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInOtherNamespace\",\"namespace\":\"avro.test.fixed\",\"size\":16}},{\"name\":\"someRecord\",\"type\":{\"type\":\"record\",\"name\":\"RecordInOtherNamespace\",\"namespace\":\"avro.test.record\",\"fields\":[]}},{\"name\":\"someError\",\"type\":{\"type\":\"error\",\"name\":\"ErrorInOtherNamespace\",\"namespace\":\"avro.test.error\",\"fields\":[]}},{\"name\":\"someEnum\",\"type\":{\"type\":\"enum\",\"name\":\"EnumInOtherNamespace\",\"namespace\":\"avro.test.enum\",\"symbols\":[\"FOO\"]}},{\"name\":\"thisFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInThisNamespace\",\"namespace\":\"avro.test.protocol\",\"size\":16}}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"RefersToOthers\",\"namespace\":\"avro.test.protocol\",\"fields\":[{\"name\":\"someFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInOtherNamespace\",\"namespace\":\"avro.test.fixed\",\"size\":16}},{\"name\":\"someRecord\",\"type\":{\"type\":\"record\",\"name\":\"RecordInOtherNamespace\",\"namespace\":\"avro.test.record\",\"fields\":[]}},{\"name\":\"someError\",\"type\":{\"type\":\"error\",\"name\":\"ErrorInOtherNamespace\",\"namespace\":\"avro.test.error\",\"fields\":[]}},{\"name\":\"someEnum\",\"type\":{\"type\":\"enum\",\"name\":\"EnumInOtherNamespace\",\"namespace\":\"avro.test.enum\",\"symbols\":[\"FOO\"]}},{\"name\":\"thisFixed\",\"type\":{\"type\":\"fixed\",\"name\":\"FixedInThisNamespace\",\"namespace\":\"avro.test.protocol\",\"size\":16}}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
-        public FixedInOtherNamespace someFixed { get; set; } = default!;
+        public global::avro.test.@fixed.FixedInOtherNamespace someFixed { get; set; } = default!;
 
-        public RecordInOtherNamespace someRecord { get; set; } = default!;
+        public global::avro.test.record.RecordInOtherNamespace someRecord { get; set; } = default!;
 
-        public ErrorInOtherNamespace someError { get; set; } = default!;
+        public global::avro.test.error.ErrorInOtherNamespace someError { get; set; } = default!;
 
-        public EnumInOtherNamespace someEnum { get; set; }
+        public global::avro.test.@enum.EnumInOtherNamespace someEnum { get; set; }
 
-        public FixedInThisNamespace thisFixed { get; set; } = default!;
+        public global::avro.test.protocol.FixedInThisNamespace thisFixed { get; set; } = default!;
 
         public object Get(int fieldPos)
         {
@@ -526,7 +504,7 @@ namespace avro.test.protocol
                 RefersToOthersField.someError => someError,
                 RefersToOthersField.someEnum => someEnum,
                 RefersToOthersField.thisFixed => thisFixed,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -536,22 +514,22 @@ namespace avro.test.protocol
             switch (refersToOthersField)
             {
                 case RefersToOthersField.someFixed:
-                    someFixed = (FixedInOtherNamespace)fieldValue;
+                    someFixed = (global::avro.test.@fixed.FixedInOtherNamespace)fieldValue;
                     break;
                 case RefersToOthersField.someRecord:
-                    someRecord = (RecordInOtherNamespace)fieldValue;
+                    someRecord = (global::avro.test.record.RecordInOtherNamespace)fieldValue;
                     break;
                 case RefersToOthersField.someError:
-                    someError = (ErrorInOtherNamespace)fieldValue;
+                    someError = (global::avro.test.error.ErrorInOtherNamespace)fieldValue;
                     break;
                 case RefersToOthersField.someEnum:
-                    someEnum = (EnumInOtherNamespace)fieldValue;
+                    someEnum = (global::avro.test.@enum.EnumInOtherNamespace)fieldValue;
                     break;
                 case RefersToOthersField.thisFixed:
-                    thisFixed = (FixedInThisNamespace)fieldValue;
+                    thisFixed = (global::avro.test.protocol.FixedInThisNamespace)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -592,19 +570,13 @@ namespace avro.test.protocol
         var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(RequiredProperties: true));
 
         const string expected = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace Test.Avro.Namespace
 {
-    public record Widget : ISpecificRecord
+    public record Widget : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]},{\"name\":\"count\",\"default\":0,\"type\":\"int\"}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]},{\"name\":\"count\",\"default\":0,\"type\":\"int\"}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         public required int id { get; set; }
 
@@ -623,7 +595,7 @@ namespace Test.Avro.Namespace
                 WidgetField.name => name,
                 WidgetField.nickname => nickname,
                 WidgetField.count => count,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -645,7 +617,7 @@ namespace Test.Avro.Namespace
                     count = (int)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -684,19 +656,13 @@ namespace Test.Avro.Namespace
         var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(InitOnlyProperties: true));
 
         const string expected = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace Test.Avro.Namespace
 {
-    public record Widget : ISpecificRecord
+    public record Widget : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         private int _id;
 
@@ -718,7 +684,7 @@ namespace Test.Avro.Namespace
                 WidgetField.id => id,
                 WidgetField.name => name,
                 WidgetField.nickname => nickname,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -737,7 +703,7 @@ namespace Test.Avro.Namespace
                     _nickname = (string?)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -775,19 +741,13 @@ namespace Test.Avro.Namespace
         var result = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(RequiredProperties: true, InitOnlyProperties: true));
 
         const string expected = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace Test.Avro.Namespace
 {
-    public record Widget : ISpecificRecord
+    public record Widget : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"Widget\",\"namespace\":\"Test.Avro.Namespace\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nickname\",\"type\":[\"null\",\"string\"]}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         private int _id;
 
@@ -809,7 +769,7 @@ namespace Test.Avro.Namespace
                 WidgetField.id => id,
                 WidgetField.name => name,
                 WidgetField.nickname => nickname,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -828,7 +788,7 @@ namespace Test.Avro.Namespace
                     _nickname = (string?)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -917,7 +877,7 @@ namespace Test.Avro.Namespace
 
         var result = recordGenerator.Generate(schema, TestNamespace);
 
-        Assert.That(result, Does.Contain("public A? v { get; set; }"));
+        Assert.That(result, Does.Contain("public global::Test.Avro.Namespace.A? v { get; set; }"));
     }
 
     [Test]

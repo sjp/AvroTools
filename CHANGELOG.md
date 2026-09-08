@@ -13,6 +13,12 @@ version out of this file and fails if there is no section for it.
 
 ### Changed
 
+- `codegen` names every type its output refers to in full, rooted in the global namespace
+  (`global::Avro.Specific.ISpecificRecord`, `global::System.Collections.Generic.IList<T>`,
+  and likewise for types generated from other Avro namespaces), and emits no `using`
+  directives. A schema may name whatever it likes, so a record referring to two types of
+  the same name in different namespaces, or a field named `AvroDecimal` or `Math`, now
+  produces code that compiles and binds to the types that were meant.
 - `codegen` types an `array` as `IList<T>` rather than `List<T>`. A `List<T>` still satisfies
   the property, so records are constructed the same way, but an array nested inside another
   array, a map or a union now matches the `List<IList<T>>` and `Dictionary<string, IList<T>>`

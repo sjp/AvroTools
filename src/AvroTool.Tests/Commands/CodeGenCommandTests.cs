@@ -155,19 +155,13 @@ internal class CodeGenCommandTests
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace SJP.Avro.CodeGen.Test
 {
-    public record TestRecord : ISpecificRecord
+    public record TestRecord : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         public string FirstName { get; set; } = default!;
 
@@ -180,7 +174,7 @@ namespace SJP.Avro.CodeGen.Test
             {
                 TestRecordField.FirstName => FirstName,
                 TestRecordField.LastName => LastName,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -196,7 +190,7 @@ namespace SJP.Avro.CodeGen.Test
                     LastName = (string)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -230,22 +224,15 @@ namespace SJP.Avro.CodeGen.Test
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.IO;
-using Avro.Specific;
-using AvroProtocol = Avro.Protocol;
-
 namespace SJP.Avro.CodeGen.Test
 {
-    public abstract record TestProtocol : ISpecificProtocol
+    public abstract record TestProtocol : global::Avro.Specific.ISpecificProtocol
     {
-        private static readonly AvroProtocol _protocol = AvroProtocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
+        private static readonly global::Avro.Protocol _protocol = global::Avro.Protocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
 
-        public AvroProtocol Protocol { get; } = _protocol;
+        public global::Avro.Protocol Protocol { get; } = _protocol;
 
-        public void Request(ICallbackRequestor requestor, string messageName, object[] args, object callback)
+        public void Request(global::Avro.Specific.ICallbackRequestor requestor, string messageName, object[] args, object callback)
         {
             switch (messageName)
             {
@@ -285,22 +272,15 @@ namespace SJP.Avro.CodeGen.Test
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.IO;
-using Avro.Specific;
-using AvroProtocol = Avro.Protocol;
-
 namespace SJP.Avro.CodeGen.Test
 {
-    public abstract record TestProtocol : ISpecificProtocol
+    public abstract record TestProtocol : global::Avro.Specific.ISpecificProtocol
     {
-        private static readonly AvroProtocol _protocol = AvroProtocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
+        private static readonly global::Avro.Protocol _protocol = global::Avro.Protocol.Parse("{\"protocol\":\"TestProtocol\",\"types\":[],\"messages\":{\"error\":{\"request\":[],\"response\":\"null\"},\"void\":{\"request\":[],\"response\":\"null\"}}}");
 
-        public AvroProtocol Protocol { get; } = _protocol;
+        public global::Avro.Protocol Protocol { get; } = _protocol;
 
-        public void Request(ICallbackRequestor requestor, string messageName, object[] args, object callback)
+        public void Request(global::Avro.Specific.ICallbackRequestor requestor, string messageName, object[] args, object callback)
         {
             switch (messageName)
             {
@@ -340,19 +320,13 @@ namespace SJP.Avro.CodeGen.Test
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string expectedResultFileContents = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace SJP.Avro.CodeGen.Test
 {
-    public record TestRecord : ISpecificRecord
+    public record TestRecord : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         public string FirstName { get; set; } = default!;
 
@@ -365,7 +339,7 @@ namespace SJP.Avro.CodeGen.Test
             {
                 TestRecordField.FirstName => FirstName,
                 TestRecordField.LastName => LastName,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -381,7 +355,7 @@ namespace SJP.Avro.CodeGen.Test
                     LastName = (string)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -456,19 +430,13 @@ namespace SJP.Avro.CodeGen.Test
         var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestRecord.cs"), TestContext.CurrentContext.CancellationToken);
 
         const string ExpectedPairVolumeFileContents = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace TestNamespace
 {
-    public record PairVolume : ISpecificRecord
+    public record PairVolume : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         public double? negative1 { get; set; }
 
@@ -481,7 +449,7 @@ namespace TestNamespace
             {
                 PairVolumeField.negative1 => negative1,
                 PairVolumeField.negative2 => negative2,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -497,7 +465,7 @@ namespace TestNamespace
                     negative2 = (double?)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -511,25 +479,19 @@ namespace TestNamespace
 """;
 
         const string ExpectedDatumFileContents = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace TestNamespace
 {
-    public record Datum : ISpecificRecord
+    public record Datum : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
         public string? name { get; set; }
 
         public int datumId { get; set; }
 
-        public PairVolume pairVolumes { get; set; } = default!;
+        public global::TestNamespace.PairVolume pairVolumes { get; set; } = default!;
 
         public object Get(int fieldPos)
         {
@@ -539,7 +501,7 @@ namespace TestNamespace
                 DatumField.name => name,
                 DatumField.datumId => datumId,
                 DatumField.pairVolumes => pairVolumes,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -555,10 +517,10 @@ namespace TestNamespace
                     datumId = (int)fieldValue;
                     break;
                 case DatumField.pairVolumes:
-                    pairVolumes = (PairVolume)fieldValue;
+                    pairVolumes = (global::TestNamespace.PairVolume)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 
@@ -573,21 +535,15 @@ namespace TestNamespace
 """;
 
         const string ExpectedTestRecordFileContents = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace TestNamespace
 {
-    public record TestRecord : ISpecificRecord
+    public record TestRecord : global::Avro.Specific.ISpecificRecord
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"data\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}}}]}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"data\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"Datum\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"]},{\"name\":\"datumId\",\"type\":\"int\"},{\"name\":\"pairVolumes\",\"type\":{\"type\":\"record\",\"name\":\"PairVolume\",\"namespace\":\"TestNamespace\",\"fields\":[{\"name\":\"negative1\",\"type\":[\"null\",\"double\"]},{\"name\":\"negative2\",\"type\":[\"null\",\"double\"]}]}}]}}}]}");
 
-        public AvroSchema Schema { get; } = _schema;
+        public global::Avro.Schema Schema { get; } = _schema;
 
-        public IList<Datum> data { get; set; } = default!;
+        public global::System.Collections.Generic.IList<global::TestNamespace.Datum> data { get; set; } = default!;
 
         public object Get(int fieldPos)
         {
@@ -595,7 +551,7 @@ namespace TestNamespace
             return testRecordField switch
             {
                 TestRecordField.data => data,
-                _ => throw new AvroRuntimeException("Bad index " + fieldPos + " in Get()")
+                _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
             };
         }
 
@@ -605,10 +561,10 @@ namespace TestNamespace
             switch (testRecordField)
             {
                 case TestRecordField.data:
-                    data = (IList<Datum>)fieldValue;
+                    data = (global::System.Collections.Generic.IList<global::TestNamespace.Datum>)fieldValue;
                     break;
                 default:
-                    throw new AvroRuntimeException("Bad index " + fieldPos + " in Put()");
+                    throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
             }
         }
 

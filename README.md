@@ -370,7 +370,7 @@ its own record or protocol, or with one of the generated members (`Schema`, `Get
 `Put`, `Protocol`, `Request`) — is given an underscore suffix:
 
 ```csharp
-public record Foo : ISpecificRecord
+public record Foo : global::Avro.Specific.ISpecificRecord
 {
     public int Foo_ { get; set; }   // Avro field 'Foo'
 }
@@ -378,6 +378,13 @@ public record Foo : ISpecificRecord
 
 The Avro name is untouched: it stays in the embedded schema and in the
 `Get`/`Put` mapping, so the wire format is unaffected.
+
+Generated files carry no `using` directives. Every type a generated file refers to
+is named in full and rooted in the global namespace — `global::Avro.Specific.ISpecificRecord`,
+`global::System.Collections.Generic.IList<T>`, and likewise for types generated from
+other Avro namespaces. Avro names are unconstrained, so a schema may declare two types
+of the same name in different namespaces, or a field named `AvroDecimal` or `Math`; a
+full name binds to the type that was meant whatever else the schema happens to name.
 
 #### Canonical form and fingerprints
 

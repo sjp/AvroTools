@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using Avro;
 using Avro.Specific;
 using Microsoft.CodeAnalysis;
@@ -34,18 +32,6 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
 
         var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
-        var namespaces = GetRequiredNamespaces();
-        var usingStatements = namespaces
-            .Select(SyntaxUtilities.SafeNamespaceName)
-            .Select(UsingDirective)
-            .ToList();
-
-        // Add using alias for Schema to avoid conflicts with user types
-        var schemaAlias = UsingDirective(
-            NameEquals(IdentifierName("AvroSchema")),
-            ParseName("Avro.Schema"));
-        usingStatements.Add(schemaAlias);
-
         var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString());
         var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty()
             .WithModifiers(
@@ -65,7 +51,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
 
         var generatedClass = ClassDeclaration(SyntaxUtilities.SafeIdentifier(schema.Name))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
-            .AddBaseListTypes(SimpleBaseType(IdentifierName(nameof(SpecificFixed))))
+            .AddBaseListTypes(SimpleBaseType(SyntaxUtilities.GlobalName(typeof(SpecificFixed))))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
             .WithMembers(List(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
@@ -74,7 +60,6 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
             .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
 
         var document = CompilationUnit()
-            .WithUsings(List(usingStatements))
             .WithMembers(
                 SingletonList<MemberDeclarationSyntax>(
                     namespaceDeclaration
@@ -83,19 +68,6 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
 
         using var workspace = new AdhocWorkspace();
         return Formatter.Format(document, workspace).ToFullString();
-    }
-
-    private static IEnumerable<string> GetRequiredNamespaces()
-    {
-        var namespaces = new[]
-        {
-            "System",
-            "System.Collections.Generic",
-            "Avro",
-            "Avro.Specific"
-        };
-
-        return namespaces.OrderNamespaces();
     }
 
     private static ConstructorDeclarationSyntax CreateConstructor(string className)

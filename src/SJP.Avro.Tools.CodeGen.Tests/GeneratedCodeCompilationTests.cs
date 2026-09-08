@@ -106,7 +106,7 @@ internal static class GeneratedCodeCompilationTests
     public static void Generate_GivenNamespaceSegmentsThatAreKeywords_ProducesCompilableCrossNamespaceReferences()
     {
         // Avro namespaces admit segments that are C# keywords, and a record referring across them
-        // has to escape those segments in both its own declaration and its using directives.
+        // has to escape those segments in its own declaration and in every reference it makes.
         var schema = (RecordSchema)Schema.Parse($$"""
 {
   "type" : "record",
@@ -136,10 +136,51 @@ internal static class GeneratedCodeCompilationTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(recordSource, Does.Contain($"namespace {TestNamespace}.record"));
-            Assert.That(recordSource, Does.Contain($"using {TestNamespace}.@enum;"));
-            Assert.That(recordSource, Does.Contain($"using {TestNamespace}.@fixed;"));
+            Assert.That(recordSource, Does.Contain($"global::{TestNamespace}.@enum.CompiledKeywordKind"));
+            Assert.That(recordSource, Does.Contain($"global::{TestNamespace}.@fixed.CompiledKeywordHash"));
             Assert.That(assembly.GetType($"{TestNamespace}.fixed.CompiledKeywordHash"), Is.Not.Null);
             Assert.That(widget.Get(0), Is.EqualTo(Enum.Parse(enumType, "Large")));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenNamesThatCollideWithReferencedTypes_ProducesCompilableCode()
+    {
+        // Avro names are unconstrained: a schema may declare two types of the same name in
+        // different namespaces, and fields named after the very types the generated bodies use.
+        // Naming every referenced and library type in full is what keeps those names unambiguous.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledCollidingNamesWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "first", "type" : { "type" : "record", "name" : "Collision", "namespace" : "{{TestNamespace}}.a", "fields" : [] } },
+    { "name" : "second", "type" : { "type" : "record", "name" : "Collision", "namespace" : "{{TestNamespace}}.b", "fields" : [] } },
+    { "name" : "AvroDecimal", "type" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 1 } },
+    { "name" : "Math", "type" : "int" },
+    { "name" : "MidpointRounding", "type" : "string" }
+  ]
+}
+""");
+
+        var recordGenerator = new AvroRecordGenerator();
+        var assembly = GeneratedSourceCompiler.Compile(
+            recordGenerator.Generate((RecordSchema)schema.Fields[0].Schema, TestNamespace),
+            recordGenerator.Generate((RecordSchema)schema.Fields[1].Schema, TestNamespace),
+            recordGenerator.Generate(schema, TestNamespace));
+
+        var generatedType = assembly.GetType($"{TestNamespace}.CompiledCollidingNamesWidget")!;
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(2, new AvroDecimal(1.5m));
+        widget.Put(3, 7);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("first")!.PropertyType.FullName, Is.EqualTo($"{TestNamespace}.a.Collision"));
+            Assert.That(generatedType.GetProperty("second")!.PropertyType.FullName, Is.EqualTo($"{TestNamespace}.b.Collision"));
+            Assert.That(widget.Get(2) is AvroDecimal d ? AvroDecimal.ToDecimal(d) : (decimal?)null, Is.EqualTo(1.5m));
+            Assert.That(widget.Get(3), Is.EqualTo(7));
         }
     }
 

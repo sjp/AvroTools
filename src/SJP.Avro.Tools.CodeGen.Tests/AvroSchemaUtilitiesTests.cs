@@ -7,6 +7,8 @@ namespace SJP.Avro.Tools.CodeGen.Tests;
 [TestFixture]
 internal static class AvroSchemaUtilitiesTests
 {
+    private const string TestNamespace = "Test.Avro.Namespace";
+
     [TestCase(""" [ "null", "int" ] """)]
     [TestCase(""" [ "null", "string" ] """)]
     [TestCase(""" [ "string", "null" ] """)]
@@ -85,57 +87,57 @@ internal static class AvroSchemaUtilitiesTests
     [TestCase(""" "string" """, "string")]
     [TestCase(""" "bytes" """, "byte[]")]
     [TestCase(""" "null" """, "object")]
-    [TestCase(""" { "type" : "enum", "name" : "E", "symbols" : [ "X" ] } """, "E")]
-    [TestCase(""" { "type" : "fixed", "name" : "F", "size" : 4 } """, "F")]
-    [TestCase(""" { "type" : "record", "name" : "A", "fields" : [] } """, "A")]
-    [TestCase(""" { "type" : "error", "name" : "Oops", "fields" : [] } """, "Oops")]
-    [TestCase(""" { "type" : "array", "items" : "string" } """, "IList<string>")]
-    [TestCase(""" { "type" : "map", "values" : "int" } """, "IDictionary<string,int>")]
+    [TestCase(""" { "type" : "enum", "name" : "E", "symbols" : [ "X" ] } """, "global::Test.Avro.Namespace.E")]
+    [TestCase(""" { "type" : "fixed", "name" : "F", "size" : 4 } """, "global::Test.Avro.Namespace.F")]
+    [TestCase(""" { "type" : "record", "name" : "A", "fields" : [] } """, "global::Test.Avro.Namespace.A")]
+    [TestCase(""" { "type" : "error", "name" : "Oops", "fields" : [] } """, "global::Test.Avro.Namespace.Oops")]
+    [TestCase(""" { "type" : "array", "items" : "string" } """, "global::System.Collections.Generic.IList<string>")]
+    [TestCase(""" { "type" : "map", "values" : "int" } """, "global::System.Collections.Generic.IDictionary<string,int>")]
     [TestCase(""" [ "null", "int" ] """, "int?")]
     [TestCase(""" [ "null", "string" ] """, "string?")]
     [TestCase(""" [ "int", "string" ] """, "object")]
     [TestCase(""" [ "null", "int", "string" ] """, "object?")]
-    [TestCase(""" { "type" : "string", "logicalType" : "uuid" } """, "Guid")]
-    [TestCase(""" { "type" : "int", "logicalType" : "date" } """, "DateTime")]
-    [TestCase(""" { "type" : "int", "logicalType" : "time-millis" } """, "TimeSpan")]
-    [TestCase(""" { "type" : "long", "logicalType" : "time-micros" } """, "TimeSpan")]
-    [TestCase(""" { "type" : "long", "logicalType" : "timestamp-millis" } """, "DateTime")]
-    [TestCase(""" { "type" : "long", "logicalType" : "timestamp-micros" } """, "DateTime")]
-    [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-millis" } """, "DateTime")]
-    [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-micros" } """, "DateTime")]
+    [TestCase(""" { "type" : "string", "logicalType" : "uuid" } """, "global::System.Guid")]
+    [TestCase(""" { "type" : "int", "logicalType" : "date" } """, "global::System.DateTime")]
+    [TestCase(""" { "type" : "int", "logicalType" : "time-millis" } """, "global::System.TimeSpan")]
+    [TestCase(""" { "type" : "long", "logicalType" : "time-micros" } """, "global::System.TimeSpan")]
+    [TestCase(""" { "type" : "long", "logicalType" : "timestamp-millis" } """, "global::System.DateTime")]
+    [TestCase(""" { "type" : "long", "logicalType" : "timestamp-micros" } """, "global::System.DateTime")]
+    [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-millis" } """, "global::System.DateTime")]
+    [TestCase(""" { "type" : "long", "logicalType" : "local-timestamp-micros" } """, "global::System.DateTime")]
     [TestCase(""" { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } """, "decimal")]
     [TestCase(""" [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } ] """, "decimal?")]
     public static void GetFieldType_GivenSchema_ReturnsDocumentedCsharpType(string json, string expectedType)
     {
         var schema = Schema.Parse(json);
 
-        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
     }
 
     // Avro builds the container for a nested array out of the element's interface type — a
     // List<IList<T>> for an array of arrays, a Dictionary<string, IList<T>> for a map of arrays —
     // and generic collections are invariant, so an array is typed by its interface throughout.
-    [TestCase(""" { "type" : "array", "items" : { "type" : "array", "items" : "int" } } """, "IList<IList<int>>")]
-    [TestCase(""" { "type" : "map", "values" : { "type" : "array", "items" : "int" } } """, "IDictionary<string,IList<int>>")]
-    [TestCase(""" { "type" : "array", "items" : { "type" : "map", "values" : "int" } } """, "IList<IDictionary<string,int>>")]
-    [TestCase(""" { "type" : "array", "items" : [ "null", { "type" : "array", "items" : "int" } ] } """, "IList<IList<int>?>")]
-    [TestCase(""" { "type" : "array", "items" : { "type" : "array", "items" : { "type" : "array", "items" : "int" } } } """, "IList<IList<IList<int>>>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "array", "items" : "int" } } """, "global::System.Collections.Generic.IList<global::System.Collections.Generic.IList<int>>")]
+    [TestCase(""" { "type" : "map", "values" : { "type" : "array", "items" : "int" } } """, "global::System.Collections.Generic.IDictionary<string,global::System.Collections.Generic.IList<int>>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "map", "values" : "int" } } """, "global::System.Collections.Generic.IList<global::System.Collections.Generic.IDictionary<string,int>>")]
+    [TestCase(""" { "type" : "array", "items" : [ "null", { "type" : "array", "items" : "int" } ] } """, "global::System.Collections.Generic.IList<global::System.Collections.Generic.IList<int>?>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "array", "items" : { "type" : "array", "items" : "int" } } } """, "global::System.Collections.Generic.IList<global::System.Collections.Generic.IList<global::System.Collections.Generic.IList<int>>>")]
     public static void GetFieldType_GivenNestedCollection_TypesEachArrayByItsInterface(string json, string expectedType)
     {
         var schema = Schema.Parse(json);
 
-        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
     }
 
     // A decimal reached through a collection keeps the representation Avro hands to and
     // from the collection's elements, so it is not converted to 'decimal'.
-    [TestCase(""" { "type" : "array", "items" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "IList<AvroDecimal>")]
-    [TestCase(""" { "type" : "map", "values" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "IDictionary<string,AvroDecimal>")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "global::System.Collections.Generic.IList<global::Avro.AvroDecimal>")]
+    [TestCase(""" { "type" : "map", "values" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "global::System.Collections.Generic.IDictionary<string,global::Avro.AvroDecimal>")]
     public static void GetFieldType_GivenCollectionOfDecimals_ReturnsUnconvertedElementType(string json, string expectedType)
     {
         var schema = Schema.Parse(json);
 
-        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
     }
 
     // Avro exchanges a decimal stored in a fixed as a generic fixed, which its specific writer and
@@ -148,7 +150,7 @@ internal static class AvroSchemaUtilitiesTests
     {
         var schema = Schema.Parse(json);
 
-        var exception = Assert.Throws<NotSupportedException>(() => AvroSchemaUtilities.GetFieldType(schema));
+        var exception = Assert.Throws<NotSupportedException>(() => AvroSchemaUtilities.GetFieldType(schema, TestNamespace));
 
         Assert.That(exception!.Message, Does.Contain("M"));
     }
@@ -156,16 +158,16 @@ internal static class AvroSchemaUtilitiesTests
     // Avro implements a fixed set of logical types and hands every other one through as the type
     // backing it, so that backing type is what the generated member has to be typed as. 'duration'
     // is one of those: the specification defines it, but the library has no conversion for it.
-    [TestCase(""" { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } """, "D")]
+    [TestCase(""" { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } """, "global::Test.Avro.Namespace.D")]
     [TestCase(""" { "type" : "long", "logicalType" : "made-up" } """, "long")]
     [TestCase(""" { "type" : "string", "logicalType" : "made-up" } """, "string")]
-    [TestCase(""" [ "null", { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } ] """, "D?")]
-    [TestCase(""" { "type" : "array", "items" : { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } } """, "IList<D>")]
+    [TestCase(""" [ "null", { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } ] """, "global::Test.Avro.Namespace.D?")]
+    [TestCase(""" { "type" : "array", "items" : { "type" : "fixed", "name" : "D", "size" : 12, "logicalType" : "duration" } } """, "global::System.Collections.Generic.IList<global::Test.Avro.Namespace.D>")]
     public static void GetFieldType_GivenLogicalTypeAvroDoesNotImplement_ReturnsTypeOfBackingSchema(string json, string expectedType)
     {
         var schema = Schema.Parse(json);
 
-        Assert.That(AvroSchemaUtilities.GetFieldType(schema).ToFullString(), Is.EqualTo(expectedType));
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
     }
 
     // Avro writes a logical type over a named type as a wrapper around it. The specification puts

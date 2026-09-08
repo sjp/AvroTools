@@ -41,22 +41,11 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         var protocolField = AvroSchemaUtilities.CreateProtocolDefinition(AvroSchemaUtilities.ToPortableJson(protocol.ToString()));
         var protocolProperty = AvroSchemaUtilities.CreateProtocolProperty();
 
-        var requestMethod = BuildRequestMethod(protocol);
-        var namespaces = GetRequiredNamespaces(protocol);
-        var usingStatements = namespaces
-            .Select(SyntaxUtilities.SafeNamespaceName)
-            .Select(UsingDirective)
-            .ToList();
-
-        // prefer alias to avoid conflicts with user types
-        var protocolAlias = UsingDirective(
-            NameEquals(IdentifierName("AvroProtocol")),
-            ParseName("Avro.Protocol"));
-        usingStatements.Add(protocolAlias);
+        var requestMethod = BuildRequestMethod(protocol, ns);
 
         var methodNames = BuildMethodNames(protocol);
         var messageMethods = protocol.Messages.Values
-            .Select(m => BuildMethod(m, methodNames[m.Name]))
+            .Select(m => BuildMethod(m, methodNames[m.Name], ns))
             .ToList();
 
         var members = new MemberDeclarationSyntax[]
@@ -71,7 +60,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             .AddModifiers(
                 Token(SyntaxKind.PublicKeyword),
                 Token(SyntaxKind.AbstractKeyword))
-            .AddBaseListTypes(SimpleBaseType(IdentifierName(nameof(ISpecificProtocol))))
+            .AddBaseListTypes(SimpleBaseType(SyntaxUtilities.GlobalName(typeof(ISpecificProtocol))))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
             .WithMembers(List(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
@@ -80,7 +69,6 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(protocol.Doc));
 
         var document = CompilationUnit()
-            .WithUsings(List(usingStatements))
             .WithMembers(
                 SingletonList<MemberDeclarationSyntax>(
                     namespaceDeclaration
@@ -122,59 +110,10 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         return methodNames;
     }
 
-    private static IEnumerable<string> GetRequiredNamespaces(Protocol protocol)
-    {
-        var systemNamespaces = new[]
-        {
-            "System",
-            "System.Collections.Generic"
-        };
-
-        var avroNamespaces = new[]
-        {
-            "Avro",
-            "Avro.IO",
-            "Avro.Specific"
-        };
-
-        var namespaces = new HashSet<string>(systemNamespaces.Concat(avroNamespaces));
-
-        var baseNamespace = protocol.Namespace;
-
-        foreach (var message in protocol.Messages.Values)
-        {
-            var responseNamespaces = GetNamespacesForType(message.Response);
-            var requestNamespaces = message.Request.Fields
-                .Select(f => f.Schema)
-                .SelectMany(GetNamespacesForType);
-
-            var scannedNamespaces = responseNamespaces
-                .Concat(requestNamespaces)
-                .Where(ns => ns != baseNamespace);
-
-            foreach (var ns in scannedNamespaces)
-                namespaces.Add(ns);
-        }
-
-        return namespaces.OrderNamespaces();
-    }
-
-    private static IEnumerable<string> GetNamespacesForType(Schema schema)
-    {
-        return schema switch
-        {
-            ArraySchema arraySchema => GetNamespacesForType(arraySchema.ItemSchema),
-            MapSchema mapSchema => GetNamespacesForType(mapSchema.ValueSchema),
-            UnionSchema unionSchema => unionSchema.Schemas.SelectMany(GetNamespacesForType),
-            NamedSchema namedSchema => namedSchema.Namespace != null ? [namedSchema.Namespace] : Array.Empty<string>(),
-            _ => []
-        };
-    }
-
-    private static MethodDeclarationSyntax BuildRequestMethod(Protocol protocol)
+    private static MethodDeclarationSyntax BuildRequestMethod(Protocol protocol, string containingNamespace)
     {
         var messageCases = protocol.Messages.Values
-            .Select(BuildRequestMethodCase)
+            .Select(m => BuildRequestMethodCase(m, containingNamespace))
             .ToList();
 
         return MethodDeclaration(
@@ -192,7 +131,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                                 Parameter(
                                     Identifier("requestor"))
                                 .WithType(
-                                    IdentifierName(nameof(ICallbackRequestor))),
+                                    SyntaxUtilities.GlobalName(typeof(ICallbackRequestor))),
                                 Token(SyntaxKind.CommaToken),
                                 Parameter(
                                     Identifier("messageName"))
@@ -224,9 +163,9 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                         List(messageCases))));
     }
 
-    private static SwitchSectionSyntax BuildRequestMethodCase(Message message)
+    private static SwitchSectionSyntax BuildRequestMethodCase(Message message, string containingNamespace)
     {
-        var responseType = AvroSchemaUtilities.GetFieldType(message.Response);
+        var responseType = AvroSchemaUtilities.GetFieldType(message.Response, containingNamespace);
 
         return SwitchSection()
             .WithLabels(
@@ -265,14 +204,14 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                             BreakStatement()}));
     }
 
-    private static MethodDeclarationSyntax BuildMethod(Message message, string methodName)
+    private static MethodDeclarationSyntax BuildMethod(Message message, string methodName, string containingNamespace)
     {
-        var responseType = GetMessageResponseType(message.Response);
+        var responseType = GetMessageResponseType(message.Response, containingNamespace);
 
         var parameterList = ParameterList(
             SeparatedList(
                 message.Request.Fields
-                    .ConvertAll(BuildMessageParameter)));
+                    .ConvertAll(f => BuildMessageParameter(f, containingNamespace))));
 
         var method = MethodDeclaration(
                 responseType,
@@ -292,19 +231,19 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         return method;
     }
 
-    private static ParameterSyntax BuildMessageParameter(Field field)
+    private static ParameterSyntax BuildMessageParameter(Field field, string containingNamespace)
     {
-        var paramType = AvroSchemaUtilities.GetFieldType(field.Schema);
+        var paramType = AvroSchemaUtilities.GetFieldType(field.Schema, containingNamespace);
         var paramName = SyntaxUtilities.SafeIdentifier(field.Name);
 
         return Parameter(paramName)
             .WithType(paramType);
     }
 
-    private static TypeSyntax GetMessageResponseType(Schema schema)
+    private static TypeSyntax GetMessageResponseType(Schema schema, string containingNamespace)
     {
         return schema.Tag == Schema.Type.Null
             ? PredefinedType(Token(SyntaxKind.VoidKeyword))
-            : AvroSchemaUtilities.GetFieldType(schema);
+            : AvroSchemaUtilities.GetFieldType(schema, containingNamespace);
     }
 }

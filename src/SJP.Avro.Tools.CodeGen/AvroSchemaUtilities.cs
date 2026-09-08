@@ -16,62 +16,93 @@ namespace SJP.Avro.Tools.CodeGen;
 
 internal static class AvroSchemaUtilities
 {
-    public static TypeSyntax GetFieldType(Schema schema)
+    /// <summary>
+    /// The name generated code refers to <see cref="AvroDecimal"/> by. Every library type is named
+    /// in full, so that a schema is free to declare a type or a field of the same name.
+    /// </summary>
+    public static readonly NameSyntax AvroDecimalType = SyntaxUtilities.GlobalName(typeof(AvroDecimal));
+
+    /// <summary>
+    /// The name generated code refers to <see cref="Schema"/> by.
+    /// </summary>
+    public static readonly NameSyntax AvroSchemaType = SyntaxUtilities.GlobalName(typeof(Schema));
+
+    /// <summary>
+    /// The name generated code refers to <see cref="Protocol"/> by.
+    /// </summary>
+    public static readonly NameSyntax AvroProtocolType = SyntaxUtilities.GlobalName(typeof(Protocol));
+
+    /// <summary>
+    /// Determines the C# type a record field, message parameter or message response is generated as.
+    /// </summary>
+    /// <param name="schema">The schema of the position being typed.</param>
+    /// <param name="containingNamespace">
+    /// The namespace the generated type that holds this position is declared in, used to place a
+    /// referenced Avro type that declares no namespace of its own.
+    /// </param>
+    /// <returns>The type syntax for the position.</returns>
+    public static TypeSyntax GetFieldType(Schema schema, string containingNamespace)
     {
-        return GetFieldType(schema, convertDecimals: true);
+        return GetFieldType(schema, containingNamespace, convertDecimals: true);
     }
 
-    private static TypeSyntax GetFieldType(Schema schema, bool convertDecimals)
+    private static TypeSyntax GetFieldType(Schema schema, string containingNamespace, bool convertDecimals)
     {
-        var fieldType = GetSimpleFieldType(schema, convertDecimals);
+        var fieldType = GetSimpleFieldType(schema, containingNamespace, convertDecimals);
         var fieldIsNullable = IsNullable(schema);
         return fieldIsNullable ? NullableType(fieldType) : fieldType;
     }
 
-    public static TypeSyntax GetSimpleFieldType(Schema schema)
-    {
-        return GetSimpleFieldType(schema, convertDecimals: true);
-    }
-
-    private static TypeSyntax GetSimpleFieldType(Schema schema, bool convertDecimals)
+    private static TypeSyntax GetSimpleFieldType(Schema schema, string containingNamespace, bool convertDecimals)
     {
         if (SyntaxUtilities.TypeSyntaxMap.TryGetValue(schema.Tag, out var builtinType))
             return builtinType;
 
         if (schema is LogicalSchema logicalSchema)
-            return ResolveLogicalType(logicalSchema, convertDecimals);
+            return ResolveLogicalType(logicalSchema, containingNamespace, convertDecimals);
 
         if (schema is ArraySchema arraySchema)
-            return ResolveArrayType(arraySchema);
+            return ResolveArrayType(arraySchema, containingNamespace);
 
         if (schema is MapSchema mapSchema)
-            return ResolveMapType(mapSchema);
+            return ResolveMapType(mapSchema, containingNamespace);
 
         if (schema is UnionSchema unionSchema)
-            return ResolveUnionType(unionSchema, convertDecimals);
+            return ResolveUnionType(unionSchema, containingNamespace, convertDecimals);
 
-        return SyntaxUtilities.SafeIdentifierName(schema.Name);
+        return ResolveNamedType((NamedSchema)schema, containingNamespace);
     }
 
-    private static TypeSyntax ResolveLogicalType(LogicalSchema logicalSchema, bool convertDecimals)
+    /// <summary>
+    /// Names a type generated from another Avro schema. The name is written out in full so that it
+    /// binds to that type and no other: an Avro schema may declare two types of the same name in
+    /// different namespaces, or a type whose name is one the generated code already uses.
+    /// </summary>
+    private static TypeSyntax ResolveNamedType(NamedSchema schema, string containingNamespace)
+    {
+        var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, containingNamespace, schema.Fullname);
+        return SyntaxUtilities.GlobalName(ns, SyntaxUtilities.SafeIdentifierName(schema.Name));
+    }
+
+    private static TypeSyntax ResolveLogicalType(LogicalSchema logicalSchema, string containingNamespace, bool convertDecimals)
     {
         // A logical type Avro does not implement is carried through untouched: values are handed
         // to and from the generated code as the type that backs the logical type, so that is what
         // the member has to be typed as.
         if (logicalSchema.LogicalType is UnknownLogicalType)
-            return GetSimpleFieldType(logicalSchema.BaseSchema, convertDecimals);
+            return GetSimpleFieldType(logicalSchema.BaseSchema, containingNamespace, convertDecimals);
 
         return logicalSchema.LogicalTypeName switch
         {
             DecimalLogicalTypeName => ResolveDecimalType(logicalSchema, convertDecimals),
-            "date" => IdentifierName(nameof(DateTime)),
-            "time-millis" => IdentifierName(nameof(TimeSpan)),
-            "time-micros" => IdentifierName(nameof(TimeSpan)),
-            "timestamp-millis" => IdentifierName(nameof(DateTime)),
-            "timestamp-micros" => IdentifierName(nameof(DateTime)),
-            "local-timestamp-millis" => IdentifierName(nameof(DateTime)),
-            "local-timestamp-micros" => IdentifierName(nameof(DateTime)),
-            "uuid" => IdentifierName(nameof(Guid)),
+            "date" => SyntaxUtilities.GlobalName(typeof(DateTime)),
+            "time-millis" => SyntaxUtilities.GlobalName(typeof(TimeSpan)),
+            "time-micros" => SyntaxUtilities.GlobalName(typeof(TimeSpan)),
+            "timestamp-millis" => SyntaxUtilities.GlobalName(typeof(DateTime)),
+            "timestamp-micros" => SyntaxUtilities.GlobalName(typeof(DateTime)),
+            "local-timestamp-millis" => SyntaxUtilities.GlobalName(typeof(DateTime)),
+            "local-timestamp-micros" => SyntaxUtilities.GlobalName(typeof(DateTime)),
+            "uuid" => SyntaxUtilities.GlobalName(typeof(Guid)),
             _ => throw new ArgumentOutOfRangeException($"Unable to resolve a type for logicalType of '{logicalSchema.Name}'")
         };
     }
@@ -92,44 +123,32 @@ internal static class AvroSchemaUtilities
 
         return convertDecimals
             ? PredefinedType(Token(SyntaxKind.DecimalKeyword))
-            : IdentifierName(nameof(AvroDecimal));
+            : AvroDecimalType;
     }
 
-    private static TypeSyntax ResolveArrayType(ArraySchema arraySchema)
+    private static TypeSyntax ResolveArrayType(ArraySchema arraySchema, string containingNamespace)
     {
         // Values nested inside a collection are handed to and from Avro element by element, so
         // they keep the representation the runtime uses rather than a converted one.
-        var value = GetFieldType(arraySchema.ItemSchema, convertDecimals: false);
+        var value = GetFieldType(arraySchema.ItemSchema, containingNamespace, convertDecimals: false);
 
         // An array is typed by its interface, not by List<T>. Avro builds the container for an
         // array nested inside another array, a map or a union as a List<IList<T>> or a
         // Dictionary<string, IList<T>>, and generic collections are invariant, so a member typed
         // List<List<T>> could not be cast to or from what the runtime actually hands over.
-        return GenericName(
-            Identifier(nameof(IList<>)))
-            .WithTypeArgumentList(
-                TypeArgumentList(
-                    SingletonSeparatedList(value)));
+        return SyntaxUtilities.GlobalGenericName(typeof(IList<>), value);
     }
 
-    private static TypeSyntax ResolveMapType(MapSchema mapSchema)
+    private static TypeSyntax ResolveMapType(MapSchema mapSchema, string containingNamespace)
     {
-        var value = GetFieldType(mapSchema.ValueSchema, convertDecimals: false);
-        return GenericName(
-            Identifier(nameof(IDictionary<,>)))
-            .WithTypeArgumentList(
-                TypeArgumentList(
-                    SeparatedList<TypeSyntax>(
-                        new SyntaxNodeOrToken[]
-                        {
-                                PredefinedType(
-                                    Token(SyntaxKind.StringKeyword)),
-                                Token(SyntaxKind.CommaToken),
-                                value
-                        })));
+        var value = GetFieldType(mapSchema.ValueSchema, containingNamespace, convertDecimals: false);
+        return SyntaxUtilities.GlobalGenericName(
+            typeof(IDictionary<,>),
+            PredefinedType(Token(SyntaxKind.StringKeyword)),
+            value);
     }
 
-    private static TypeSyntax ResolveUnionType(UnionSchema unionSchema, bool convertDecimals)
+    private static TypeSyntax ResolveUnionType(UnionSchema unionSchema, string containingNamespace, bool convertDecimals)
     {
         var nonNullSchemas = unionSchema.Schemas
             .Where(s => s.Tag != Schema.Type.Null)
@@ -142,7 +161,7 @@ internal static class AvroSchemaUtilities
         if (nonNullSchemas.Count != 1)
             return PredefinedType(Token(SyntaxKind.ObjectKeyword));
 
-        return GetFieldType(nonNullSchemas[0], convertDecimals);
+        return GetFieldType(nonNullSchemas[0], containingNamespace, convertDecimals);
     }
 
     /// <summary>
@@ -313,7 +332,7 @@ internal static class AvroSchemaUtilities
     {
         return FieldDeclaration(
             VariableDeclaration(
-                IdentifierName("AvroProtocol"))
+                AvroProtocolType)
             .WithVariables(
                 SingletonSeparatedList(
                     VariableDeclarator(
@@ -323,7 +342,7 @@ internal static class AvroSchemaUtilities
                             InvocationExpression(
                                 MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("AvroProtocol"),
+                                    AvroProtocolType,
                                     IdentifierName(nameof(Protocol.Parse))))
                             .WithArgumentList(
                                 ArgumentList(
@@ -342,7 +361,7 @@ internal static class AvroSchemaUtilities
     public static PropertyDeclarationSyntax CreateProtocolProperty()
     {
         return PropertyDeclaration(
-                IdentifierName("AvroProtocol"),
+                AvroProtocolType,
                 Identifier("Protocol"))
             .WithModifiers(
                 TokenList(
@@ -366,7 +385,7 @@ internal static class AvroSchemaUtilities
     {
         return FieldDeclaration(
             VariableDeclaration(
-                IdentifierName("AvroSchema"))
+                AvroSchemaType)
             .WithVariables(
                 SingletonSeparatedList(
                     VariableDeclarator(
@@ -376,7 +395,7 @@ internal static class AvroSchemaUtilities
                             InvocationExpression(
                                 MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("AvroSchema"),
+                                    AvroSchemaType,
                                     IdentifierName(nameof(Schema.Parse))))
                             .WithArgumentList(
                                 ArgumentList(
@@ -395,7 +414,7 @@ internal static class AvroSchemaUtilities
     public static PropertyDeclarationSyntax CreateSchemaProperty()
     {
         return PropertyDeclaration(
-                IdentifierName("AvroSchema"),
+                AvroSchemaType,
                 Identifier("Schema"))
             .WithModifiers(
                 TokenList(

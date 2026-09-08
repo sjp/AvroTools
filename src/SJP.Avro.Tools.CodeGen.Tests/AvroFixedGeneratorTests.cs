@@ -95,22 +95,16 @@ internal static class AvroFixedGeneratorTests
         var result = fixedGenerator.Generate(schema, TestNamespace);
 
         const string expected = """
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace org.apache.avro.test
 {
     /// <summary>
     /// An MD5 hash.
     /// </summary>
-    public class MD5 : SpecificFixed
+    public class MD5 : global::Avro.Specific.SpecificFixed
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.test\",\"size\":16,\"foo\":\"bar\"}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"doc\":\"An MD5 hash.\",\"namespace\":\"org.apache.avro.test\",\"size\":16,\"foo\":\"bar\"}");
 
-        public override AvroSchema Schema { get; } = _schema;
+        public override global::Avro.Schema Schema { get; } = _schema;
 
         public static uint FixedSize { get; } = 16;
 
@@ -141,19 +135,13 @@ namespace org.apache.avro.test
         var result = fixedGenerator.Generate(schema, TestNamespace);
 
         const string expected = $$"""
-using System;
-using System.Collections.Generic;
-using Avro;
-using Avro.Specific;
-using AvroSchema = Avro.Schema;
-
 namespace {{TestNamespace}}
 {
-    public class MD5 : SpecificFixed
+    public class MD5 : global::Avro.Specific.SpecificFixed
     {
-        private static readonly AvroSchema _schema = AvroSchema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"size\":16,\"foo\":\"bar\"}");
+        private static readonly global::Avro.Schema _schema = global::Avro.Schema.Parse("{\"type\":\"fixed\",\"name\":\"MD5\",\"size\":16,\"foo\":\"bar\"}");
 
-        public override AvroSchema Schema { get; } = _schema;
+        public override global::Avro.Schema Schema { get; } = _schema;
 
         public static uint FixedSize { get; } = 16;
 
@@ -186,7 +174,7 @@ namespace {{TestNamespace}}
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Does.Contain("public class MD5 : SpecificFixed"));
+            Assert.That(result, Does.Contain("public class MD5 : global::Avro.Specific.SpecificFixed"));
             Assert.That(result, Does.Not.Contain("<summary>"));
         }
     }
