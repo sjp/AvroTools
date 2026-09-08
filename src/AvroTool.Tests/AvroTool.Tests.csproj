@@ -4,6 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- The tool runs with globalization invariant, so the tests exercise it under the same
+         runtime configuration rather than one where culture-sensitive behaviour still exists. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>

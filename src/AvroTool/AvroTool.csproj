@@ -3,18 +3,31 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <RollForward>Major</RollForward>
     <AssemblyName>avrotool</AssemblyName>
-    <Description>A tool for generating Avro schema, protocols and C# code from Avro IDL.</Description>
+    <Nullable>enable</Nullable>
+
+    <RollForward>Major</RollForward>
+
+    <!-- Every culture is the invariant culture, which is the one the tool already parses and
+         formats with. It also lets the tool start on an image that carries no ICU library,
+         where it would otherwise fail before reaching Main. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- The tool only ever surfaces English text, so the translated resources that come with
+         the code generator's dependencies are left out of the package rather than shipped as
+         several megabytes nothing reads. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <Description>An Avro IDL compiler, C# code generator and schema toolkit as a .NET tool. Compiles Avro IDL to protocols and schemas, generates readable C# for them, checks two schemas for compatibility under Avro's schema-evolution rules, prints a semantic diff between schema versions, prints the Parsing Canonical Form and fingerprints of a schema, and inspects Avro object container files.</Description>
     <PackageReleaseNotes>Release notes are at https://github.com/sjp/AvroTools/blob/master/CHANGELOG.md</PackageReleaseNotes>
-    <PackageTags>avro;idl;code-generation;apache-avro;dotnet-tool</PackageTags>
+    <PackageTags>avro;idl;apache-avro;code-generation;codegen;schema;schema-evolution;compatibility;diff;canonical-form;fingerprint;dotnet-tool</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
     <PackageId>SJP.AvroTool</PackageId>
     <ToolCommandName>avrotool</ToolCommandName>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,6 +47,7 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
