@@ -41,6 +41,13 @@ public sealed record IdlParsingContext
     public string? DefaultNamespace { get; set; }
 
     /// <summary>
+    /// The namespace of the named type currently being translated, if any. Bare type references
+    /// are resolved against this before falling back to <see cref="DefaultNamespace"/>, mirroring
+    /// how the enclosing named type's namespace is inherited while its fields are processed.
+    /// </summary>
+    public string? CurrentNamespace { get; set; }
+
+    /// <summary>
     /// The directory that relative import paths are resolved against, i.e. the directory holding
     /// the document being parsed. When <c>null</c>, import paths are used exactly as written.
     /// </summary>

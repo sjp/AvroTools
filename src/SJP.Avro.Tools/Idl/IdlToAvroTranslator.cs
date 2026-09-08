@@ -399,14 +399,29 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
 
-        var fields = new JArray();
-        foreach (var fieldDecl in context.body._fields)
+        var recordNamespace = properties.TryGetValue("namespace", out var explicitRecordNamespace)
+            ? explicitRecordNamespace.ToString()
+            : parsingContext.DefaultNamespace;
+
+        var previousNamespace = parsingContext.CurrentNamespace;
+        parsingContext.CurrentNamespace = recordNamespace;
+
+        JArray fields;
+        try
         {
-            foreach (var varDecl in fieldDecl._variableDeclarations)
+            fields = new JArray();
+            foreach (var fieldDecl in context.body._fields)
             {
-                var field = TranslateField(fieldDecl, varDecl, parsingContext);
-                fields.Add(field);
+                foreach (var varDecl in fieldDecl._variableDeclarations)
+                {
+                    var field = TranslateField(fieldDecl, varDecl, parsingContext);
+                    fields.Add(field);
+                }
             }
+        }
+        finally
+        {
+            parsingContext.CurrentNamespace = previousNamespace;
         }
 
         var recordJson = new JObject
@@ -680,7 +695,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
                 ? fullName[..fullName.LastIndexOf('.')]
                 : null;
 
-            return typeNamespace == parsingContext.DefaultNamespace
+            var enclosingNamespace = parsingContext.CurrentNamespace ?? parsingContext.DefaultNamespace;
+
+            return typeNamespace == enclosingNamespace
                 ? refName
                 : fullName;
         }
@@ -1312,6 +1329,15 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         {
             // already qualified
             return typeName;
+        }
+
+        if (!string.IsNullOrEmpty(parsingContext.CurrentNamespace))
+        {
+            var enclosingName = $"{parsingContext.CurrentNamespace}.{typeName}";
+            if (parsingContext.NamedSchemas.ContainsKey(enclosingName))
+            {
+                return enclosingName;
+            }
         }
 
         if (!string.IsNullOrEmpty(parsingContext.DefaultNamespace))

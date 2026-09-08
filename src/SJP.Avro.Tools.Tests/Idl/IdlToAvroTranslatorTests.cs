@@ -254,6 +254,43 @@ internal class IdlToAvroTranslatorTests
         Assert.That(innerFieldType?.Value<string>(), Is.EqualTo("A"));
     }
 
+    [Test]
+    public async Task Translate_GivenNamespacedRecordsReferencingEachOtherByBareName_ResolvesBothAgainstTheirOwnNamespace()
+    {
+        const string idl = """
+            @namespace("a")
+            protocol P {
+              @namespace("b") record R1 { R2 r; }
+              @namespace("b") record R2 { R1 r; }
+            }
+            """;
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var inlinedNamespace = result.Json.SelectToken("types[0].fields[0].type.namespace");
+        Assert.That(inlinedNamespace?.Value<string>(), Is.EqualTo("b"));
+
+        var innerFieldType = result.Json.SelectToken("types[0].fields[0].type.fields[0].type");
+        Assert.That(innerFieldType?.Value<string>(), Is.EqualTo("R1"));
+    }
+
+    [Test]
+    public async Task Translate_GivenNamespacedRecordReferencingEarlierSiblingByBareName_ResolvesAgainstTheRecordsOwnNamespace()
+    {
+        const string idl = """
+            @namespace("a")
+            protocol P {
+              @namespace("b") record R1 { string s; }
+              @namespace("b") record R2 { R1 r; }
+            }
+            """;
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var fieldType = result.Json.SelectToken("types[1].fields[0].type");
+        Assert.That(fieldType?.Value<string>(), Is.EqualTo("R1"));
+    }
+
     private static IEnumerable<object[]> IdlInputOutputFilenames()
     {
         var resourceNames = EmbeddedResource.GetEmbeddedResourceNames().ToHashSet(StringComparer.Ordinal);
