@@ -10,6 +10,22 @@ namespace SJP.Avro.Tools.Idl;
 public static class IdlAntlrTokenExtensions
 {
     /// <summary>
+    /// The name that an identifier stands for, with any escaping removed.
+    /// Any part of a dotted identifier may be wrapped in <c>`</c> characters so that a word which
+    /// would otherwise be read as a keyword can be used as a name; the backticks are not part of
+    /// the name itself.
+    /// </summary>
+    /// <param name="identifier">An identifier from a parsed IDL document.</param>
+    /// <returns>The name the identifier stands for.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="identifier"/> is <c>null</c>.</exception>
+    public static string GetName(this IdlParser.IdentifierContext identifier)
+    {
+        ArgumentNullException.ThrowIfNull(identifier);
+
+        return IdlName.Unescape(identifier.GetText());
+    }
+
+    /// <summary>
     /// Extracts documentation text from a doc comment token.
     /// Properly handles multi-line doc comments by removing comment delimiters and leading asterisks.
     /// </summary>

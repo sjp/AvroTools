@@ -8,13 +8,15 @@ namespace SJP.Avro.Tools.Idl;
 public static class IdlName
 {
     /// <summary>
-    /// Escapes names if required.
-    /// Raw IDL names may be escaped via <c>`</c> characters, which should be removed when converting to JSON protocols/schema.
+    /// Removes the escaping from a name.
+    /// Raw IDL names may wrap parts of a name in <c>`</c> characters so that a word which would
+    /// otherwise be read as a keyword can be used; the backticks are not part of the name and must
+    /// be removed when converting to JSON protocols/schema.
     /// </summary>
     /// <param name="name">A name used in an IDL context, typically those that would map to a JSON property name.</param>
-    /// <returns>A name, escaped if needed.</returns>
+    /// <returns>The name without any escaping.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c>.</exception>
-    public static string EscapeName(string name)
+    public static string Unescape(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
 

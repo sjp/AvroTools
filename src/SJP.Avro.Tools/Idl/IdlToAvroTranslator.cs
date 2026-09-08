@@ -144,7 +144,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private async Task<JToken> TranslateSchemaToJson(IdlParser.IdlFileContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
-        parsingContext.DefaultNamespace = context.@namespace?.@namespace?.GetText();
+        parsingContext.DefaultNamespace = context.@namespace?.@namespace?.GetName();
 
         // process imports for schemas
         var importedTypes = new List<JObject>();
@@ -204,7 +204,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private async Task<JObject> TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
-        var (protocolName, protocolOwnNamespace) = SplitDeclaredName(context.name.GetText());
+        var (protocolName, protocolOwnNamespace) = SplitDeclaredName(context.name.GetName());
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
         var body = context.body;
@@ -235,7 +235,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
         foreach (var message in body._messages)
         {
-            var messageName = IdlName.EscapeName(message.name.GetText());
+            var messageName = message.name.GetName();
             var messageJson = TranslateMessage(message, parsingContext);
             messages[messageName] = messageJson;
         }
@@ -257,8 +257,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var nonNamespaceProperties = properties.Where(p => p.Key != "namespace");
         foreach (var prop in nonNamespaceProperties)
         {
-            var propName = IdlName.EscapeName(prop.Key);
-            protocolJson[propName] = prop.Value;
+            protocolJson[prop.Key] = prop.Value;
         }
 
         return protocolJson;
@@ -330,9 +329,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     /// overrides both an explicit <c>@namespace</c> annotation and any namespace inherited from the
     /// enclosing document.
     /// </summary>
-    private static (string Name, string? Namespace) SplitDeclaredName(string rawName)
+    private static (string Name, string? Namespace) SplitDeclaredName(string name)
     {
-        var name = IdlName.EscapeName(rawName);
         var lastSeparator = name.LastIndexOf('.');
 
         return lastSeparator > 0
@@ -356,7 +354,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JObject TranslateFixed(IdlParser.FixedDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var (name, ownNamespace) = SplitDeclaredName(context.name.GetText());
+        var (name, ownNamespace) = SplitDeclaredName(context.name.GetName());
         var size = IdlNumericLiteral.ParseInt32(context.size.Text);
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
@@ -379,8 +377,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var nonNamespaceProperties = properties.Where(p => p.Key != "namespace");
         foreach (var prop in nonNamespaceProperties)
         {
-            var propName = IdlName.EscapeName(prop.Key);
-            fixedJson[propName] = prop.Value;
+            fixedJson[prop.Key] = prop.Value;
         }
 
         return fixedJson;
@@ -388,14 +385,14 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JObject TranslateEnum(IdlParser.EnumDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var (name, ownNamespace) = SplitDeclaredName(context.name.GetText());
+        var (name, ownNamespace) = SplitDeclaredName(context.name.GetName());
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
 
         var symbols = new JArray();
         foreach (var symbol in context._enumSymbols)
         {
-            symbols.Add(IdlName.EscapeName(symbol.name.GetText()));
+            symbols.Add(symbol.name.GetName());
         }
 
         var enumJson = new JObject
@@ -416,14 +413,13 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             enumJson["doc"] = doc;
 
         if (context.defaultSymbol != null)
-            enumJson["default"] = IdlName.EscapeName(context.defaultSymbol.defaultSymbolName.GetText());
+            enumJson["default"] = context.defaultSymbol.defaultSymbolName.GetName();
 
         foreach (var prop in properties)
         {
             if (prop.Key != "namespace")
             {
-                var propName = IdlName.EscapeName(prop.Key);
-                enumJson[propName] = prop.Value;
+                enumJson[prop.Key] = prop.Value;
             }
         }
 
@@ -432,7 +428,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JObject TranslateRecord(IdlParser.RecordDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var (name, ownNamespace) = SplitDeclaredName(context.name.GetText());
+        var (name, ownNamespace) = SplitDeclaredName(context.name.GetName());
         var doc = context.doc.ExtractDocumentation();
         var properties = TranslateProperties(context._schemaProperties);
 
@@ -476,8 +472,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var nonNamespaceProperties = properties.Where(p => p.Key != "namespace");
         foreach (var prop in nonNamespaceProperties)
         {
-            var propName = IdlName.EscapeName(prop.Key);
-            recordJson[propName] = prop.Value;
+            recordJson[prop.Key] = prop.Value;
         }
 
         return recordJson;
@@ -488,7 +483,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         IdlParser.VariableDeclarationContext varDecl,
         IdlParsingContext parsingContext)
     {
-        var fieldName = IdlName.EscapeName(varDecl.fieldName.GetText());
+        var fieldName = varDecl.fieldName.GetName();
         var defaultValue = varDecl.defaultValue != null ? TranslateJsonValue(varDecl.defaultValue) : null;
         var fieldType = TranslateFullType(fieldDecl.fieldType, parsingContext, defaultValue);
         var doc = fieldDecl.doc.ExtractDocumentation()
@@ -509,8 +504,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            var propName = IdlName.EscapeName(prop.Key);
-            field[propName] = prop.Value;
+            field[prop.Key] = prop.Value;
         }
 
         return field;
@@ -525,7 +519,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var request = new JArray();
         foreach (var param in context._formalParameters)
         {
-            var paramName = IdlName.EscapeName(param.parameter.fieldName.GetText());
+            var paramName = param.parameter.fieldName.GetName();
             var paramDefault = param.parameter.defaultValue != null ? TranslateJsonValue(param.parameter.defaultValue) : null;
             var paramType = TranslateFullType(param.parameterType, parsingContext, paramDefault);
             var paramDoc = param.doc.ExtractDocumentation();
@@ -566,15 +560,14 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             var errors = new JArray();
             foreach (var error in context._errors)
             {
-                errors.Add(error.GetText());
+                errors.Add(error.GetName());
             }
             message["errors"] = errors;
         }
 
         foreach (var prop in properties)
         {
-            var propName = IdlName.EscapeName(prop.Key);
-            message[propName] = prop.Value;
+            message[prop.Key] = prop.Value;
         }
 
         return message;
@@ -600,8 +593,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         {
             foreach (var prop in properties)
             {
-                var propName = IdlName.EscapeName(prop.Key);
-                obj[propName] = prop.Value;
+                obj[prop.Key] = prop.Value;
             }
             return obj;
         }
@@ -612,8 +604,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         };
         foreach (var prop in properties)
         {
-            var propName = IdlName.EscapeName(prop.Key);
-            wrapper[propName] = prop.Value;
+            wrapper[prop.Key] = prop.Value;
         }
         return wrapper;
     }
@@ -636,8 +627,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
             foreach (var prop in properties)
             {
-                var propName = IdlName.EscapeName(prop.Key);
-                branchObj[propName] = prop.Value;
+                branchObj[prop.Key] = prop.Value;
             }
 
             result.Add(branchObj);
@@ -716,7 +706,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JToken TranslateReferenceType(IdlParser.NullableTypeContext context, IdlParsingContext parsingContext)
     {
-        var refName = context.referenceName.GetText();
+        var refName = context.referenceName.GetName();
         var fullName = ResolveFullTypeName(refName, parsingContext);
 
         if (parsingContext.ProcessedSchemas.Contains(fullName) // already been added to the types array
@@ -1017,7 +1007,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             }
             else
             {
-                nestedContext.DefaultNamespace = parseTree.@namespace?.@namespace?.GetText();
+                nestedContext.DefaultNamespace = parseTree.@namespace?.@namespace?.GetName();
 
                 // resolve the imported document's own imports first, so that its named schemas can
                 // reference types brought in transitively
@@ -1161,7 +1151,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
         foreach (var prop in properties)
         {
-            var name = IdlName.EscapeName(prop.name.GetText());
+            var name = prop.name.GetName();
             var value = TranslateJsonValue(prop.value);
             result[name] = value;
         }
@@ -1370,13 +1360,13 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     private static string GetNamedSchemaName(IdlParser.NamedSchemaDeclarationContext context)
     {
         if (context.fixedDeclaration() != null)
-            return context.fixedDeclaration().name.GetText();
+            return context.fixedDeclaration().name.GetName();
 
         if (context.enumDeclaration() != null)
-            return context.enumDeclaration().name.GetText();
+            return context.enumDeclaration().name.GetName();
 
         if (context.recordDeclaration() != null)
-            return context.recordDeclaration().name.GetText();
+            return context.recordDeclaration().name.GetName();
 
         throw new InvalidOperationException("Unknown named schema type");
     }
