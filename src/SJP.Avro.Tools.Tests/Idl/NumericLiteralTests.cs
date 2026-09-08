@@ -28,9 +28,14 @@ internal class NumericLiteralTests
     [TestCase("0X10", 16L)]
     [TestCase("-0x10", -16L)]
     [TestCase("0x7fffffffffffffff", long.MaxValue)]
+    [TestCase("-0x8000000000000000", long.MinValue)]
+    [TestCase("9223372036854775807", long.MaxValue)]
+    [TestCase("-9223372036854775808", long.MinValue)]
     [TestCase("010", 8L)]
     [TestCase("-010", -8L)]
     [TestCase("0777L", 511L)]
+    [TestCase("0777777777777777777777", long.MaxValue)]
+    [TestCase("-01000000000000000000000", long.MinValue)]
     public async Task Translate_GivenIntegerDefault_ParsesEveryLiteralForm(string literal, long expected)
     {
         var defaultValue = await GetFieldDefault($"protocol P {{ record R {{ long v = {literal}; }} }}");
@@ -100,24 +105,34 @@ internal class NumericLiteralTests
         });
     }
 
-    [Test]
-    public void Translate_GivenFixedSizeTooLargeForAnInt32_ThrowsWithExplanation()
+    [TestCase("99999999999")]
+    [TestCase("2147483648")]
+    [TestCase("0x80000000")]
+    [TestCase("0xFFFFFFFF")]
+    [TestCase("020000000000")]
+    public void Translate_GivenFixedSizeOutsideTheInt32Range_ThrowsWithExplanation(string literal)
     {
-        const string idl = "protocol P { fixed F(99999999999); }";
+        var idl = $"protocol P {{ fixed F({literal}); }}";
 
         var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
-        Assert.That(thrown.Message, Does.Contain("32-bit integer"));
+        Assert.That(thrown.Message, Does.Contain(literal).And.Contain("32-bit integer"));
     }
 
-    [Test]
-    public void Translate_GivenIntegerDefaultTooLargeForAnInt64_ThrowsWithExplanation()
+    [TestCase("99999999999999999999")]
+    [TestCase("9223372036854775808")]
+    [TestCase("-9223372036854775809")]
+    [TestCase("0x8000000000000000")]
+    [TestCase("0xFFFFFFFFFFFFFFFF")]
+    [TestCase("-0x8000000000000001")]
+    [TestCase("01000000000000000000000")]
+    public void Translate_GivenIntegerDefaultOutsideTheInt64Range_ThrowsWithExplanation(string literal)
     {
-        const string idl = "protocol P { record R { long v = 99999999999999999999; } }";
+        var idl = $"protocol P {{ record R {{ long v = {literal}; }} }}";
 
         var thrown = Assert.ThrowsAsync<FormatException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
-        Assert.That(thrown.Message, Does.Contain("64-bit integer"));
+        Assert.That(thrown.Message, Does.Contain(literal).And.Contain("64-bit integer"));
     }
 
     private async Task<JToken> GetFieldDefault(string idl)

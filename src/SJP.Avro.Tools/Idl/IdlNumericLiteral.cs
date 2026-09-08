@@ -37,16 +37,18 @@ public static class IdlNumericLiteral
         if (text.Length == 0)
             throw new FormatException($"'{literalText}' is not a valid integer literal.");
 
+        ulong magnitude;
         try
         {
-            var magnitude = GetRadix(text) switch
+            // the magnitude is parsed without a sign so that a set high bit is never
+            // mistaken for one, which would otherwise let a literal such as
+            // 0xFFFFFFFFFFFFFFFF silently denote -1
+            magnitude = GetRadix(text) switch
             {
-                16 => Convert.ToInt64(text[2..], 16),
-                8 => Convert.ToInt64(text[1..], 8),
-                _ => long.Parse(text, NumberStyles.None, CultureInfo.InvariantCulture)
+                16 => Convert.ToUInt64(text[2..], 16),
+                8 => Convert.ToUInt64(text[1..], 8),
+                _ => ulong.Parse(text, NumberStyles.None, CultureInfo.InvariantCulture)
             };
-
-            return isNegative ? -magnitude : magnitude;
         }
         catch (OverflowException)
         {
@@ -56,6 +58,23 @@ public static class IdlNumericLiteral
         {
             throw new FormatException($"'{literalText}' is not a valid integer literal.");
         }
+
+        // the negative range extends one further than the positive one, so the magnitude
+        // 2^63 is only ever valid when a sign precedes it
+        const ulong negativeLimit = (ulong)long.MaxValue + 1;
+
+        if (isNegative)
+        {
+            if (magnitude > negativeLimit)
+                throw new FormatException($"'{literalText}' is outside the range of a 64-bit integer.");
+
+            return magnitude == negativeLimit ? long.MinValue : -(long)magnitude;
+        }
+
+        if (magnitude > long.MaxValue)
+            throw new FormatException($"'{literalText}' is outside the range of a 64-bit integer.");
+
+        return (long)magnitude;
     }
 
     /// <summary>
