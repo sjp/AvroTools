@@ -12,8 +12,8 @@ One other benefit of this project is avoiding the pre-requisite for a Java runti
 
 ## Features
 
-* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to an [Avro Protocol](https://avro.apache.org/docs/1.12.0/specification/#protocol-declaration).
-* Compile [Avro IDL](https://avro.apache.org/docs/current/idl.html) to [Avro Schema](https://avro.apache.org/docs/1.12.0/specification/#schema-declaration).
+* Compile [Avro IDL](https://avro.apache.org/docs/1.12.0/idl-language/) to an [Avro Protocol](https://avro.apache.org/docs/1.12.0/specification/#protocol-declaration).
+* Compile [Avro IDL](https://avro.apache.org/docs/1.12.0/idl-language/) to [Avro Schema](https://avro.apache.org/docs/1.12.0/specification/#schema-declaration).
 * Generate C# classes for protocols and schemas.
 * Check whether two Avro schemas are compatible under Avro's schema-evolution rules (`compat`).
 * Print a semantic, field-level diff between two Avro schema versions (`diff`).
@@ -26,7 +26,7 @@ One other benefit of this project is avoiding the pre-requisite for a Java runti
 
 ## Installation
 
-Install as a [.NET tool](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install):
+Install as a [.NET tool](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install):
 
 ```bash
 dotnet tool install --global SJP.AvroTool
@@ -449,7 +449,7 @@ full name binds to the type that was meant whatever else the schema happens to n
 
 #### Canonical form and fingerprints
 
-`avrotool canonical` prints the [Parsing Canonical Form](https://avro.apache.org/docs/current/specification/#parsing-canonical-form-for-schemas)
+`avrotool canonical` prints the [Parsing Canonical Form](https://avro.apache.org/docs/1.12.0/specification/#parsing-canonical-form-for-schemas)
 of a schema — the normalised form that strips `doc`, `aliases`, defaults and
 other non-structural attributes and fully-qualifies names, so two structurally
 identical schemas compare equal regardless of formatting.
