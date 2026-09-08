@@ -195,7 +195,11 @@ public static class SchemaDiff
         /// Checks whether two named schemas reached at the same structural position represent
         /// "the same" type across versions (identical name, or linked by an alias on either side).
         /// If not, reports a single <see cref="ChangeKind.TypeKindChanged"/> rather than cascading
-        /// into a misleading field-by-field diff of two unrelated types.
+        /// into a misleading field-by-field diff of two unrelated types. When the link was made
+        /// through an alias the type carries on being compared, but the name it is known by has
+        /// changed, which is reported as a <see cref="ChangeKind.TypeRenamed"/> in its own right:
+        /// the full name is what the canonical form, the fingerprint and any generated code are
+        /// built from.
         /// </summary>
         private static bool CheckNamedTypeIdentity(List<SchemaChange> sink, NamedSchema before, NamedSchema after, string location)
         {
@@ -204,7 +208,15 @@ public static class SchemaDiff
 
             if (NamedSchemaAliases(before).Contains(after.Fullname, StringComparer.Ordinal) ||
                 NamedSchemaAliases(after).Contains(before.Fullname, StringComparer.Ordinal))
+            {
+                sink.Add(new SchemaChange(
+                    ChangeKind.TypeRenamed,
+                    location,
+                    $"type renamed from {before.Fullname} to {after.Fullname}",
+                    oldValue: before.Fullname,
+                    newValue: after.Fullname));
                 return true;
+            }
 
             sink.Add(new SchemaChange(
                 ChangeKind.TypeKindChanged,
@@ -225,6 +237,18 @@ public static class SchemaDiff
                     "documentation changed",
                     oldValue: before.Documentation,
                     newValue: after.Documentation));
+            }
+
+            var beforeAliases = NamedSchemaAliases(before).ToHashSet(StringComparer.Ordinal);
+            var afterAliases = NamedSchemaAliases(after).ToHashSet(StringComparer.Ordinal);
+            if (!beforeAliases.SetEquals(afterAliases))
+            {
+                sink.Add(new SchemaChange(
+                    ChangeKind.MetadataChanged,
+                    Append(location, "aliases"),
+                    "aliases changed",
+                    oldValue: string.Join(", ", beforeAliases),
+                    newValue: string.Join(", ", afterAliases)));
             }
         }
 

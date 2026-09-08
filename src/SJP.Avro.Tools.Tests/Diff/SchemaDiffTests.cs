@@ -580,6 +580,145 @@ internal static class SchemaDiffTests
     }
 
     [Test]
+    public static void Compare_GivenRootRecordRenamedWithAlias_ReportsTypeRenamed()
+    {
+        const string before = """{"type":"record","name":"Old","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"New","aliases":["Old"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeRenamed));
+            Assert.That(change.Location, Is.EqualTo("/"));
+            Assert.That(change.OldValue, Is.EqualTo("Old"));
+            Assert.That(change.NewValue, Is.EqualTo("New"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenRootRecordMovedToAnotherNamespaceWithAlias_ReportsTypeRenamed()
+    {
+        const string before = """{"type":"record","name":"R","namespace":"v1","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"R","namespace":"v2","aliases":["v1.R"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeRenamed));
+            Assert.That(change.OldValue, Is.EqualTo("v1.R"));
+            Assert.That(change.NewValue, Is.EqualTo("v2.R"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenNestedRecordRenamedWithAlias_ReportsTypeRenamedAtNestedLocation()
+    {
+        const string before = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                { "name": "home", "type": { "type": "record", "name": "Addr", "fields": [{ "name": "street", "type": "string" }] } }
+            ]
+        }
+        """;
+        const string after = """
+        {
+            "type": "record",
+            "name": "Person",
+            "fields": [
+                {
+                    "name": "home",
+                    "type": {
+                        "type": "record",
+                        "name": "Address",
+                        "aliases": ["Addr"],
+                        "fields": [{ "name": "street", "type": "string" }]
+                    }
+                }
+            ]
+        }
+        """;
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeRenamed));
+            Assert.That(change.Location, Is.EqualTo("/fields/home/type"));
+            Assert.That(change.OldValue, Is.EqualTo("Addr"));
+            Assert.That(change.NewValue, Is.EqualTo("Address"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenRenamedRecordWithFieldChange_ReportsBothTypeRenamedAndFieldChange()
+    {
+        const string before = """{"type":"record","name":"Old","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"New","aliases":["Old"],"fields":[{"name":"a","type":"int"},{"name":"b","type":"string","default":""}]}""";
+
+        var result = Compare(before, after);
+
+        Assert.That(result.Changes.Select(c => c.Kind), Is.EqualTo(new[]
+        {
+            ChangeKind.TypeRenamed,
+            ChangeKind.FieldAdded,
+        }));
+    }
+
+    [Test]
+    public static void Compare_GivenEnumRenamedWithAlias_ReportsTypeRenamed()
+    {
+        const string before = """{"type":"enum","name":"Old","symbols":["A","B"]}""";
+        const string after = """{"type":"enum","name":"New","aliases":["Old"],"symbols":["A","B"]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeRenamed));
+            Assert.That(change.OldValue, Is.EqualTo("Old"));
+            Assert.That(change.NewValue, Is.EqualTo("New"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenRecordRenamedWithoutAlias_ReportsTypeKindChanged()
+    {
+        const string before = """{"type":"record","name":"Old","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"New","fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Compare(before, after);
+
+        Assert.That(result.Changes.Single().Kind, Is.EqualTo(ChangeKind.TypeKindChanged));
+    }
+
+    [Test]
+    public static void Compare_GivenNamedTypeAliasesChanged_ReportsMetadataChangedOnlyWhenVerbose()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"R","aliases":["Legacy"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var quiet = Compare(before, after, verbose: false);
+        var verbose = Compare(before, after, verbose: true);
+        var change = verbose.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(quiet.IsIdentical, Is.True);
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.MetadataChanged));
+            Assert.That(change.Location, Is.EqualTo("/aliases"));
+            Assert.That(change.NewValue, Is.EqualTo("Legacy"));
+        }
+    }
+
+    [Test]
     public static void Compare_GivenRecursiveSchema_TerminatesAndReportsRealChange()
     {
         const string before = """

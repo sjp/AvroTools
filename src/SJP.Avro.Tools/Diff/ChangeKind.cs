@@ -70,6 +70,13 @@ public enum ChangeKind
     TypeKindChanged,
 
     /// <summary>
+    /// Two named schemas at the same position were matched via an alias, and their full names
+    /// differ. The type is the same type across versions, but renaming it (or moving it to a
+    /// different namespace) changes the canonical form, the fingerprint and any generated code.
+    /// </summary>
+    TypeRenamed,
+
+    /// <summary>
     /// A change to metadata that does not affect the schema's shape (documentation, aliases, or
     /// an enum's default symbol). Only reported when metadata comparison is requested.
     /// </summary>
