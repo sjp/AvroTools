@@ -486,8 +486,10 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var fieldName = varDecl.fieldName.GetName();
         var defaultValue = varDecl.defaultValue != null ? TranslateJsonValue(varDecl.defaultValue) : null;
         var fieldType = TranslateFullType(fieldDecl.fieldType, parsingContext, defaultValue);
-        var doc = fieldDecl.doc.ExtractDocumentation()
-            ?? varDecl.doc.ExtractDocumentation();
+        // a comment attached to the variable describes that variable alone, so it wins over the
+        // comment on the declaration, which is shared by every variable declared with the same type
+        var doc = varDecl.doc.ExtractDocumentation()
+            ?? fieldDecl.doc.ExtractDocumentation();
         var properties = TranslateProperties(varDecl._schemaProperties);
 
         var field = new JObject
@@ -516,13 +518,20 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var properties = TranslateProperties(context._schemaProperties);
         var isOneway = context.oneway != null;
 
+        if (isOneway && context.returnType.Void() == null)
+            throw new InvalidOperationException($"One-way message must return void: '{context.name.GetName()}'.");
+
         var request = new JArray();
         foreach (var param in context._formalParameters)
         {
             var paramName = param.parameter.fieldName.GetName();
             var paramDefault = param.parameter.defaultValue != null ? TranslateJsonValue(param.parameter.defaultValue) : null;
             var paramType = TranslateFullType(param.parameterType, parsingContext, paramDefault);
-            var paramDoc = param.doc.ExtractDocumentation();
+            // a comment written against the parameter name itself is preferred over one written
+            // ahead of its type, matching the precedence used for record fields
+            var paramDoc = param.parameter.doc.ExtractDocumentation()
+                ?? param.doc.ExtractDocumentation();
+            var paramProperties = TranslateProperties(param.parameter._schemaProperties);
 
             var requestParam = new JObject
             {
@@ -536,10 +545,15 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             if (paramDefault != null)
                 requestParam["default"] = paramDefault;
 
+            foreach (var paramProp in paramProperties)
+            {
+                requestParam[paramProp.Key] = paramProp.Value;
+            }
+
             request.Add(requestParam);
         }
 
-        var response = context.returnType.Void() != null || isOneway
+        var response = context.returnType.Void() != null
             ? (JToken)"null"
             : TranslatePlainType(context.returnType.plainType(), parsingContext);
 
@@ -580,6 +594,12 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
         if (properties.Count == 0)
             return typeToken;
+
+        // a reference names a type that is defined elsewhere, and Avro reads only the name from it,
+        // so any property written alongside the reference would be silently discarded
+        var referenceName = context.plainType().nullableType()?.referenceName;
+        if (referenceName != null)
+            throw new InvalidOperationException($"Annotations cannot be applied to a reference to the named type '{referenceName.GetName()}'; annotate the declaration of the type instead.");
 
         if (typeToken is JArray unionArray)
         {

@@ -90,14 +90,111 @@ internal class IdlToAvroTranslatorTests
     }
 
     [Test]
-    public async Task Translate_GivenPropertyAnnotatedOnAReferenceToANamedType_PreservesThePropertyOnTheReference()
+    public void Translate_GivenPropertyAnnotatedOnAReferenceToANamedType_ThrowsInvalidOperationException()
     {
         const string idl = "protocol P { record R { int a; } record S { @foo(\"bar\") R h; } }";
 
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+
+        Assert.That(thrown.Message, Does.Contain("'R'"));
+    }
+
+    [Test]
+    public void Translate_GivenPropertyAnnotatedOnAnOptionalReferenceToANamedType_ThrowsInvalidOperationException()
+    {
+        const string idl = "protocol P { record R { int a; } record S { @foo(\"bar\") R? h; } }";
+
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+
+        Assert.That(thrown.Message, Does.Contain("'R'"));
+    }
+
+    [Test]
+    public void Translate_GivenPropertyAnnotatedOnAReferenceNestedInAnArray_ThrowsInvalidOperationException()
+    {
+        const string idl = "protocol P { record R { int a; } record S { array<@foo(\"bar\") R> h; } }";
+
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+
+        Assert.That(thrown.Message, Does.Contain("'R'"));
+    }
+
+    [Test]
+    public async Task Translate_GivenMultipleVariablesSharingADeclarationDoc_PrefersEachVariablesOwnDoc()
+    {
+        const string idl = "protocol P { record R { /** shared */ string /** a */ a, /** b */ b; } }";
+
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
-        var fooProperty = result.Json.SelectToken("types[1].fields[0].type.foo");
-        Assert.That(fooProperty?.Value<string>(), Is.EqualTo("bar"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Json.SelectToken("types[0].fields[0].doc")?.Value<string>(), Is.EqualTo("a"));
+            Assert.That(result.Json.SelectToken("types[0].fields[1].doc")?.Value<string>(), Is.EqualTo("b"));
+        });
+    }
+
+    [Test]
+    public async Task Translate_GivenAVariableWithoutItsOwnDoc_FallsBackToTheDeclarationDoc()
+    {
+        const string idl = "protocol P { record R { /** shared */ string a, /** b */ b; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Json.SelectToken("types[0].fields[0].doc")?.Value<string>(), Is.EqualTo("shared"));
+            Assert.That(result.Json.SelectToken("types[0].fields[1].doc")?.Value<string>(), Is.EqualTo("b"));
+        });
+    }
+
+    [Test]
+    public async Task Translate_GivenAMessageParameterWithItsOwnDoc_PrefersItOverTheParameterDoc()
+    {
+        const string idl = "protocol P { void f(/** ahead */ string /** own */ p); }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var doc = result.Json.SelectToken("messages.f.request[0].doc");
+        Assert.That(doc?.Value<string>(), Is.EqualTo("own"));
+    }
+
+    [Test]
+    public async Task Translate_GivenAMessageParameterWithAnnotations_PreservesThemOnTheRequestField()
+    {
+        const string idl = "protocol P { void f(int @order(\"descending\") @aliases([\"old\"]) @foo(\"bar\") p); }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Json.SelectToken("messages.f.request[0].order")?.Value<string>(), Is.EqualTo("descending"));
+            Assert.That(result.Json.SelectToken("messages.f.request[0].aliases")?.Values<string>(), Is.EqualTo(new[] { "old" }));
+            Assert.That(result.Json.SelectToken("messages.f.request[0].foo")?.Value<string>(), Is.EqualTo("bar"));
+        });
+    }
+
+    [Test]
+    public async Task Translate_GivenAOneWayMessageReturningVoid_MarksItOneWay()
+    {
+        const string idl = "protocol P { void f() oneway; }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Json.SelectToken("messages.f.response")?.Value<string>(), Is.EqualTo("null"));
+            Assert.That(result.Json.SelectToken("messages.f.one-way")?.Value<bool>(), Is.True);
+        });
+    }
+
+    [Test]
+    public void Translate_GivenAOneWayMessageWithANonVoidReturnType_ThrowsInvalidOperationException()
+    {
+        const string idl = "protocol P { int f() oneway; }";
+
+        var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+
+        Assert.That(thrown.Message, Does.Contain("One-way message must return void"));
     }
 
     [Test]
