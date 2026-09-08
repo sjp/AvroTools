@@ -104,7 +104,15 @@ internal static class SchemaDiffTests
         }
     }
 
+    // A promotion is valid when a reader using the new type can read data written with the old
+    // one, so it is directional: widening is valid, narrowing is not.
     [TestCase("int", "long", true)]
+    [TestCase("int", "double", true)]
+    [TestCase("float", "double", true)]
+    [TestCase("long", "int", false)]
+    [TestCase("double", "float", false)]
+    [TestCase("string", "bytes", true)]
+    [TestCase("bytes", "string", true)]
     [TestCase("int", "string", false)]
     public static void Compare_GivenFieldTypeChanged_ReportsFieldTypeChanged(string beforeType, string afterType, bool expectedPromotion)
     {
@@ -576,6 +584,19 @@ internal static class SchemaDiffTests
             Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeKindChanged));
             Assert.That(change.Location, Is.EqualTo("/"));
             Assert.That(change.IsValidPromotion, Is.True);
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenTopLevelTypeNarrowed_ReportsNotAValidPromotion()
+    {
+        var result = Compare("\"long\"", "\"int\"");
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeKindChanged));
+            Assert.That(change.IsValidPromotion, Is.False);
         }
     }
 

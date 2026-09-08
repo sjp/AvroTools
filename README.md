@@ -470,7 +470,11 @@ reordered field's own Parsing Canonical Form and binary encoding do change —
 canonical form preserves field order and only strips non-structural attributes
 — but data written with either field order still reads back the same way, so
 `diff` treats the two as equivalent. Type changes, default changes, renames
-(detected via `aliases`), and enum/fixed/union shape changes are all reported.
+(detected via `aliases`), and enum/fixed/union shape changes are all reported. A
+type change also carries `isValidPromotion`, which says whether a reader using
+the new type can still read data written with the old one under Avro's type
+promotion rules — `int` to `long` is a valid promotion, `long` to `int` is not.
+It is `null` for changes that aren't type changes.
 Logical types count too: adding, removing or replacing a `logicalType`, or
 changing a decimal's `precision` or `scale`, is reported even though the
 underlying representation is unchanged, because it changes how the data is

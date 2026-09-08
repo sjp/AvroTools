@@ -127,7 +127,7 @@ public static class SchemaDiff
                     $"type changed from {before.Tag.ToString().ToUpperInvariant()} to {after.Tag.ToString().ToUpperInvariant()}",
                     oldValue: before.Tag.ToString(),
                     newValue: after.Tag.ToString(),
-                    isValidPromotion: IsPromotable(before.Tag, after.Tag) || IsPromotable(after.Tag, before.Tag)));
+                    isValidPromotion: IsPromotable(readerType: after.Tag, writerType: before.Tag)));
                 return;
             }
 
@@ -653,8 +653,8 @@ public static class SchemaDiff
         }
     }
 
-    /// <summary>The type promotions permitted by the Avro specification, keyed by the "smaller" type.</summary>
-    private static readonly Dictionary<Schema.Type, HashSet<Schema.Type>> PromotableTypes = new()
+    /// <summary>The type promotions permitted by the Avro specification, keyed by reader type.</summary>
+    private static readonly Dictionary<Schema.Type, HashSet<Schema.Type>> PromotableWriterTypes = new()
     {
         [Schema.Type.Long] = [Schema.Type.Int],
         [Schema.Type.Float] = [Schema.Type.Int, Schema.Type.Long],
@@ -663,8 +663,13 @@ public static class SchemaDiff
         [Schema.Type.String] = [Schema.Type.Bytes],
     };
 
+    /// <summary>
+    /// Whether a reader using <paramref name="readerType"/> can read data written with
+    /// <paramref name="writerType"/> under Avro's type promotion rules. Promotion is
+    /// directional: <c>int</c> data reads back as <c>long</c>, but not the other way round.
+    /// </summary>
     private static bool IsPromotable(Schema.Type readerType, Schema.Type writerType) =>
-        PromotableTypes.TryGetValue(readerType, out var writers) && writers.Contains(writerType);
+        PromotableWriterTypes.TryGetValue(readerType, out var writers) && writers.Contains(writerType);
 
     private static Schema Unwrap(Schema schema) =>
         schema is LogicalSchema logical ? logical.BaseSchema : schema;
