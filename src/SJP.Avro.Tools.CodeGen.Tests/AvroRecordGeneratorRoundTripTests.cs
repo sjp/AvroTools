@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Avro;
 using Avro.Specific;
 using NUnit.Framework;
@@ -52,6 +52,42 @@ internal static class AvroRecordGeneratorRoundTripTests
             Assert.That(instance.Get(0), Is.EqualTo(42));
             Assert.That(instance.Get(1), Is.EqualTo("hello"));
             Assert.That(instance.Get(2), Is.EqualTo("world"));
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public static void Generate_GivenFieldNamesMatchingGetAndPutParameters_RoundTripsThroughPutAndGet(bool initOnly)
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        // "fieldPos" and "fieldValue" are the parameter names of the generated Get and Put methods,
+        // so properties keeping those names would be shadowed inside the method bodies: Get would
+        // return the index it was handed and Put would assign its parameter to itself, leaving both
+        // fields at their defaults.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "ShadowingWidget_{{initOnly}}",
+  "namespace" : "Test.Avro.RoundTrip",
+  "fields" : [
+    { "name" : "fieldValue", "type" : "string" },
+    { "name" : "fieldPos", "type" : "int" }
+  ]
+}
+""");
+
+        var source = recordGenerator.Generate(schema, TestNamespace, new CodeGenOptions(InitOnlyProperties: initOnly));
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.ShadowingWidget_{initOnly}");
+
+        var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, "hello");
+        instance.Put(1, 42);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(instance.Get(0), Is.EqualTo("hello"));
+            Assert.That(instance.Get(1), Is.EqualTo(42));
         }
     }
 

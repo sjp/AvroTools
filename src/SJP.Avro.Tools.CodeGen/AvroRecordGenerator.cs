@@ -16,6 +16,9 @@ namespace SJP.Avro.Tools.CodeGen;
 /// </summary>
 public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 {
+    private const string FieldPosParameterName = "fieldPos";
+    private const string FieldValueParameterName = "fieldValue";
+
     /// <summary>
     /// Creates a C# implementation of an Avro record or error type.
     /// </summary>
@@ -251,9 +254,12 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
     /// <summary>
     /// Computes the C# property name for each Avro field. A member may not share its name with the
-    /// type that declares it, nor with the other members generated alongside the properties, so a
-    /// field with one of those names gets an underscore-suffixed property. The Avro name is
-    /// unaffected: it stays in the schema, in the field position enum and in <c>Get</c>/<c>Put</c>.
+    /// type that declares it, nor with the other members generated alongside the properties, nor
+    /// with the parameters of <c>Get</c>/<c>Put</c> (which would otherwise shadow it inside those
+    /// method bodies, so that reads returned the index and writes assigned the parameter to
+    /// itself), so a field with one of those names gets an underscore-suffixed property. The Avro
+    /// name is unaffected: it stays in the schema, in the field position enum and in the
+    /// <c>Get</c>/<c>Put</c> switches.
     /// </summary>
     private static IReadOnlyDictionary<string, string> BuildPropertyNames(RecordSchema recordSchema, string fieldEnumName)
     {
@@ -264,7 +270,9 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             "_schema",
             nameof(Schema),
             nameof(ISpecificRecord.Get),
-            nameof(ISpecificRecord.Put)
+            nameof(ISpecificRecord.Put),
+            FieldPosParameterName,
+            FieldValueParameterName
         };
 
         var propertyNames = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -313,7 +321,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         var parameterList = ParameterList(
             SingletonSeparatedList(
                 Parameter(
-                    Identifier("fieldPos"))
+                    Identifier(FieldPosParameterName))
                 .WithType(
                     PredefinedType(
                         Token(SyntaxKind.IntKeyword)))));
@@ -338,7 +346,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         EqualsValueClause(
                             CastExpression(
                                 IdentifierName(enumName),
-                                IdentifierName("fieldPos")))))));
+                                IdentifierName(FieldPosParameterName)))))));
 
         var fieldCaseStatements = recordSchema
             .Fields
@@ -378,13 +386,13 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                 new SyntaxNodeOrToken[]
                 {
                         Parameter(
-                            Identifier("fieldPos"))
+                            Identifier(FieldPosParameterName))
                             .WithType(
                                 PredefinedType(
                                     Token(SyntaxKind.IntKeyword))),
                         Token(SyntaxKind.CommaToken),
                         Parameter(
-                            Identifier("fieldValue"))
+                            Identifier(FieldValueParameterName))
                             .WithType(
                                 PredefinedType(
                                     Token(SyntaxKind.ObjectKeyword)))
@@ -410,7 +418,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         EqualsValueClause(
                             CastExpression(
                                 IdentifierName(enumName),
-                                IdentifierName("fieldPos")))))));
+                                IdentifierName(FieldPosParameterName)))))));
 
         var fieldCaseStatements = recordSchema
             .Fields
@@ -568,7 +576,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                         LiteralExpression(
                                             SyntaxKind.StringLiteralExpression,
                                             Literal("Bad index ")),
-                                        IdentifierName("fieldPos")),
+                                        IdentifierName(FieldPosParameterName)),
                                     LiteralExpression(
                                         SyntaxKind.StringLiteralExpression,
                                         Literal($" in {nameof(ISpecificRecord.Get)}()")))))))));
@@ -596,7 +604,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                                 LiteralExpression(
                                                     SyntaxKind.StringLiteralExpression,
                                                     Literal("Bad index ")),
-                                                IdentifierName("fieldPos")),
+                                                IdentifierName(FieldPosParameterName)),
                                             LiteralExpression(
                                                 SyntaxKind.StringLiteralExpression,
                                                 Literal($" in {nameof(ISpecificRecord.Put)}()"))))))))));
@@ -630,7 +638,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                     SyntaxUtilities.SafeIdentifierName(assignmentTargetName),
                                     CastExpression(
                                         fieldType,
-                                        IdentifierName("fieldValue")))),
+                                        IdentifierName(FieldValueParameterName)))),
                             BreakStatement()}));
     }
 
@@ -649,7 +657,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         Argument(
                             CastExpression(
                                 IdentifierName(nameof(AvroDecimal)),
-                                IdentifierName("fieldValue"))))));
+                                IdentifierName(FieldValueParameterName))))));
 
         // A nullable decimal arrives as null whenever the union's null branch was written.
         if (AvroSchemaUtilities.IsNullable(field.Schema))
@@ -657,7 +665,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             conversion = ConditionalExpression(
                 BinaryExpression(
                     SyntaxKind.EqualsExpression,
-                    IdentifierName("fieldValue"),
+                    IdentifierName(FieldValueParameterName),
                     LiteralExpression(SyntaxKind.NullLiteralExpression)),
                 CastExpression(
                     NullableType(PredefinedType(Token(SyntaxKind.DecimalKeyword))),
