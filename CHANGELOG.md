@@ -11,6 +11,16 @@ version out of this file and fails if there is no section for it.
 
 ## Unreleased
 
+### Added
+
+- The tool's two libraries are published as packages, so what the commands do can be called
+  from code: `SJP.Avro.Tools` carries the IDL compiler, the compatibility checker, the schema
+  diff and the JSON encoder, and `SJP.Avro.Tools.CodeGen` carries the C# generators. Both
+  target .NET 10 and exchange the `Avro.Schema` and `Avro.Protocol` types `Apache.Avro`
+  defines, so a schema compiled from IDL can be handed straight to the code generator or to
+  that library's readers and writers. The README has a "Using the libraries" section covering
+  each of them.
+
 ### Changed
 
 - `codegen` names every type its output refers to in full, rooted in the global namespace

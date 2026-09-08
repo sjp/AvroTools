@@ -32,6 +32,14 @@ Install as a [.NET tool](https://docs.microsoft.com/en-us/dotnet/core/tools/dotn
 dotnet tool install --global SJP.AvroTool
 ```
 
+The same functionality is available to call from code, as two libraries the tool is built
+on (see [Using the libraries](#using-the-libraries)):
+
+```bash
+dotnet add package SJP.Avro.Tools
+dotnet add package SJP.Avro.Tools.CodeGen
+```
+
 ## Usage
 
 Most of the documentation is provided by the tool itself (outside of the language specifications).
@@ -796,4 +804,120 @@ avrotool completions fish > ~/.config/fish/completions/avrotool.fish
 
 # PowerShell (add to your $PROFILE)
 avrotool completions powershell | Out-String | Invoke-Expression
+```
+
+## Using the libraries
+
+Everything the tool does is available to call directly, from two packages that target
+.NET 10:
+
+| Package | Contents |
+|---------|----------|
+| [`SJP.Avro.Tools`](https://www.nuget.org/packages/SJP.Avro.Tools) | The IDL compiler (`IdlToAvroTranslator`), the compatibility checker (`SchemaCompatibility`), the schema diff (`SchemaDiff`) and the JSON encoder (`AvroJsonWriter`). |
+| [`SJP.Avro.Tools.CodeGen`](https://www.nuget.org/packages/SJP.Avro.Tools.CodeGen) | The C# generators for records, errors, enums, fixed types and protocols, reached through `CodeGeneratorResolver`. |
+
+Both speak the `Avro.Schema` and `Avro.Protocol` types from
+[Apache.Avro](https://www.nuget.org/packages/Apache.Avro), so a schema compiled from IDL
+can be handed straight to the code generator, or to that library's readers and writers.
+
+### Compiling IDL from code
+
+`IdlToAvroTranslator` reads an IDL document and returns either a protocol or a schema,
+along with its JSON form and each named type it reaches. Relative imports are resolved
+through an `IIdlFileReader`: `PhysicalIdlFileReader` reads them from disk, and
+`FileProviderIdlFileReader` reads them through an `IFileProvider`, such as one over
+embedded resources.
+
+```csharp
+using SJP.Avro.Tools.Idl;
+
+var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
+
+var path = Path.GetFullPath("sample.avdl");
+var idl = await File.ReadAllTextAsync(path);
+
+// The directory relative imports resolve against, and the path of the document itself so
+// that an import leading back to it is recognised as a cycle rather than parsed again.
+var result = await translator.Translate(idl, Path.GetDirectoryName(path), path, default);
+
+foreach (var warning in result.Warnings)
+    Console.Error.WriteLine(warning);
+
+Console.WriteLine(result.Json.ToString());
+```
+
+A document that cannot be translated raises an `IdlTranslationException` carrying the line,
+column and reason.
+
+### Generating C# from code
+
+`CodeGeneratorResolver` hands back the generator for a kind of Avro type. Each generator
+takes the type, the namespace to fall back on when the Avro type declares none, and
+optional `CodeGenOptions`, and returns a C# file as a string — or `null` when the type has
+nothing to generate, as a protocol without messages does.
+
+```csharp
+using Avro;
+using SJP.Avro.Tools;
+using SJP.Avro.Tools.CodeGen;
+
+var schema = Schema.Parse(await File.ReadAllTextAsync("Person.avsc"));
+
+var resolver = new CodeGeneratorResolver();
+var options = new CodeGenOptions(RequiredProperties: true, InitOnlyProperties: true);
+
+// A schema usually names several types, each of which is generated in its own right.
+foreach (var namedType in schema.GetNamedTypes())
+{
+    var code = namedType switch
+    {
+        RecordSchema record => resolver.Resolve<RecordSchema>()!.Generate(record, "Example.Generated", options),
+        EnumSchema enumeration => resolver.Resolve<EnumSchema>()!.Generate(enumeration, "Example.Generated", options),
+        FixedSchema fixedSchema => resolver.Resolve<FixedSchema>()!.Generate(fixedSchema, "Example.Generated", options),
+        _ => null
+    };
+
+    if (code != null)
+        await File.WriteAllTextAsync($"{namedType.Name}.cs", code);
+}
+```
+
+`Resolve<RecordSchema>` generates both records and errors, and `Resolve<Protocol>` generates
+the service class for a protocol. The output is deterministic — the same input produces the
+same text, with line feeds and invariant formatting, whatever machine or culture it was
+generated on.
+
+### Checking compatibility and diffing from code
+
+`SchemaCompatibility` reports whether data written with one schema can still be read with
+another, and `SchemaDiff` reports what changed between two versions.
+
+```csharp
+using SJP.Avro.Tools.Compatibility;
+using SJP.Avro.Tools.Diff;
+
+var compatibility = SchemaCompatibility.CheckReaderWriterCompatibility(reader, writer);
+foreach (var incompatibility in compatibility.Incompatibilities)
+    Console.WriteLine($"{incompatibility.Location}: {incompatibility.Message}");
+
+var diff = SchemaDiff.Compare(before, after);
+foreach (var change in diff.Changes)
+    Console.WriteLine($"{change.Kind} {change.Location}: {change.Message}");
+```
+
+`SchemaCompatibility.Check` applies a whole registry-style mode instead — `Backward`,
+`Forward`, `Full` and their transitive variants. The candidate schema comes first, followed
+by the versions it is checked against, most recent first, and the result carries every
+comparison the mode called for:
+
+```csharp
+var result = SchemaCompatibility.Check(
+    CompatibilityMode.BackwardTransitive,
+    [candidate, v3, v2, v1]);
+
+foreach (var check in result.Checks.Where(c => !c.Result.IsCompatible))
+{
+    foreach (var incompatibility in check.Result.Incompatibilities)
+        Console.WriteLine($"{check.Direction}: {incompatibility.Location}: {incompatibility.Message}");
+}
 ```

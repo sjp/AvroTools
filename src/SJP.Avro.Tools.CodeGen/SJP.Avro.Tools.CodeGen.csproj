@@ -4,12 +4,24 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IsPackable>false</IsPackable>
+
+    <Description>Generates human-readable C# for Avro records, errors, enums, fixed types and protocols. A Roslyn-based generator whose output is a plain C# file, so it can be written to disk, compiled in memory, or emitted from a build step.</Description>
+    <PackageReleaseNotes>Release notes are at https://github.com/sjp/AvroTools/blob/master/CHANGELOG.md</PackageReleaseNotes>
+    <PackageTags>avro;apache-avro;code-generation;codegen;roslyn;schema;specific-record</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <IsPackable>true</IsPackable>
+    <PackageId>SJP.Avro.Tools.CodeGen</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Apache.Avro" Version="1.12.2" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

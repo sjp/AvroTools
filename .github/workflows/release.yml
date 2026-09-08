@@ -7,7 +7,8 @@
 # the notes for the GitHub release are taken from it.
 #
 # Pushing to nuget.org needs a repository secret named NUGET_API_KEY holding an API key
-# scoped to the SJP.AvroTool package.
+# scoped to every package this repository publishes: SJP.AvroTool, SJP.Avro.Tools and
+# SJP.Avro.Tools.CodeGen.
 
 name: Release
 
@@ -54,12 +55,19 @@ jobs:
       run: dotnet pack --configuration Release --no-build --output "$GITHUB_WORKSPACE/artifacts"
       working-directory: src
 
-    - name: Check the packed version against the tag
+    - name: Check the packed versions against the tag
       run: |
         set -euo pipefail
-        expected="artifacts/SJP.AvroTool.${GITHUB_REF_NAME#v}.nupkg"
-        if [ ! -f "$expected" ]; then
-          echo "::error::Expected $expected. Packed instead:" >&2
+        missing=0
+        for id in SJP.AvroTool SJP.Avro.Tools SJP.Avro.Tools.CodeGen; do
+          expected="artifacts/$id.${GITHUB_REF_NAME#v}.nupkg"
+          if [ ! -f "$expected" ]; then
+            echo "::error::Expected $expected." >&2
+            missing=1
+          fi
+        done
+        if [ "$missing" -ne 0 ]; then
+          echo "Packed instead:" >&2
           ls -1 artifacts >&2
           exit 1
         fi
