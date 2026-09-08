@@ -171,7 +171,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 
     private static SwitchSectionSyntax BuildRequestMethodCase(Message message, string containingNamespace)
     {
-        var responseType = AvroSchemaUtilities.GetFieldType(message.Response, containingNamespace);
+        var responseType = AvroSchemaUtilities.GetRuntimeFieldType(message.Response, containingNamespace);
 
         return SwitchSection()
             .WithLabels(
@@ -237,9 +237,15 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         return method;
     }
 
+    /// <summary>
+    /// Builds a parameter of a message method. Every value crosses the protocol boundary in the
+    /// representation Avro itself uses: the requestor packs the arguments into the request and
+    /// unpacks the response with nothing generated in between to convert them, so a decimal is
+    /// exchanged as an <c>AvroDecimal</c> rather than as a C# <c>decimal</c>.
+    /// </summary>
     private static ParameterSyntax BuildMessageParameter(Field field, string containingNamespace)
     {
-        var paramType = AvroSchemaUtilities.GetFieldType(field.Schema, containingNamespace);
+        var paramType = AvroSchemaUtilities.GetRuntimeFieldType(field.Schema, containingNamespace);
         var paramName = SyntaxUtilities.SafeIdentifier(field.Name);
 
         return Parameter(paramName)
@@ -250,6 +256,6 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
     {
         return schema.Tag == Schema.Type.Null
             ? PredefinedType(Token(SyntaxKind.VoidKeyword))
-            : AvroSchemaUtilities.GetFieldType(schema, containingNamespace);
+            : AvroSchemaUtilities.GetRuntimeFieldType(schema, containingNamespace);
     }
 }

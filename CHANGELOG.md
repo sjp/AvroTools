@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project are documented in this file.
 
@@ -29,6 +29,14 @@ version out of this file and fails if there is no section for it.
   outside a nullable context is a warning in its own right, so a project that had not
   switched nullable reference types on was warned about every annotation while a project
   that had was warned that `Get` returns an optional field's value.
+- `codegen` reports a decimal value that carries more decimal places than its schema stores,
+  by throwing an `AvroTypeException` from `Get` that names the field. Such a value was
+  silently rounded to the schema's scale, so digits were dropped on the way to the wire with
+  nothing to say so. A value with fewer decimal places is still padded out to that scale,
+  which is the only scale Avro will write it at.
+- `codegen` types a protocol message's `decimal` parameters and response as `AvroDecimal`.
+  A message hands its arguments and its response straight to and from the requestor, which
+  deals in `AvroDecimal`, and no generated code sits in between to convert them.
 - `compat` and `diff` name a type the way a schema document does — `int`, `enum`, `string`
   — in their messages, their `--json` values and the locations they report, and `compat`
   gives the full name of a named type a reader union has no branch for.
@@ -39,6 +47,10 @@ version out of this file and fails if there is no section for it.
   prefix each line of a block comment. Such a documentation string describes nothing, so the
   generated member simply carries no documentation comment; generation for the whole input
   previously failed.
+- `codegen` types a decimal whose scale is wider than a C# `decimal` can hold — more than 28
+  decimal places, which Avro permits — as `AvroDecimal`, handed to Avro unconverted. The
+  conversion generated for it previously threw on every value, because neither the rounding
+  nor the scale it applied is defined that far out.
 - `codegen` reports a `decimal` stored in a `fixed` as unsupported instead of generating code
   that cannot be used. `Apache.Avro` exchanges such a value as a generic fixed, which its
   specific writer rejects and its specific reader cannot hand to a generated class, so the

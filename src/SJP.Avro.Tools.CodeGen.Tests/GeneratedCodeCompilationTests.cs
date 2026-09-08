@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using Avro;
 using Avro.Generic;
 using Avro.IO;
@@ -470,6 +472,164 @@ internal static class GeneratedCodeCompilationTests
             Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(decimal?)));
             Assert.That(generatedType.GetProperty("amount")!.GetValue(widget), Is.EqualTo(expected));
             Assert.That(deserialized.Get(0) is AvroDecimal d ? AvroDecimal.ToDecimal(d) : (decimal?)null, Is.EqualTo(expected));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenDecimalWithFewerDecimalPlacesThanTheSchema_PadsItToTheSchemaScale()
+    {
+        // Avro refuses to write an AvroDecimal whose scale is not the schema's, so a shorter value
+        // is padded out to it.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledPaddedDecimalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amount", "type" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 5 } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledPaddedDecimalWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        generatedType.GetProperty("amount")!.SetValue(widget, 1.5m);
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(((AvroDecimal)widget.Get(0)!).Scale, Is.EqualTo(5));
+            Assert.That(AvroDecimal.ToDecimal((AvroDecimal)deserialized.Get(0)), Is.EqualTo(1.5m));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenDecimalWithMoreDecimalPlacesThanTheSchema_ThrowsRatherThanRoundingSilently()
+    {
+        // Rounding the value to the schema's scale would drop digits on the way to the wire without
+        // anything saying so, so the value is reported instead.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledRoundedDecimalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amount", "type" : [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 2 } ] }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledRoundedDecimalWidget");
+
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        generatedType.GetProperty("amount")!.SetValue(widget, 1.239m);
+
+        var exception = Assert.Throws<AvroTypeException>(() => widget.Get(0));
+
+        Assert.That(exception!.Message, Does.Contain("amount").And.Contains(1.239m.ToString(CultureInfo.CurrentCulture)));
+    }
+
+    [Test]
+    public static void Generate_GivenDecimalAtTheLargestScaleADecimalHolds_RoundTripsThroughSpecificDatumReader()
+    {
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledWideDecimalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amount", "type" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 28, "scale" : 28 } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledWideDecimalWidget");
+
+        var amount = 0.1234567890123456789012345678m;
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, new AvroDecimal(amount));
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(decimal)));
+            Assert.That(AvroDecimal.ToDecimal((AvroDecimal)deserialized.Get(0)), Is.EqualTo(amount));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenDecimalScaledBeyondWhatADecimalHolds_RoundTripsThroughSpecificDatumReaderAsAvroDecimal()
+    {
+        // A C# decimal holds at most 28 decimal places, so a wider scale is exchanged in Avro's own
+        // representation rather than converted to a value the runtime could not build.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledOverscaledDecimalWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "amount", "type" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 40, "scale" : 30 } }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledOverscaledDecimalWidget");
+
+        var amount = new AvroDecimal(BigInteger.Parse("123456789012345678901234567890", CultureInfo.InvariantCulture), 30);
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, amount);
+
+        var deserialized = RoundTrip(schema, widget);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("amount")!.PropertyType, Is.EqualTo(typeof(AvroDecimal)));
+            Assert.That(deserialized.Get(0), Is.EqualTo(amount));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenDecimalInProtocolMessage_ExchangesItAsAvroDecimal()
+    {
+        // A message hands its parameters and its response straight to and from the requestor, which
+        // deals in AvroDecimal; there is no generated body in between to convert them.
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "CompiledDecimalService",
+  "namespace" : "{{TestNamespace}}",
+  "types" : [],
+  "messages" : {
+    "convert" : {
+      "request" : [
+        { "name" : "amount", "type" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 2 } },
+        { "name" : "fee", "type" : [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 2 } ] }
+      ],
+      "response" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 10, "scale" : 2 }
+    }
+  }
+}
+""");
+
+        var source = new AvroProtocolGenerator().Generate(protocol, TestNamespace);
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(source, $"{TestNamespace}.CompiledDecimalService");
+        var convert = generatedType.GetMethod("convert")!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(convert.GetParameters()[0].ParameterType, Is.EqualTo(typeof(AvroDecimal)));
+            Assert.That(convert.GetParameters()[1].ParameterType, Is.EqualTo(typeof(AvroDecimal?)));
+            Assert.That(convert.ReturnType, Is.EqualTo(typeof(AvroDecimal)));
         }
     }
 

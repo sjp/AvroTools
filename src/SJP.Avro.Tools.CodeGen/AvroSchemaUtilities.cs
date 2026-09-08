@@ -75,6 +75,29 @@ internal static class AvroSchemaUtilities
         return GetFieldType(schema, containingNamespace, convertDecimals: true);
     }
 
+    /// <summary>
+    /// Determines the C# type a position that exchanges values with Avro exactly as the runtime
+    /// represents them is generated as. It differs from <see cref="GetFieldType(Schema, string)"/> only in a
+    /// decimal, which stays an <see cref="AvroDecimal"/> rather than being converted: a protocol
+    /// message hands its parameters and its response straight to and from the requestor, with no
+    /// generated body in between to convert them.
+    /// </summary>
+    /// <param name="schema">The schema of the position being typed.</param>
+    /// <param name="containingNamespace">
+    /// The namespace the generated type that holds this position is declared in, used to place a
+    /// referenced Avro type that declares no namespace of its own.
+    /// </param>
+    /// <returns>The type syntax for the position.</returns>
+    /// <exception cref="NotSupportedException">
+    /// <paramref name="schema"/> holds a logical type the code generator cannot express as a C#
+    /// type, either because Avro implements it in a form the specific API rejects or because the
+    /// generator has no mapping for it.
+    /// </exception>
+    public static TypeSyntax GetRuntimeFieldType(Schema schema, string containingNamespace)
+    {
+        return GetFieldType(schema, containingNamespace, convertDecimals: false);
+    }
+
     private static TypeSyntax GetFieldType(Schema schema, string containingNamespace, bool convertDecimals)
     {
         var fieldType = GetSimpleFieldType(schema, containingNamespace, convertDecimals);
@@ -151,7 +174,7 @@ internal static class AvroSchemaUtilities
                 + "writer and reader both reject. Store the decimal in 'bytes' instead.");
         }
 
-        return convertDecimals
+        return convertDecimals && IsRepresentableAsDecimal(decimalSchema)
             ? PredefinedType(Token(SyntaxKind.DecimalKeyword))
             : AvroDecimalType;
     }
@@ -211,7 +234,7 @@ internal static class AvroSchemaUtilities
     public static LogicalSchema? GetConvertedDecimalSchema(Schema schema)
     {
         if (schema is LogicalSchema { LogicalTypeName: DecimalLogicalTypeName } decimalSchema)
-            return decimalSchema;
+            return IsRepresentableAsDecimal(decimalSchema) ? decimalSchema : null;
 
         if (schema is not UnionSchema unionSchema)
             return null;
@@ -222,8 +245,27 @@ internal static class AvroSchemaUtilities
 
         return nonNullSchemas.Count == 1
             && nonNullSchemas[0] is LogicalSchema { LogicalTypeName: DecimalLogicalTypeName } branchSchema
-            ? branchSchema
-            : null;
+            && IsRepresentableAsDecimal(branchSchema)
+                ? branchSchema
+                : null;
+    }
+
+    /// <summary>
+    /// The largest scale a C# <c>decimal</c> can hold. Avro puts no such limit on a decimal: it
+    /// admits any scale up to the type's precision.
+    /// </summary>
+    private const int MaxDecimalScale = 28;
+
+    /// <summary>
+    /// Determines whether a decimal schema's values fit the C# <c>decimal</c> type at all. A scale
+    /// beyond what <c>decimal</c> can hold leaves no value to convert, so such a position keeps
+    /// Avro's own <see cref="AvroDecimal"/> representation instead.
+    /// </summary>
+    /// <param name="decimalSchema">A schema whose logical type is <c>decimal</c>.</param>
+    /// <returns><c>true</c> if the schema's values can be carried by a C# <c>decimal</c>.</returns>
+    private static bool IsRepresentableAsDecimal(LogicalSchema decimalSchema)
+    {
+        return GetDecimalScale(decimalSchema) <= MaxDecimalScale;
     }
 
     /// <summary>

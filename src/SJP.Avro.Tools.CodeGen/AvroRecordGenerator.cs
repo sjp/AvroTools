@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Avro;
 using Avro.Specific;
@@ -434,7 +435,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         // A decimal property must be converted back to the AvroDecimal the writer expects.
         var decimalSchema = AvroSchemaUtilities.GetConvertedDecimalSchema(field.Schema);
         var valueExpression = decimalSchema != null
-            ? GenerateGetDecimalCase(propertyName, AvroSchemaUtilities.GetDecimalScale(decimalSchema), AvroSchemaUtilities.IsNullable(field.Schema))
+            ? GenerateGetDecimalCase(field.Name, propertyName, AvroSchemaUtilities.GetDecimalScale(decimalSchema), AvroSchemaUtilities.IsNullable(field.Schema))
             : SyntaxUtilities.SafeIdentifierName(propertyName);
 
         return SwitchExpressionArm(
@@ -446,9 +447,9 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             valueExpression);
     }
 
-    private static ExpressionSyntax GenerateGetDecimalCase(string propertyName, int scale, bool isNullable)
+    private static ExpressionSyntax GenerateGetDecimalCase(string fieldName, string propertyName, int scale, bool isNullable)
     {
-        // Only the non-null branch can be rounded, so a nullable decimal keeps its null as-is.
+        // Only the non-null branch is converted, so a nullable decimal keeps its null as-is.
         var value = isNullable
             ? MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
@@ -456,7 +457,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                 IdentifierName(nameof(Nullable<int>.Value)))
             : (ExpressionSyntax)SyntaxUtilities.SafeIdentifierName(propertyName);
 
-        var conversion = GenerateAvroDecimalCreation(value, scale);
+        var conversion = GenerateAvroDecimalConversion(value, fieldName, scale);
 
         if (!isNullable)
             return conversion;
@@ -472,9 +473,66 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             conversion);
     }
 
-    private static ObjectCreationExpressionSyntax GenerateAvroDecimalCreation(ExpressionSyntax value, int scale)
+    /// <summary>
+    /// Builds the expression that hands a decimal property to Avro. Avro refuses to write an
+    /// <see cref="AvroDecimal"/> whose scale is not the one the schema declares, so a value with
+    /// fewer decimal places is padded out to the schema's scale by adding a zero that carries it.
+    /// A value with more decimal places than the schema can store is reported rather than rounded,
+    /// so that digits are never dropped on the way to the wire.
+    /// </summary>
+    private static ExpressionSyntax GenerateAvroDecimalConversion(ExpressionSyntax value, string fieldName, int scale)
     {
-        return ObjectCreationExpression(
+        var scaleLiteral = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(scale));
+
+        var valueFitsTheScale = BinaryExpression(
+            SyntaxKind.EqualsExpression,
+            InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxUtilities.GlobalName(typeof(Math)),
+                    IdentifierName(nameof(Math.Round))))
+            .WithArgumentList(
+                ArgumentList(
+                    SeparatedList<ArgumentSyntax>(
+                        new SyntaxNodeOrToken[]
+                        {
+                                Argument(value),
+                                Token(SyntaxKind.CommaToken),
+                                Argument(scaleLiteral)
+                        }))),
+            value);
+
+        var scalePadding = ObjectCreationExpression(
+            PredefinedType(
+                Token(SyntaxKind.DecimalKeyword)))
+            .WithArgumentList(
+                ArgumentList(
+                    SeparatedList<ArgumentSyntax>(
+                        new SyntaxNodeOrToken[]
+                        {
+                                Argument(
+                                    LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(0))),
+                                Token(SyntaxKind.CommaToken),
+                                Argument(
+                                    LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(0))),
+                                Token(SyntaxKind.CommaToken),
+                                Argument(
+                                    LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(0))),
+                                Token(SyntaxKind.CommaToken),
+                                Argument(
+                                    LiteralExpression(
+                                        SyntaxKind.FalseLiteralExpression)),
+                                Token(SyntaxKind.CommaToken),
+                                Argument(scaleLiteral)
+                        })));
+
+        var conversion = ObjectCreationExpression(
             AvroSchemaUtilities.AvroDecimalType)
             .WithArgumentList(
                 ArgumentList(
@@ -482,61 +540,36 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                         Argument(
                             BinaryExpression(
                                 SyntaxKind.AddExpression,
-                                InvocationExpression(
-                                    MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxUtilities.GlobalName(typeof(Math)),
-                                        IdentifierName(nameof(Math.Round))))
-                                .WithArgumentList(
-                                    ArgumentList(
-                                        SeparatedList<ArgumentSyntax>(
-                                            new SyntaxNodeOrToken[]
-                                            {
-                                                    Argument(value),
-                                                    Token(SyntaxKind.CommaToken),
-                                                    Argument(
-                                                        LiteralExpression(
-                                                            SyntaxKind.NumericLiteralExpression,
-                                                            Literal(scale))),
-                                                    Token(SyntaxKind.CommaToken),
-                                                    Argument(
-                                                        MemberAccessExpression(
-                                                            SyntaxKind.SimpleMemberAccessExpression,
-                                                            SyntaxUtilities.GlobalName(typeof(MidpointRounding)),
-                                                            IdentifierName(nameof(MidpointRounding.AwayFromZero))))
-                                            }))),
-                                ObjectCreationExpression(
-                                    PredefinedType(
-                                        Token(SyntaxKind.DecimalKeyword)))
-                                .WithArgumentList(
-                                    ArgumentList(
-                                        SeparatedList<ArgumentSyntax>(
-                                            new SyntaxNodeOrToken[]
-                                            {
-                                                    Argument(
-                                                        LiteralExpression(
-                                                            SyntaxKind.NumericLiteralExpression,
-                                                            Literal(0))),
-                                                    Token(SyntaxKind.CommaToken),
-                                                    Argument(
-                                                        LiteralExpression(
-                                                            SyntaxKind.NumericLiteralExpression,
-                                                            Literal(0))),
-                                                    Token(SyntaxKind.CommaToken),
-                                                    Argument(
-                                                        LiteralExpression(
-                                                            SyntaxKind.NumericLiteralExpression,
-                                                            Literal(0))),
-                                                    Token(SyntaxKind.CommaToken),
-                                                    Argument(
-                                                        LiteralExpression(
-                                                            SyntaxKind.FalseLiteralExpression)),
-                                                    Token(SyntaxKind.CommaToken),
-                                                    Argument(
-                                                        LiteralExpression(
-                                                            SyntaxKind.NumericLiteralExpression,
-                                                            Literal(scale)))
-                                            }))))))));
+                                value,
+                                scalePadding)))));
+
+        return ConditionalExpression(
+            valueFitsTheScale,
+            conversion,
+            GenerateDecimalPrecisionLossThrow(value, fieldName, scale));
+    }
+
+    private static ThrowExpressionSyntax GenerateDecimalPrecisionLossThrow(ExpressionSyntax value, string fieldName, int scale)
+    {
+        var message = BinaryExpression(
+            SyntaxKind.AddExpression,
+            BinaryExpression(
+                SyntaxKind.AddExpression,
+                LiteralExpression(
+                    SyntaxKind.StringLiteralExpression,
+                    Literal($"Cannot write field '{fieldName}': the value ")),
+                value),
+            LiteralExpression(
+                SyntaxKind.StringLiteralExpression,
+                Literal($" has more decimal places than the schema's scale of {scale.ToString(CultureInfo.InvariantCulture)}.")));
+
+        return ThrowExpression(
+            ObjectCreationExpression(
+                SyntaxUtilities.GlobalName(typeof(AvroTypeException)))
+            .WithArgumentList(
+                ArgumentList(
+                    SingletonSeparatedList(
+                        Argument(message)))));
     }
 
     private static SwitchExpressionArmSyntax GenerateGetDefaultCaseStatement()

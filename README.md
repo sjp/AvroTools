@@ -1,4 +1,4 @@
-# Avro Tools
+﻿# Avro Tools
 
 [![License (MIT)](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![GitHub Actions](https://github.com/sjp/AvroTools/actions/workflows/ci.yml/badge.svg)](https://github.com/sjp/AvroTools/actions/workflows/ci.yml) [![Code coverage](https://img.shields.io/codecov/c/gh/sjp/AvroTools/master?logo=codecov)](https://codecov.io/gh/sjp/AvroTools)
 
@@ -327,7 +327,7 @@ Logical types map onto their natural C# counterparts, whatever type backs them:
 | `uuid` | `Guid` |
 | `date`, `timestamp-millis`, `timestamp-micros`, `local-timestamp-millis`, `local-timestamp-micros` | `DateTime` |
 | `time-millis`, `time-micros` | `TimeSpan` |
-| `decimal` | `decimal` (`AvroDecimal` inside an `array` or `map`, see below) |
+| `decimal` | `decimal` (`AvroDecimal` where a `decimal` cannot carry the value, see below) |
 
 `Apache.Avro` implements exactly those logical types and hands the value of any other
 one — `duration`, a `*-nanos` variant, or one specific to your own tooling — through
@@ -343,6 +343,20 @@ an optional (`["null", ...]`) decimal field, which are exposed as `decimal` and
 converted element by element: those properties are typed
 `IList<AvroDecimal>` and `IDictionary<string, AvroDecimal>` and are handed to
 Avro as-is.
+
+Avro writes a decimal at exactly the scale its schema declares, so `Get` pads a
+value that has fewer decimal places out to that scale. A value that has more of
+them than the schema stores is not written at all: rounding it would drop digits
+with nothing to say so, so `Get` throws an `AvroTypeException` naming the field.
+
+A C# `decimal` holds at most 28 decimal places, while Avro admits any scale up
+to a decimal's precision. A field whose scale is wider than that is typed
+`AvroDecimal` and exchanged unconverted, the same as one inside a collection.
+
+A protocol message carries every value in the representation `Apache.Avro` uses,
+because the requestor packs the arguments and unpacks the response with no
+generated code in between to convert them. A `decimal` parameter or response is
+therefore typed `AvroDecimal`, and an optional one `AvroDecimal?`.
 
 A logical type may be backed by a named `fixed` rather than a primitive — a
 `duration`, or a `decimal` stored in a `fixed`. The named type is generated

@@ -213,7 +213,7 @@ namespace avro.examples.baseball
                 PlayerField.first_name => first_name,
                 PlayerField.middle_name => middle_name,
                 PlayerField.last_name => last_name,
-                PlayerField.test_num => new global::Avro.AvroDecimal(global::System.Math.Round(test_num, 5, global::System.MidpointRounding.AwayFromZero) + new decimal(0, 0, 0, false, 5)),
+                PlayerField.test_num => global::System.Math.Round(test_num, 5) == test_num ? new global::Avro.AvroDecimal(test_num + new decimal(0, 0, 0, false, 5)) : throw new global::Avro.AvroTypeException("Cannot write field 'test_num': the value " + test_num + " has more decimal places than the schema's scale of 5."),
                 PlayerField.position => position,
                 PlayerField.positionLookup => positionLookup,
                 _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")
@@ -362,7 +362,7 @@ namespace avro.examples.baseball
                 PlayerField.first_name => first_name,
                 PlayerField.middle_name => middle_name,
                 PlayerField.last_name => last_name,
-                PlayerField.test_num => new global::Avro.AvroDecimal(global::System.Math.Round(test_num, 5, global::System.MidpointRounding.AwayFromZero) + new decimal(0, 0, 0, false, 5)),
+                PlayerField.test_num => global::System.Math.Round(test_num, 5) == test_num ? new global::Avro.AvroDecimal(test_num + new decimal(0, 0, 0, false, 5)) : throw new global::Avro.AvroTypeException("Cannot write field 'test_num': the value " + test_num + " has more decimal places than the schema's scale of 5."),
                 PlayerField.position => position,
                 PlayerField.positionLookup => positionLookup,
                 _ => throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()")

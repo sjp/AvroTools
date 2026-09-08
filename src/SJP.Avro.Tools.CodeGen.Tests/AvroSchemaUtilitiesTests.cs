@@ -130,6 +130,30 @@ internal static class AvroSchemaUtilitiesTests
         Assert.That(AvroSchemaUtilities.GetFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
     }
 
+    // A C# decimal holds at most 28 decimal places, while Avro admits any scale up to the type's
+    // precision, so a scale beyond that keeps Avro's own representation.
+    [TestCase(""" { "type" : "bytes", "logicalType" : "decimal", "precision" : 30, "scale" : 28 } """, "decimal")]
+    [TestCase(""" { "type" : "bytes", "logicalType" : "decimal", "precision" : 30, "scale" : 29 } """, "global::Avro.AvroDecimal")]
+    [TestCase(""" [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 40, "scale" : 30 } ] """, "global::Avro.AvroDecimal?")]
+    public static void GetFieldType_GivenDecimalScale_ConvertsOnlyWhatACsharpDecimalCanHold(string json, string expectedType)
+    {
+        var schema = Schema.Parse(json);
+
+        Assert.That(AvroSchemaUtilities.GetFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
+    }
+
+    // A protocol message hands its parameters and its response straight to and from the requestor,
+    // so every value keeps the representation Avro itself uses.
+    [TestCase(""" { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } """, "global::Avro.AvroDecimal")]
+    [TestCase(""" [ "null", { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } ] """, "global::Avro.AvroDecimal?")]
+    [TestCase(""" { "type" : "int", "logicalType" : "date" } """, "global::System.DateTime")]
+    public static void GetRuntimeFieldType_GivenSchema_LeavesADecimalUnconverted(string json, string expectedType)
+    {
+        var schema = Schema.Parse(json);
+
+        Assert.That(AvroSchemaUtilities.GetRuntimeFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
+    }
+
     // A decimal reached through a collection keeps the representation Avro hands to and
     // from the collection's elements, so it is not converted to 'decimal'.
     [TestCase(""" { "type" : "array", "items" : { "type" : "bytes", "logicalType" : "decimal", "precision" : 4, "scale" : 2 } } """, "global::System.Collections.Generic.IList<global::Avro.AvroDecimal>")]
