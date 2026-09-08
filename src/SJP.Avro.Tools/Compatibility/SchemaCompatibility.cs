@@ -91,14 +91,17 @@ public static class SchemaCompatibility
 
         private void Compute(List<Incompatibility> sink, Schema reader, Schema writer, string location)
         {
-            if (reader.Tag == writer.Tag)
+            var readerType = ResolutionType(reader);
+            var writerType = ResolutionType(writer);
+
+            if (readerType == writerType)
             {
-                ComputeSameType(sink, reader, writer, location);
+                ComputeSameType(sink, readerType, reader, writer, location);
                 return;
             }
 
             // A writer union is readable when every branch it can emit is readable by the reader.
-            if (writer.Tag == Schema.Type.Union)
+            if (writerType == Schema.Type.Union)
             {
                 foreach (var writerBranch in ((UnionSchema)writer).Schemas)
                     sink.AddRange(Calculate(reader, writerBranch, location));
@@ -106,19 +109,19 @@ public static class SchemaCompatibility
             }
 
             // A reader union reads a non-union writer if any branch can read it.
-            if (reader.Tag == Schema.Type.Union)
+            if (readerType == Schema.Type.Union)
             {
                 CheckReaderUnion(sink, (UnionSchema)reader, writer, location);
                 return;
             }
 
-            if (!IsPromotable(reader.Tag, writer.Tag))
+            if (!IsPromotable(readerType, writerType))
                 AddTypeMismatch(sink, reader, writer, location);
         }
 
-        private void ComputeSameType(List<Incompatibility> sink, Schema reader, Schema writer, string location)
+        private void ComputeSameType(List<Incompatibility> sink, Schema.Type type, Schema reader, Schema writer, string location)
         {
-            switch (reader.Tag)
+            switch (type)
             {
                 case Schema.Type.Null:
                 case Schema.Type.Boolean:
@@ -149,7 +152,6 @@ public static class SchemaCompatibility
                     break;
 
                 case Schema.Type.Record:
-                case Schema.Type.Error:
                     CheckName(sink, (NamedSchema)reader, (NamedSchema)writer, location);
                     CheckFields(sink, (RecordSchema)reader, (RecordSchema)writer, location);
                     break;
@@ -259,6 +261,15 @@ public static class SchemaCompatibility
 
     private static Schema Unwrap(Schema schema) =>
         schema is LogicalSchema logical ? logical.BaseSchema : schema;
+
+    /// <summary>
+    /// The type a schema is resolved as. A protocol error is a record that carries an error flag:
+    /// it declares fields the same way and resolves against a record field by field, so both are
+    /// resolved as <see cref="Schema.Type.Record"/>, and a type that changes between the two is
+    /// not by itself a mismatch.
+    /// </summary>
+    private static Schema.Type ResolutionType(Schema schema) =>
+        schema.Tag == Schema.Type.Error ? Schema.Type.Record : schema.Tag;
 
     /// <summary>
     /// Matches a reader field to a writer field by the reader field's name, then by each of the

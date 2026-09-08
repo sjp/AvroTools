@@ -119,7 +119,10 @@ public static class SchemaDiff
 
         private void Compute(List<SchemaChange> sink, Schema before, Schema after, string location)
         {
-            if (before.Tag != after.Tag)
+            var beforeType = ComparisonType(before);
+            var afterType = ComparisonType(after);
+
+            if (beforeType != afterType)
             {
                 sink.Add(new SchemaChange(
                     ChangeKind.TypeKindChanged,
@@ -127,11 +130,11 @@ public static class SchemaDiff
                     $"type changed from {before.Tag.ToString().ToUpperInvariant()} to {after.Tag.ToString().ToUpperInvariant()}",
                     oldValue: before.Tag.ToString(),
                     newValue: after.Tag.ToString(),
-                    isValidPromotion: IsPromotable(readerType: after.Tag, writerType: before.Tag)));
+                    isValidPromotion: IsPromotable(readerType: afterType, writerType: beforeType)));
                 return;
             }
 
-            switch (before.Tag)
+            switch (beforeType)
             {
                 case Schema.Type.Null:
                 case Schema.Type.Boolean:
@@ -172,12 +175,14 @@ public static class SchemaDiff
                     break;
 
                 case Schema.Type.Record:
-                case Schema.Type.Error:
                     if (CheckNamedTypeIdentity(sink, (NamedSchema)before, (NamedSchema)after, location))
                     {
                         CompareFields(sink, (RecordSchema)before, (RecordSchema)after, location);
                         if (_includeMetadata)
+                        {
                             CompareNamedTypeMetadata(sink, (NamedSchema)before, (NamedSchema)after, location);
+                            CompareRecordDeclaration(sink, (RecordSchema)before, (RecordSchema)after, location);
+                        }
                     }
 
                     break;
@@ -251,6 +256,27 @@ public static class SchemaDiff
                     newValue: string.Join(", ", afterAliases)));
             }
         }
+
+        /// <summary>
+        /// Reports a record that became a protocol error, or an error that became a plain record.
+        /// Both hold the same fields and read each other's data, so this is not a change of shape,
+        /// but the declaration decides how generated code models the type.
+        /// </summary>
+        private static void CompareRecordDeclaration(List<SchemaChange> sink, RecordSchema before, RecordSchema after, string location)
+        {
+            if (before.Tag == after.Tag)
+                return;
+
+            sink.Add(new SchemaChange(
+                ChangeKind.MetadataChanged,
+                Append(location, "type"),
+                $"declaration changed from {DeclarationKeyword(before)} to {DeclarationKeyword(after)}",
+                oldValue: DeclarationKeyword(before),
+                newValue: DeclarationKeyword(after)));
+        }
+
+        private static string DeclarationKeyword(RecordSchema schema) =>
+            schema.Tag == Schema.Type.Error ? "error" : "record";
 
         private static void CompareFixed(List<SchemaChange> sink, FixedSchema before, FixedSchema after, string location)
         {
@@ -673,6 +699,14 @@ public static class SchemaDiff
 
     private static Schema Unwrap(Schema schema) =>
         schema is LogicalSchema logical ? logical.BaseSchema : schema;
+
+    /// <summary>
+    /// The type a schema is compared as. A protocol error is a record that carries an error flag,
+    /// so both are compared as <see cref="Schema.Type.Record"/> and a type that changed between the
+    /// two is diffed field by field instead of being reported as a wholesale replacement.
+    /// </summary>
+    private static Schema.Type ComparisonType(Schema schema) =>
+        schema.Tag == Schema.Type.Error ? Schema.Type.Record : schema.Tag;
 
     private const string DecimalLogicalTypeName = "decimal";
 

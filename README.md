@@ -478,8 +478,11 @@ It is `null` for changes that aren't type changes.
 Logical types count too: adding, removing or replacing a `logicalType`, or
 changing a decimal's `precision` or `scale`, is reported even though the
 underlying representation is unchanged, because it changes how the data is
-interpreted. Pass `--verbose` to also report `doc`/`aliases` metadata changes
-that don't affect the schema's shape.
+interpreted. A `record` in one version and a protocol `error` in the other hold
+the same fields and read each other's data, so the two are compared field by
+field rather than reported as a wholesale type change. Pass `--verbose` to also
+report metadata changes that don't affect the schema's shape: `doc`, `aliases`,
+an enum's default symbol, and a `record`/`error` declaration that changed.
 
 As with `git diff`, the diff itself is the payload, so both forms of it go to
 standard output and can be redirected or piped:

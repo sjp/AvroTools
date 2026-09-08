@@ -110,6 +110,8 @@ standard input, and fixes a long list of IDL translation and code generation def
   derived from the presence of a `null` branch.
 - Compatibility and diff findings memoised under recursion are re-rooted at each use site,
   so their reported locations are correct.
+- A protocol error and a record are compared field by field rather than reported as a type
+  mismatch, and a type that changed between the two is reported as a metadata change.
 
 ## 0.1.1 and earlier
 

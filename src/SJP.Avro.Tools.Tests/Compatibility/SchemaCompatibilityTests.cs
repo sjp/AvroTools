@@ -327,4 +327,50 @@ internal static class SchemaCompatibilityTests
             }));
         }
     }
+
+    [Test]
+    public static void Check_GivenReaderRecordAndWriterErrorOfSameShape_IsCompatible()
+    {
+        const string writer = """{"type":"error","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenReaderErrorAndWriterRecordOfSameShape_IsCompatible()
+    {
+        const string writer = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"error","name":"R","fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenReaderRecordAndWriterErrorWithAddedField_ReportsTheFieldNotTheType()
+    {
+        const string writer = """{"type":"error","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"},{"name":"b","type":"int"}]}""";
+
+        var result = Check(reader, writer);
+        var incompatibility = result.Incompatibilities.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(incompatibility.Type, Is.EqualTo(SchemaIncompatibilityType.ReaderFieldMissingDefaultValue));
+            Assert.That(incompatibility.Location, Is.EqualTo("/fields/b"));
+        }
+    }
+
+    [Test]
+    public static void Check_GivenReaderEnumAndWriterErrorOfSameName_ReportsTypeMismatch()
+    {
+        const string writer = """{"type":"error","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"enum","name":"R","symbols":["A"]}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.Incompatibilities.Single().Type, Is.EqualTo(SchemaIncompatibilityType.TypeMismatch));
+    }
 }

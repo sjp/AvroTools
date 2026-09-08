@@ -891,4 +891,40 @@ internal static class SchemaDiffTests
             }));
         }
     }
+
+    [Test]
+    public static void Compare_GivenRecordBecameErrorOfSameShape_ReportsMetadataChangedOnlyWhenVerbose()
+    {
+        const string before = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"error","name":"R","fields":[{"name":"a","type":"int"}]}""";
+
+        var quiet = Compare(before, after);
+        var verbose = Compare(before, after, verbose: true);
+        var change = verbose.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(quiet.IsIdentical, Is.True);
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.MetadataChanged));
+            Assert.That(change.Location, Is.EqualTo("/type"));
+            Assert.That(change.OldValue, Is.EqualTo("record"));
+            Assert.That(change.NewValue, Is.EqualTo("error"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenErrorBecameRecordWithAddedField_ReportsTheFieldNotTheTypeKind()
+    {
+        const string before = """{"type":"error","name":"R","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"},{"name":"b","type":"int"}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.FieldAdded));
+            Assert.That(change.Location, Is.EqualTo("/fields/b"));
+        }
+    }
 }
