@@ -7,7 +7,7 @@
         <TreatSpecificWarningsAsErrors />
         <Features>strict</Features>
         <AnalysisLevel>latest</AnalysisLevel>
-        <Copyright>Copyright © Simon Potter 2021-$([System.DateTime]::Now.Year)</Copyright>
+        <Copyright>Copyright © Simon Potter 2021-2026</Copyright>
         <RepositoryUrl>https://github.com/sjp/AvroTools.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <NeutralLanguage>en-US</NeutralLanguage>
@@ -26,6 +26,8 @@
              from an untagged commit is versioned as a pre-release of the next patch. -->
         <MinVerTagPrefix>v</MinVerTagPrefix>
         <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
+
+        <ContinuousIntegrationBuild Condition=" '$(GITHUB_ACTIONS)' == 'true' ">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <ItemGroup>

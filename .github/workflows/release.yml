@@ -43,7 +43,7 @@ jobs:
       working-directory: src
 
     - name: Build
-      run: dotnet build --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
+      run: dotnet build --configuration Release --no-restore
       working-directory: src
 
     - name: Test

@@ -9,12 +9,17 @@ on:
   pull_request:
     branches: [ master ]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
     - uses: actions/checkout@v7
       with:
@@ -35,19 +40,32 @@ jobs:
       working-directory: src
 
     - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal --collect "XPlat Code Coverage"
+      run: dotnet test --configuration Release --no-build --verbosity normal --collect "XPlat Code Coverage" --logger trx --results-directory "${{ github.workspace }}/test-results"
       working-directory: src
 
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: test-results-${{ matrix.os }}
+        path: test-results
+        if-no-files-found: error
+
     - name: Coverage
+      if: matrix.os == 'ubuntu-latest'
       uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+        directory: test-results
+        fail_ci_if_error: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
     - name: Pack
+      if: matrix.os == 'ubuntu-latest'
       run: dotnet pack --configuration Release --no-build
       working-directory: src
 
     - name: Upload packages
+      if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v7
       with:
         name: packages
