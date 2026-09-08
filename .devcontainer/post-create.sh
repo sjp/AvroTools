@@ -28,3 +28,16 @@ npm_root=$(npm root -g)
 if [ -d "$npm_root/@anthropic-ai" ]; then
     sudo chown -R "$(id -u):$(id -g)" "$npm_root/@anthropic-ai"
 fi
+
+# csharp-ls backs Claude Code's C# LSP plugin. It's a plain dotnet global
+# tool under $HOME, not the persisted .claude volume, so it doesn't survive
+# a rebuild and must be reinstalled here for the LSP to work immediately.
+if ! dotnet tool list --global | grep -q '^csharp-ls '; then
+    dotnet tool install --global csharp-ls
+fi
+
+# Make sure the plugin itself is enabled too, in case this is a fresh
+# .claude volume (new machine/contributor) rather than a rebuild of an
+# existing one. Both commands are no-ops if already configured.
+claude plugin marketplace add anthropics/claude-plugins-official
+claude plugin install csharp-lsp@claude-plugins-official -y
