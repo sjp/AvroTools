@@ -365,19 +365,40 @@ an `@` prefix (`@class`, `@event`, `@void`). The prefix is purely lexical: the
 generated member still carries the Avro name, and field positions are unchanged.
 
 C# also forbids a member from sharing its name with the type that declares it, or
-with another member of that type. A field or message whose name collides — with
-its own record or protocol, or with one of the generated members (`Schema`, `Get`,
-`Put`, `Protocol`, `Request`) — is given an underscore suffix:
+with another member of that type, and a member that shares its name with an
+inherited one hides it. A field or message whose name collides is given an
+underscore suffix. Collisions come from the type it is declared in (its own record
+or protocol), the members generated alongside it (`Schema`, `Get`, `Put`,
+`Protocol`, `Request`), the members every type inherits from `object` (`Equals`,
+`GetHashCode`, `ToString`, `GetType` and the rest), the members the compiler
+writes into a C# `record` (`Clone`, `EqualityContract`, `PrintMembers`), and, on
+an error type, the members inherited from `Exception` (`Message`, `Data`,
+`Source`, `HResult`, `StackTrace` and the rest):
 
 ```csharp
 public record Foo : global::Avro.Specific.ISpecificRecord
 {
-    public int Foo_ { get; set; }   // Avro field 'Foo'
+    public int Foo_ { get; set; }       // Avro field 'Foo'
+    public string Message_ { get; set; } // Avro field 'Message'
 }
 ```
 
 The Avro name is untouched: it stays in the embedded schema and in the
 `Get`/`Put` mapping, so the wire format is unaffected.
+
+A record or protocol named after one of the members its interface obliges it to
+carry — a record named `Schema`, `Get` or `Put`, or a protocol named `Protocol`
+or `Request` — keeps its Avro name and implements that one member explicitly, so
+it is reached through `ISpecificRecord` or `ISpecificProtocol` rather than on the
+type itself. The type name is never changed, because Avro resolves a generated
+type by the name its schema gave it whenever it reads a value nested inside
+another.
+
+An error type named `Schema`, `Get` or `Put`, or a `fixed` type named `Schema`,
+is refused, and the input it appears in is reported as a failure. Those types
+derive from `SpecificException` and `SpecificFixed`, whose members are abstract
+and so have to be overridden under exactly those names, which a type of the same
+name cannot do. Renaming the type in the schema is the way out.
 
 Generated files carry no `using` directives. Every type a generated file refers to
 is named in full and rooted in the global namespace — `global::Avro.Specific.ISpecificRecord`,

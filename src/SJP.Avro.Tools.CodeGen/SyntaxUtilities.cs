@@ -244,6 +244,35 @@ internal static class SyntaxUtilities
     }
 
     /// <summary>
+    /// Restates a member as an explicit implementation of an interface member. A generated type
+    /// named after a member it is obliged to carry cannot declare that member ordinarily, because a
+    /// C# type may not declare a member of its own name, but it may still implement it explicitly.
+    /// Doing so keeps the schema's own name on the generated type, which is what Avro looks a type
+    /// up by when it reads a value nested inside another.
+    /// </summary>
+    /// <param name="property">The member as it would be declared were the name free.</param>
+    /// <param name="interfaceType">The interface that declares the member.</param>
+    /// <returns>The same member, implemented explicitly.</returns>
+    public static PropertyDeclarationSyntax AsExplicitImplementation(PropertyDeclarationSyntax property, Type interfaceType)
+    {
+        // An explicit implementation is reached through the interface and takes no accessibility of
+        // its own, so the modifiers the member would otherwise carry are dropped.
+        return property
+            .WithModifiers(TokenList())
+            .WithExplicitInterfaceSpecifier(ExplicitInterfaceSpecifier(GlobalName(interfaceType)));
+    }
+
+    /// <inheritdoc cref="AsExplicitImplementation(PropertyDeclarationSyntax, Type)"/>
+    /// <param name="method">The member as it would be declared were the name free.</param>
+    /// <param name="interfaceType">The interface that declares the member.</param>
+    public static MethodDeclarationSyntax AsExplicitImplementation(MethodDeclarationSyntax method, Type interfaceType)
+    {
+        return method
+            .WithModifiers(TokenList())
+            .WithExplicitInterfaceSpecifier(ExplicitInterfaceSpecifier(GlobalName(interfaceType)));
+    }
+
+    /// <summary>
     /// Creates an identifier name expression for a name taken from an Avro schema, escaping it
     /// where necessary in the same way as <see cref="SafeIdentifier(string)"/>.
     /// </summary>

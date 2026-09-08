@@ -940,4 +940,319 @@ internal static class GeneratedCodeCompilationTests
             Assert.That(deserialized.Get(2).ToString(), Is.EqualTo("Large"));
         }
     }
+
+    [Test]
+    public static void Generate_GivenFieldsNamedAfterRecordMembers_ProducesCompilableSuffixedProperties()
+    {
+        // A generated record inherits members from object and is filled out with more by the
+        // compiler. A field named after one of those is a duplicate definition or hides an
+        // inherited member, so it is the property that gives way.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledRecordMemberWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "Equals", "type" : "string" },
+    { "name" : "GetHashCode", "type" : "int" },
+    { "name" : "ToString", "type" : "string" },
+    { "name" : "GetType", "type" : "string" },
+    { "name" : "Clone", "type" : "string" },
+    { "name" : "EqualityContract", "type" : "string" },
+    { "name" : "PrintMembers", "type" : "string" }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledRecordMemberWidget");
+
+        var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, "eq");
+        instance.Put(1, 7);
+        instance.Put(2, "str");
+        instance.Put(3, "type");
+        instance.Put(4, "clone");
+        instance.Put(5, "contract");
+        instance.Put(6, "print");
+
+        var deserialized = RoundTrip(schema, instance);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("Equals_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("GetHashCode_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("ToString_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("GetType_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("Clone_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("EqualityContract_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("PrintMembers_"), Is.Not.Null);
+            Assert.That(deserialized.Get(0), Is.EqualTo("eq"));
+            Assert.That(deserialized.Get(1), Is.EqualTo(7));
+            Assert.That(deserialized.Get(6), Is.EqualTo("print"));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenErrorFieldsNamedAfterExceptionMembers_ProducesCompilableSuffixedProperties()
+    {
+        // An error is generated as a class deriving from SpecificException, so it carries every
+        // member Exception has. Several of them are ordinary Avro field names.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "error",
+  "name" : "CompiledExceptionMemberFailure",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "Message", "type" : "string" },
+    { "name" : "Data", "type" : "string" },
+    { "name" : "Source", "type" : "string" },
+    { "name" : "HResult", "type" : "int" },
+    { "name" : "StackTrace", "type" : "string" },
+    { "name" : "InnerException", "type" : "string" },
+    { "name" : "TargetSite", "type" : "string" },
+    { "name" : "HelpLink", "type" : "string" }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.CompiledExceptionMemberFailure");
+
+        var instance = (SpecificException)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, "broken");
+        instance.Put(3, 5);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.GetProperty("Message_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("Data_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("Source_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("HResult_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("StackTrace_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("InnerException_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("TargetSite_"), Is.Not.Null);
+            Assert.That(generatedType.GetProperty("HelpLink_"), Is.Not.Null);
+            Assert.That(instance.Get(0), Is.EqualTo("broken"));
+            Assert.That(instance.Get(3), Is.EqualTo(5));
+
+            // The Avro field has not displaced what Exception itself reports.
+            Assert.That(instance.Message, Is.Not.EqualTo("broken"));
+        }
+    }
+
+    [TestCase("Schema")]
+    [TestCase("Get")]
+    [TestCase("Put")]
+    public static void Generate_GivenRecordNamedAfterAnInterfaceMember_KeepsItsAvroName(string typeName)
+    {
+        // Avro looks a generated type up by the name its schema gave it, so the type has to keep
+        // that name. It implements the member it is named after explicitly instead, which a C#
+        // type is allowed to do even where it may not declare a member of its own name.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "{{typeName}}",
+  "namespace" : "{{TestNamespace}}.member",
+  "fields" : [
+    { "name" : "value", "type" : "int" }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.member.{typeName}");
+
+        var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, 11);
+
+        // Reading with no instance to reuse makes Avro resolve the type by its Avro name.
+        var deserialized = RoundTrip(schema, instance);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.Name, Is.EqualTo(typeName));
+            Assert.That(deserialized.Get(0), Is.EqualTo(11));
+            Assert.That(deserialized.Schema.Fullname, Is.EqualTo($"{TestNamespace}.member.{typeName}"));
+        }
+    }
+
+    [TestCase("Protocol")]
+    [TestCase("Request")]
+    public static void Generate_GivenProtocolNamedAfterAnInterfaceMember_KeepsItsAvroName(string typeName)
+    {
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "{{typeName}}",
+  "namespace" : "{{TestNamespace}}.member",
+  "types" : [],
+  "messages" : {
+    "ping" : { "request" : [], "response" : "null" }
+  }
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroProtocolGenerator().Generate(protocol, TestNamespace),
+            $"{TestNamespace}.member.{typeName}");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.Name, Is.EqualTo(typeName));
+            Assert.That(typeof(ISpecificProtocol).IsAssignableFrom(generatedType), Is.True);
+            Assert.That(generatedType.GetMethod("ping"), Is.Not.Null);
+        }
+    }
+
+    [TestCase("Equals")]
+    [TestCase("GetHashCode")]
+    [TestCase("Clone")]
+    [TestCase("EqualityContract")]
+    public static void Generate_GivenMessageNamedAfterARecordMember_ProducesCompilableSuffixedMethod(string messageName)
+    {
+        var protocol = Protocol.Parse($$"""
+{
+  "protocol" : "CompiledMemberService_{{messageName}}",
+  "namespace" : "{{TestNamespace}}",
+  "types" : [],
+  "messages" : {
+    "{{messageName}}" : { "request" : [], "response" : "null" }
+  }
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroProtocolGenerator().Generate(protocol, TestNamespace),
+            $"{TestNamespace}.CompiledMemberService_{messageName}");
+
+        Assert.That(generatedType.GetMethod(messageName + "_"), Is.Not.Null);
+    }
+
+    [Test]
+    public static void Generate_GivenRecordNamedAfterItsSchemaField_ProducesCompilableCode()
+    {
+        // An Avro name may begin with an underscore, so a record can be named after the private
+        // field the generator holds the parsed schema in. The field is the generator's own, so it
+        // is the field that moves aside.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "_schema",
+  "namespace" : "{{TestNamespace}}.member",
+  "fields" : [
+    { "name" : "value", "type" : "int" }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.member._schema");
+
+        var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, 3);
+
+        Assert.That(RoundTrip(schema, instance).Get(0), Is.EqualTo(3));
+    }
+
+    [Test]
+    public static void Generate_GivenFieldNamedAfterTheFieldPositionEnum_ProducesCompilableCode()
+    {
+        // The field position enum is named after the record, so a field of that name pushes the
+        // enum aside; the backing field the init accessor writes through must then avoid both.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledEnumNameWidget",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "CompiledEnumNameWidgetField", "type" : "int" },
+    { "name" : "compiledEnumNameWidgetField", "type" : "string" }
+  ]
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroRecordGenerator().Generate(schema, TestNamespace, new CodeGenOptions(InitOnlyProperties: true)),
+            $"{TestNamespace}.CompiledEnumNameWidget");
+
+        var instance = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        instance.Put(0, 9);
+        instance.Put(1, "here");
+
+        var deserialized = RoundTrip(schema, instance);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(deserialized.Get(0), Is.EqualTo(9));
+            Assert.That(deserialized.Get(1), Is.EqualTo("here"));
+        }
+    }
+
+    [Test]
+    public static void Generate_GivenFixedNamedAfterItsSizeProperty_ProducesCompilableCode()
+    {
+        var schema = (FixedSchema)Schema.Parse($$"""
+{
+    "type": "fixed",
+    "name": "FixedSize",
+    "namespace": "{{TestNamespace}}.member",
+    "size": 8
+}
+""");
+
+        var generatedType = GeneratedSourceCompiler.CompileAndGetType(
+            new AvroFixedGenerator().Generate(schema, TestNamespace),
+            $"{TestNamespace}.member.FixedSize");
+
+        var instance = (SpecificFixed)Activator.CreateInstance(generatedType)!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(generatedType.Name, Is.EqualTo("FixedSize"));
+            Assert.That(instance.Value, Has.Length.EqualTo(8));
+        }
+    }
+
+    [TestCase("Schema")]
+    [TestCase("Get")]
+    [TestCase("Put")]
+    public static void Generate_GivenErrorNamedAfterAnAbstractBaseMember_ReportsThatItCannotBeGenerated(string typeName)
+    {
+        // An error derives from SpecificException, whose Schema, Get and Put are abstract, so it
+        // has to declare members of those names. Renaming the type instead would break the lookup
+        // Avro does by name, so the schema is refused rather than generated wrong.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "error",
+  "name" : "{{typeName}}",
+  "namespace" : "{{TestNamespace}}.member",
+  "fields" : []
+}
+""");
+
+        var generator = new AvroRecordGenerator();
+
+        Assert.That(() => generator.Generate(schema, TestNamespace), Throws.TypeOf<NotSupportedException>());
+    }
+
+    [Test]
+    public static void Generate_GivenFixedNamedAfterItsSchemaProperty_ReportsThatItCannotBeGenerated()
+    {
+        var schema = (FixedSchema)Schema.Parse($$"""
+{
+    "type": "fixed",
+    "name": "Schema",
+    "namespace": "{{TestNamespace}}.member",
+    "size": 4
+}
+""");
+
+        var generator = new AvroFixedGenerator();
+
+        Assert.That(() => generator.Generate(schema, TestNamespace), Throws.TypeOf<NotSupportedException>());
+    }
 }

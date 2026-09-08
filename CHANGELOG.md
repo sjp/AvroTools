@@ -50,6 +50,21 @@ version out of this file and fails if there is no section for it.
 - `diff` matches a union branch renamed through an alias to the branch it replaces, so the
   rename and the changes inside the branch are reported instead of one branch removed and
   an unrelated one added.
+- `codegen` suffixes a field or message named after a member the generated type inherits or
+  the compiler writes into it — `Equals`, `ToString`, `PrintMembers`, `EqualityContract`, and
+  on an error type `Message`, `Data`, `Source` and the rest of `Exception` — which previously
+  produced a duplicate definition or hid an inherited member.
+- `codegen` generates a record named `Schema`, `Get` or `Put`, or a protocol named `Protocol`
+  or `Request`, by implementing that one member explicitly. Such a type previously produced
+  code that did not compile, because a C# type may not declare a member of its own name; it
+  keeps its Avro name, which is what Avro resolves a nested value's type by.
+- `codegen` moves its own members aside for a type named after one of them, so a record named
+  `_schema` or a `fixed` named `FixedSize` is generated, and reports an error type named
+  `Schema`, `Get` or `Put`, or a `fixed` type named `Schema`, as unsupported rather than
+  emitting code that does not compile.
+- `codegen` keeps the field position enum, its local in `Get`/`Put`, and the backing fields
+  behind init-only properties apart from one another, so a record with a field named after
+  its own field position enum compiles.
 
 ## 0.2.0
 

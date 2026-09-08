@@ -38,12 +38,25 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 
         var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
-        var protocolField = AvroSchemaUtilities.CreateProtocolDefinition(AvroSchemaUtilities.ToPortableJson(protocol.ToString()));
-        var protocolProperty = AvroSchemaUtilities.CreateProtocolProperty();
+        var typeName = protocol.Name;
+        var protocolFieldName = ReservedNames.MakeAvailable(
+            AvroSchemaUtilities.ProtocolFieldName,
+            new HashSet<string>(StringComparer.Ordinal) { typeName });
+
+        var protocolField = AvroSchemaUtilities.CreateProtocolDefinition(AvroSchemaUtilities.ToPortableJson(protocol.ToString()), protocolFieldName);
+        var protocolProperty = AvroSchemaUtilities.CreateProtocolProperty(protocolFieldName);
 
         var requestMethod = BuildRequestMethod(protocol, ns);
 
-        var methodNames = BuildMethodNames(protocol);
+        // A C# type may not declare a member of its own name, so a protocol named after one of the
+        // two members ISpecificProtocol obliges it to carry implements that member explicitly
+        // instead. The protocol keeps the name the Avro definition gave it either way.
+        if (string.Equals(typeName, AvroSchemaUtilities.ProtocolMemberName, StringComparison.Ordinal))
+            protocolProperty = SyntaxUtilities.AsExplicitImplementation(protocolProperty, typeof(ISpecificProtocol));
+        if (string.Equals(typeName, nameof(ISpecificProtocol.Request), StringComparison.Ordinal))
+            requestMethod = SyntaxUtilities.AsExplicitImplementation(requestMethod, typeof(ISpecificProtocol));
+
+        var methodNames = BuildMethodNames(protocol, typeName, protocolFieldName);
         var messageMethods = protocol.Messages.Values
             .Select(m => BuildMethod(m, methodNames[m.Name], ns))
             .ToList();
@@ -56,7 +69,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         }.Concat(messageMethods)
         .ToList();
 
-        var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), SyntaxUtilities.SafeIdentifier(protocol.Name))
+        var generatedRecord = RecordDeclaration(Token(SyntaxKind.RecordKeyword), SyntaxUtilities.SafeIdentifier(typeName))
             .AddModifiers(
                 Token(SyntaxKind.PublicKeyword),
                 Token(SyntaxKind.AbstractKeyword))
@@ -81,27 +94,29 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 
     /// <summary>
     /// Computes the C# method name for each message. A method may not share its name with the type
-    /// that declares it, nor with the other members generated alongside it, so a message with one of
-    /// those names gets an underscore-suffixed method. The Avro name is unaffected: it stays in the
+    /// that declares it, nor with the other members generated alongside it, nor with a member the
+    /// generated record inherits or the compiler writes into it, so a message with one of those
+    /// names gets an underscore-suffixed method. The Avro name is unaffected: it stays in the
     /// protocol and in the <c>Request</c> dispatch.
     /// </summary>
-    private static IReadOnlyDictionary<string, string> BuildMethodNames(Protocol protocol)
+    private static IReadOnlyDictionary<string, string> BuildMethodNames(Protocol protocol, string typeName, string protocolFieldName)
     {
         var unavailableNames = new HashSet<string>(StringComparer.Ordinal)
         {
-            protocol.Name,
-            "_protocol",
-            nameof(Protocol),
+            typeName,
+            protocolFieldName,
+            AvroSchemaUtilities.ProtocolMemberName,
             nameof(ISpecificProtocol.Request)
         };
+
+        unavailableNames.UnionWith(ReservedNames.ObjectMembers);
+        unavailableNames.UnionWith(ReservedNames.RecordMembers);
 
         var methodNames = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var message in protocol.Messages.Values)
         {
-            var candidate = message.Name;
-            while (unavailableNames.Contains(candidate))
-                candidate += "_";
+            var candidate = ReservedNames.MakeAvailable(message.Name, unavailableNames);
 
             methodNames[message.Name] = candidate;
             unavailableNames.Add(candidate);

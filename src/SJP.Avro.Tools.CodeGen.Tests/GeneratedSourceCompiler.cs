@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -39,12 +40,28 @@ internal static class GeneratedSourceCompiler
         using var assemblyStream = new MemoryStream();
         var emitResult = compilation.Emit(assemblyStream);
 
-        Assert.That(emitResult.Success, Is.True, () => string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString())));
+        Assert.That(emitResult.Success, Is.True, () => string.Join(Environment.NewLine, emitResult.Diagnostics.Select(static d => d.ToString())));
+
+        // A member that hides an inherited one is only a warning, but it is fatal to anyone who
+        // builds the generated code with warnings treated as errors, so it fails here too.
+        var hiddenMembers = emitResult.Diagnostics
+            .Where(static d => HidingDiagnosticIds.Contains(d.Id))
+            .ToList();
+
+        Assert.That(hiddenMembers, Is.Empty, () => string.Join(Environment.NewLine, hiddenMembers.Select(static d => d.ToString())));
 
         // Loading into the default context keeps the generated types visible to Avro's
         // ObjectCreator, which resolves specific types by name across loaded assemblies.
         return Assembly.Load(assemblyStream.ToArray());
     }
+
+    /// <summary>
+    /// The diagnostics the compiler raises when a declared member hides one it inherits:
+    /// hiding without <c>new</c>, hiding a virtual member without <c>override</c>, and a
+    /// <c>new</c> that hides nothing.
+    /// </summary>
+    private static readonly IReadOnlySet<string> HidingDiagnosticIds =
+        new HashSet<string>(StringComparer.Ordinal) { "CS0108", "CS0109", "CS0114" };
 
     /// <summary>
     /// Compiles generated source and returns one of the types it declares.

@@ -33,6 +33,30 @@ internal static class AvroSchemaUtilities
     public static readonly NameSyntax AvroProtocolType = SyntaxUtilities.GlobalName(typeof(Protocol));
 
     /// <summary>
+    /// The name of the property that hands out the schema a generated record, error or fixed type
+    /// was built from. It is fixed by <c>ISpecificRecord</c> and by the Avro base types.
+    /// </summary>
+    public const string SchemaMemberName = "Schema";
+
+    /// <summary>
+    /// The name of the property that hands out the protocol a generated protocol type was built
+    /// from. It is fixed by <c>ISpecificProtocol</c>.
+    /// </summary>
+    public const string ProtocolMemberName = "Protocol";
+
+    /// <summary>
+    /// The name of the field holding the parsed schema, before anything else in the generated type
+    /// lays claim to it.
+    /// </summary>
+    public const string SchemaFieldName = "_schema";
+
+    /// <summary>
+    /// The name of the field holding the parsed protocol, before anything else in the generated
+    /// type lays claim to it.
+    /// </summary>
+    public const string ProtocolFieldName = "_protocol";
+
+    /// <summary>
     /// Determines the C# type a record field, message parameter or message response is generated as.
     /// </summary>
     /// <param name="schema">The schema of the position being typed.</param>
@@ -328,7 +352,7 @@ internal static class AvroSchemaUtilities
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    public static FieldDeclarationSyntax CreateProtocolDefinition(string json)
+    public static FieldDeclarationSyntax CreateProtocolDefinition(string json, string fieldName)
     {
         return FieldDeclaration(
             VariableDeclaration(
@@ -336,7 +360,7 @@ internal static class AvroSchemaUtilities
             .WithVariables(
                 SingletonSeparatedList(
                     VariableDeclarator(
-                        Identifier("_protocol"))
+                        Identifier(fieldName))
                     .WithInitializer(
                         EqualsValueClause(
                             InvocationExpression(
@@ -358,11 +382,11 @@ internal static class AvroSchemaUtilities
                         Token(SyntaxKind.ReadOnlyKeyword)));
     }
 
-    public static PropertyDeclarationSyntax CreateProtocolProperty()
+    public static PropertyDeclarationSyntax CreateProtocolProperty(string fieldName)
     {
         return PropertyDeclaration(
                 AvroProtocolType,
-                Identifier("Protocol"))
+                Identifier(ProtocolMemberName))
             .WithModifiers(
                 TokenList(
                     Token(SyntaxKind.PublicKeyword)))
@@ -375,13 +399,13 @@ internal static class AvroSchemaUtilities
                             Token(SyntaxKind.SemicolonToken)))))
             .WithInitializer(
                 EqualsValueClause(
-                    IdentifierName("_protocol")))
+                    IdentifierName(fieldName)))
             .WithSemicolonToken(
                 Token(SyntaxKind.SemicolonToken))
             .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));
     }
 
-    public static FieldDeclarationSyntax CreateSchemaDefinition(string json)
+    public static FieldDeclarationSyntax CreateSchemaDefinition(string json, string fieldName)
     {
         return FieldDeclaration(
             VariableDeclaration(
@@ -389,7 +413,7 @@ internal static class AvroSchemaUtilities
             .WithVariables(
                 SingletonSeparatedList(
                     VariableDeclarator(
-                        Identifier("_schema"))
+                        Identifier(fieldName))
                     .WithInitializer(
                         EqualsValueClause(
                             InvocationExpression(
@@ -411,11 +435,11 @@ internal static class AvroSchemaUtilities
                         Token(SyntaxKind.ReadOnlyKeyword)));
     }
 
-    public static PropertyDeclarationSyntax CreateSchemaProperty()
+    public static PropertyDeclarationSyntax CreateSchemaProperty(string fieldName)
     {
         return PropertyDeclaration(
                 AvroSchemaType,
-                Identifier("Schema"))
+                Identifier(SchemaMemberName))
             .WithModifiers(
                 TokenList(
                     Token(SyntaxKind.PublicKeyword)))
@@ -428,7 +452,7 @@ internal static class AvroSchemaUtilities
                             Token(SyntaxKind.SemicolonToken)))))
             .WithInitializer(
                 EqualsValueClause(
-                    IdentifierName("_schema")))
+                    IdentifierName(fieldName)))
             .WithSemicolonToken(
                 Token(SyntaxKind.SemicolonToken))
             .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
 using Microsoft.CodeAnalysis;
@@ -23,23 +24,41 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
     /// <returns>A string representing a C# file containing a class definition.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace and <paramref name="schema"/> does not declare a namespace.</exception>
+    /// <exception cref="NotSupportedException"><paramref name="schema"/> is named after a member its generated class is obliged to declare.</exception>
     public string Generate(FixedSchema schema, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(baseNamespace);
 
+        var typeName = schema.Name;
+
+        if (string.Equals(typeName, AvroSchemaUtilities.SchemaMemberName, StringComparison.Ordinal))
+        {
+            throw new NotSupportedException(
+                $"The fixed type '{schema.Fullname}' cannot be generated. A fixed type is generated as a class deriving "
+                + $"from {typeof(SpecificFixed).FullName}, which obliges it to declare a member named "
+                + $"{AvroSchemaUtilities.SchemaMemberName}, and a C# type may not declare a member of its own name. "
+                + "Rename the type in the schema.");
+        }
+
         var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, baseNamespace, schema.Fullname);
 
         var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
-        var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString());
-        var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty()
+        // The schema field and the size property are the generator's own, so where the fixed type
+        // is named after one of them it is the member that gives way, not the type.
+        var reservedNames = new HashSet<string>(StringComparer.Ordinal) { typeName };
+        var schemaFieldName = ReservedNames.MakeAvailable(AvroSchemaUtilities.SchemaFieldName, reservedNames);
+        var fixedSizeName = ReservedNames.MakeAvailable(FixedSizePropertyName, reservedNames);
+
+        var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(schema.ToString(), schemaFieldName);
+        var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty(schemaFieldName)
             .WithModifiers(
                 TokenList(
                     Token(SyntaxKind.PublicKeyword),
                     Token(SyntaxKind.OverrideKeyword)));
-        var fixedSizeProp = CreateFixedSizeProperty(schema.Size);
-        var ctor = CreateConstructor(schema.Name);
+        var fixedSizeProp = CreateFixedSizeProperty(schema.Size, fixedSizeName);
+        var ctor = CreateConstructor(typeName, fixedSizeName);
 
         var members = new MemberDeclarationSyntax[]
         {
@@ -49,7 +68,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
                 ctor
         };
 
-        var generatedClass = ClassDeclaration(SyntaxUtilities.SafeIdentifier(schema.Name))
+        var generatedClass = ClassDeclaration(SyntaxUtilities.SafeIdentifier(typeName))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
             .AddBaseListTypes(SimpleBaseType(SyntaxUtilities.GlobalName(typeof(SpecificFixed))))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
@@ -70,7 +89,13 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
         return Formatter.Format(document, workspace).ToFullString();
     }
 
-    private static ConstructorDeclarationSyntax CreateConstructor(string className)
+    /// <summary>
+    /// The name of the property that states how many bytes the fixed type holds, before the type's
+    /// own name lays claim to it.
+    /// </summary>
+    private const string FixedSizePropertyName = "FixedSize";
+
+    private static ConstructorDeclarationSyntax CreateConstructor(string className, string fixedSizeName)
     {
         return ConstructorDeclaration(
             SyntaxUtilities.SafeIdentifier(className))
@@ -83,15 +108,15 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
                     ArgumentList(
                         SingletonSeparatedList(
                             Argument(
-                                IdentifierName("FixedSize"))))))
+                                IdentifierName(fixedSizeName))))))
             .WithBody(Block());
     }
 
-    private static PropertyDeclarationSyntax CreateFixedSizeProperty(int size)
+    private static PropertyDeclarationSyntax CreateFixedSizeProperty(int size, string fixedSizeName)
     {
         return PropertyDeclaration(
             PredefinedType(Token(SyntaxKind.UIntKeyword)),
-                Identifier("FixedSize"))
+                Identifier(fixedSizeName))
             .WithModifiers(
                 TokenList(
                     Token(SyntaxKind.PublicKeyword),

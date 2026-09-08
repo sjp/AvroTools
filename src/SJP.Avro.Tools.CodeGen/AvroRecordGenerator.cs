@@ -28,6 +28,7 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     /// <returns>A string representing a C# file containing a class definition.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="baseNamespace"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="baseNamespace"/> is empty or whitespace and <paramref name="schema"/> does not declare a namespace.</exception>
+    /// <exception cref="NotSupportedException"><paramref name="schema"/> is an error type named after a member its generated class is obliged to declare.</exception>
     public string Generate(RecordSchema schema, string baseNamespace, CodeGenOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
@@ -36,12 +37,33 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         options ??= CodeGenOptions.Default;
 
         var isError = schema.Tag == Schema.Type.Error;
+        var typeName = schema.Name;
+
+        if (isError && UnavoidableErrorMemberNames.Contains(typeName))
+        {
+            throw new NotSupportedException(
+                $"The error type '{schema.Fullname}' cannot be generated. An error is generated as a class deriving from "
+                + $"{typeof(SpecificException).FullName}, which obliges it to declare members named "
+                + $"{AvroSchemaUtilities.SchemaMemberName}, {nameof(ISpecificRecord.Get)} and {nameof(ISpecificRecord.Put)}, "
+                + "and a C# type may not declare a member of its own name. Rename the type in the schema.");
+        }
+
         var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, baseNamespace, schema.Fullname);
 
         var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
-        var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(AvroSchemaUtilities.ToPortableJson(schema.ToString()));
-        var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty();
+        // Every name the generated type carries is settled before anything is emitted, because each
+        // one narrows what the next may be called.
+        var schemaFieldName = ReservedNames.MakeAvailable(
+            AvroSchemaUtilities.SchemaFieldName,
+            new HashSet<string>(StringComparer.Ordinal) { typeName });
+        var fieldEnumName = GetFieldEnumName(schema, typeName, schemaFieldName);
+        var propertyNames = BuildPropertyNames(schema, isError, typeName, schemaFieldName, fieldEnumName);
+        var backingFieldNames = BuildBackingFieldNames(schema, typeName, schemaFieldName, fieldEnumName, propertyNames);
+        var localEnumName = GetLocalFieldEnumName(schema, typeName, schemaFieldName, fieldEnumName, propertyNames, backingFieldNames);
+
+        var schemaField = AvroSchemaUtilities.CreateSchemaDefinition(AvroSchemaUtilities.ToPortableJson(schema.ToString()), schemaFieldName);
+        var schemaProperty = AvroSchemaUtilities.CreateSchemaProperty(schemaFieldName);
 
         if (isError)
         {
@@ -51,16 +73,34 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                          Token(SyntaxKind.PublicKeyword),
                          Token(SyntaxKind.OverrideKeyword)));
         }
-
-        var fieldEnumName = GetFieldEnumName(schema);
-        var propertyNames = BuildPropertyNames(schema, fieldEnumName);
-        var backingFieldNames = BuildBackingFieldNames(schema, propertyNames);
+        else if (string.Equals(typeName, AvroSchemaUtilities.SchemaMemberName, StringComparison.Ordinal))
+        {
+            schemaProperty = SyntaxUtilities.AsExplicitImplementation(schemaProperty, typeof(ISpecificRecord));
+        }
 
         var properties = schema.Fields
             .SelectMany(c => BuildField(c, propertyNames[c.Name], backingFieldNames[c.Name], ns, options));
 
-        var getMethod = GenerateGetMethod(schema, propertyNames);
-        var putMethod = GeneratePutMethod(schema, propertyNames, backingFieldNames, ns, options);
+        var getMethod = GenerateGetMethod(schema, propertyNames, fieldEnumName, localEnumName);
+        var putMethod = GeneratePutMethod(schema, propertyNames, backingFieldNames, fieldEnumName, localEnumName, ns, options);
+
+        if (isError)
+        {
+            var overrideModifiers = TokenList(
+                Token(SyntaxKind.PublicKeyword),
+                Token(SyntaxKind.OverrideKeyword));
+
+            getMethod = getMethod.WithModifiers(overrideModifiers);
+            putMethod = putMethod.WithModifiers(overrideModifiers);
+        }
+        else
+        {
+            if (string.Equals(typeName, nameof(ISpecificRecord.Get), StringComparison.Ordinal))
+                getMethod = SyntaxUtilities.AsExplicitImplementation(getMethod, typeof(ISpecificRecord));
+            if (string.Equals(typeName, nameof(ISpecificRecord.Put), StringComparison.Ordinal))
+                putMethod = SyntaxUtilities.AsExplicitImplementation(putMethod, typeof(ISpecificRecord));
+        }
+
         var enumDecl = GenerateFieldMappingEnum(schema, fieldEnumName);
 
         var members = new MemberDeclarationSyntax[]
@@ -78,8 +118,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         var baseType = SyntaxUtilities.GlobalName(isError ? typeof(SpecificException) : typeof(ISpecificRecord));
 
         TypeDeclarationSyntax generatedType = isError
-            ? ClassDeclaration(SyntaxUtilities.SafeIdentifier(schema.Name))
-            : RecordDeclaration(Token(SyntaxKind.RecordKeyword), SyntaxUtilities.SafeIdentifier(schema.Name));
+            ? ClassDeclaration(SyntaxUtilities.SafeIdentifier(typeName))
+            : RecordDeclaration(Token(SyntaxKind.RecordKeyword), SyntaxUtilities.SafeIdentifier(typeName));
 
         generatedType = generatedType
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
@@ -191,35 +231,57 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
     }
 
     /// <summary>
+    /// The members <c>SpecificException</c> declares as abstract. A generated error type is a class
+    /// deriving from it, so it has to override them under exactly these names; an error named after
+    /// one of them therefore cannot be generated at all.
+    /// </summary>
+    private static readonly IReadOnlySet<string> UnavoidableErrorMemberNames = new HashSet<string>(StringComparer.Ordinal)
+    {
+        AvroSchemaUtilities.SchemaMemberName,
+        nameof(ISpecificRecord.Get),
+        nameof(ISpecificRecord.Put)
+    };
+
+    /// <summary>
     /// Computes the C# property name for each Avro field. A member may not share its name with the
     /// type that declares it, nor with the other members generated alongside the properties, nor
     /// with the parameters of <c>Get</c>/<c>Put</c> (which would otherwise shadow it inside those
     /// method bodies, so that reads returned the index and writes assigned the parameter to
-    /// itself), so a field with one of those names gets an underscore-suffixed property. The Avro
-    /// name is unaffected: it stays in the schema, in the field position enum and in the
-    /// <c>Get</c>/<c>Put</c> switches.
+    /// itself), nor with a member the generated type inherits or the compiler writes into it, so a
+    /// field with one of those names gets an underscore-suffixed property. The Avro name is
+    /// unaffected: it stays in the schema, in the field position enum and in the <c>Get</c>/
+    /// <c>Put</c> switches.
     /// </summary>
-    private static IReadOnlyDictionary<string, string> BuildPropertyNames(RecordSchema recordSchema, string fieldEnumName)
+    private static IReadOnlyDictionary<string, string> BuildPropertyNames(
+        RecordSchema recordSchema,
+        bool isError,
+        string typeName,
+        string schemaFieldName,
+        string fieldEnumName)
     {
         var unavailableNames = new HashSet<string>(StringComparer.Ordinal)
         {
-            recordSchema.Name,
+            typeName,
             fieldEnumName,
-            "_schema",
-            nameof(Schema),
+            schemaFieldName,
+            AvroSchemaUtilities.SchemaMemberName,
             nameof(ISpecificRecord.Get),
             nameof(ISpecificRecord.Put),
             FieldPosParameterName,
             FieldValueParameterName
         };
 
+        unavailableNames.UnionWith(ReservedNames.ObjectMembers);
+
+        // An error is generated as a class deriving from SpecificException; every other record is
+        // generated as a C# record, which the compiler fills out with members of its own.
+        unavailableNames.UnionWith(isError ? ReservedNames.ExceptionMembers : ReservedNames.RecordMembers);
+
         var propertyNames = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var field in recordSchema.Fields)
         {
-            var candidate = field.Name;
-            while (unavailableNames.Contains(candidate))
-                candidate += "_";
+            var candidate = ReservedNames.MakeAvailable(field.Name, unavailableNames);
 
             propertyNames[field.Name] = candidate;
             unavailableNames.Add(candidate);
@@ -230,13 +292,22 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
 
     /// <summary>
     /// Computes a unique backing field name per field, avoiding collisions with the generated
-    /// property names, the hardcoded <c>_schema</c> field emitted by
-    /// <see cref="AvroSchemaUtilities.CreateSchemaDefinition"/>, and backing field names already
-    /// claimed by other fields in this same record.
+    /// property names, the type's own name, the field holding the parsed schema, the field position
+    /// enum, and backing field names already claimed by other fields in this same record.
     /// </summary>
-    private static IReadOnlyDictionary<string, string> BuildBackingFieldNames(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames)
+    private static IReadOnlyDictionary<string, string> BuildBackingFieldNames(
+        RecordSchema recordSchema,
+        string typeName,
+        string schemaFieldName,
+        string fieldEnumName,
+        IReadOnlyDictionary<string, string> propertyNames)
     {
-        var reservedNames = new HashSet<string>(propertyNames.Values, StringComparer.Ordinal) { "_schema" };
+        var reservedNames = new HashSet<string>(propertyNames.Values, StringComparer.Ordinal)
+        {
+            typeName,
+            schemaFieldName,
+            fieldEnumName
+        };
         var backingFieldNames = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var field in recordSchema.Fields)
@@ -252,10 +323,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         return backingFieldNames;
     }
 
-    private static MethodDeclarationSyntax GenerateGetMethod(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames)
+    private static MethodDeclarationSyntax GenerateGetMethod(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames, string enumName, string localEnumVarName)
     {
-        var isError = recordSchema.Tag == Schema.Type.Error;
-
         var parameterList = ParameterList(
             SingletonSeparatedList(
                 Parameter(
@@ -263,9 +332,6 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                 .WithType(
                     PredefinedType(
                         Token(SyntaxKind.IntKeyword)))));
-
-        var enumName = GetFieldEnumName(recordSchema);
-        var localEnumVarName = GetLocalFieldEnumName(recordSchema);
 
         var intToEnumAssignment = LocalDeclarationStatement(
             VariableDeclaration(
@@ -292,18 +358,11 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             .Concat([GenerateGetDefaultCaseStatement()])
             .ToList();
 
-        var modifiers = isError
-            ? TokenList(
-                    Token(SyntaxKind.PublicKeyword),
-                    Token(SyntaxKind.OverrideKeyword))
-            : TokenList(
-                    Token(SyntaxKind.PublicKeyword));
-
         return MethodDeclaration(
                 PredefinedType(
                     Token(SyntaxKind.ObjectKeyword)),
                 Identifier(nameof(ISpecificRecord.Get)))
-            .WithModifiers(modifiers)
+            .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
             .WithParameterList(parameterList)
             .WithBody(
                 Block(
@@ -315,10 +374,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                             SeparatedList(fieldCaseStatements)))));
     }
 
-    private static MethodDeclarationSyntax GeneratePutMethod(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames, IReadOnlyDictionary<string, string> backingFieldNames, string containingNamespace, CodeGenOptions options)
+    private static MethodDeclarationSyntax GeneratePutMethod(RecordSchema recordSchema, IReadOnlyDictionary<string, string> propertyNames, IReadOnlyDictionary<string, string> backingFieldNames, string enumName, string localEnumVarName, string containingNamespace, CodeGenOptions options)
     {
-        var isError = recordSchema.Tag == Schema.Type.Error;
-
         var parameterList = ParameterList(
             SeparatedList<ParameterSyntax>(
                 new SyntaxNodeOrToken[]
@@ -335,9 +392,6 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                                 PredefinedType(
                                     Token(SyntaxKind.ObjectKeyword)))
                 }));
-
-        var enumName = GetFieldEnumName(recordSchema);
-        var localEnumVarName = GetLocalFieldEnumName(recordSchema);
 
         var intToEnumAssignment = LocalDeclarationStatement(
             VariableDeclaration(
@@ -364,18 +418,11 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             .Concat([GeneratePutDefaultCaseStatement()])
             .ToList();
 
-        var modifiers = isError
-            ? TokenList(
-                    Token(SyntaxKind.PublicKeyword),
-                    Token(SyntaxKind.OverrideKeyword))
-            : TokenList(
-                    Token(SyntaxKind.PublicKeyword));
-
         return MethodDeclaration(
                 PredefinedType(
                     Token(SyntaxKind.VoidKeyword)),
                 Identifier(nameof(ISpecificRecord.Put)))
-            .WithModifiers(modifiers)
+            .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
             .WithParameterList(parameterList)
             .WithBody(
                 Block(
@@ -646,25 +693,58 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
     }
 
-    private static string GetFieldEnumName(RecordSchema recordSchema)
+    /// <summary>
+    /// Names the nested enum that maps a field position onto a field. It is declared alongside the
+    /// properties, so it has to differ from every name the record already spends.
+    /// </summary>
+    private static string GetFieldEnumName(RecordSchema recordSchema, string typeName, string schemaFieldName)
     {
-        var candidate = char.ToUpper(recordSchema.Name[0])
-            + recordSchema.Name[1..]
+        var candidate = char.ToUpper(typeName[0])
+            + typeName[1..]
             + "Field";
 
-        while (recordSchema.Fields.Any(f => f.Name == candidate))
+        var reservedNames = new HashSet<string>(recordSchema.Fields.Select(static f => f.Name), StringComparer.Ordinal)
+        {
+            typeName,
+            schemaFieldName
+        };
+
+        while (reservedNames.Contains(candidate))
             candidate = "_" + candidate;
 
         return candidate;
     }
 
-    private static string GetLocalFieldEnumName(RecordSchema recordSchema)
+    /// <summary>
+    /// Names the local that <c>Get</c> and <c>Put</c> convert the field position into. A local
+    /// shadows anything of the same name for the rest of the method body, so it has to differ from
+    /// every member those bodies go on to read or assign.
+    /// </summary>
+    private static string GetLocalFieldEnumName(
+        RecordSchema recordSchema,
+        string typeName,
+        string schemaFieldName,
+        string fieldEnumName,
+        IReadOnlyDictionary<string, string> propertyNames,
+        IReadOnlyDictionary<string, string> backingFieldNames)
     {
-        var candidate = char.ToLower(recordSchema.Name[0])
-            + recordSchema.Name[1..]
+        var candidate = char.ToLower(typeName[0])
+            + typeName[1..]
             + "Field";
 
-        while (recordSchema.Fields.Any(f => f.Name == candidate))
+        var reservedNames = new HashSet<string>(recordSchema.Fields.Select(static f => f.Name), StringComparer.Ordinal)
+        {
+            typeName,
+            schemaFieldName,
+            fieldEnumName,
+            FieldPosParameterName,
+            FieldValueParameterName
+        };
+
+        reservedNames.UnionWith(propertyNames.Values);
+        reservedNames.UnionWith(backingFieldNames.Values);
+
+        while (reservedNames.Contains(candidate))
             candidate = "_" + candidate;
 
         return candidate;
