@@ -1,5 +1,6 @@
 ﻿using System;
 using Avro;
+using Avro.Util;
 using NUnit.Framework;
 
 namespace SJP.Avro.Tools.CodeGen.Tests;
@@ -170,6 +171,20 @@ internal static class AvroSchemaUtilitiesTests
         Assert.That(AvroSchemaUtilities.GetFieldType(schema, TestNamespace).ToFullString(), Is.EqualTo(expectedType));
     }
 
+    // Every logical type Avro implements is mapped onto a C# type above, so reaching the refusal
+    // takes one registered with Avro from outside. The message names the logical type, because the
+    // schema is the only place it can be corrected.
+    [Test]
+    public static void GetFieldType_GivenLogicalTypeWithoutAMapping_ThrowsNotSupportedNamingTheLogicalType()
+    {
+        LogicalTypeFactory.Instance.Register(new UnmappedLogicalType());
+        var schema = Schema.Parse($$""" { "type" : "long", "logicalType" : "{{UnmappedLogicalType.TypeName}}" } """);
+
+        var exception = Assert.Throws<NotSupportedException>(() => AvroSchemaUtilities.GetFieldType(schema, TestNamespace));
+
+        Assert.That(exception!.Message, Does.Contain(UnmappedLogicalType.TypeName));
+    }
+
     // Avro writes a logical type over a named type as a wrapper around it. The specification puts
     // the logical attributes on the type itself, which is the only form other implementations parse.
     [Test]
@@ -210,5 +225,27 @@ internal static class AvroSchemaUtilitiesTests
         Assert.That(
             AvroSchemaUtilities.ToPortableJson(json),
             Is.EqualTo("""{"type":"record","name":"A","namespace":"n","doc":"café & co","fields":[{"name":"f","type":{"type":"fixed","name":"D","namespace":"n","size":12,"logicalType":"duration"}}]}"""));
+    }
+
+    /// <summary>
+    /// A logical type Avro knows how to exchange, but whose name the code generator has no C# type
+    /// for. Registering it is what tells Avro to hand out this type rather than an unknown one.
+    /// </summary>
+    private sealed class UnmappedLogicalType : LogicalType
+    {
+        public const string TypeName = "generator-has-no-mapping";
+
+        public UnmappedLogicalType()
+            : base(TypeName)
+        {
+        }
+
+        public override object ConvertToBaseValue(object logicalValue, LogicalSchema schema) => logicalValue;
+
+        public override object ConvertToLogicalValue(object baseValue, LogicalSchema schema) => baseValue;
+
+        public override Type GetCSharpType(bool nullible) => nullible ? typeof(long?) : typeof(long);
+
+        public override bool IsInstanceOfLogicalType(object logicalValue) => logicalValue is long;
     }
 }

@@ -65,6 +65,11 @@ internal static class AvroSchemaUtilities
     /// referenced Avro type that declares no namespace of its own.
     /// </param>
     /// <returns>The type syntax for the position.</returns>
+    /// <exception cref="NotSupportedException">
+    /// <paramref name="schema"/> holds a logical type the code generator cannot express as a C#
+    /// type, either because Avro implements it in a form the specific API rejects or because the
+    /// generator has no mapping for it.
+    /// </exception>
     public static TypeSyntax GetFieldType(Schema schema, string containingNamespace)
     {
         return GetFieldType(schema, containingNamespace, convertDecimals: true);
@@ -127,7 +132,8 @@ internal static class AvroSchemaUtilities
             "local-timestamp-millis" => SyntaxUtilities.GlobalName(typeof(DateTime)),
             "local-timestamp-micros" => SyntaxUtilities.GlobalName(typeof(DateTime)),
             "uuid" => SyntaxUtilities.GlobalName(typeof(Guid)),
-            _ => throw new ArgumentOutOfRangeException($"Unable to resolve a type for logicalType of '{logicalSchema.Name}'")
+            _ => throw new NotSupportedException(
+                $"The logical type '{logicalSchema.LogicalTypeName}' is not supported by the code generator.")
         };
     }
 
