@@ -967,6 +967,30 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             {
                 nestedContext.DefaultNamespace = parseTree.@namespace?.@namespace?.GetText();
 
+                // resolve the imported document's own imports first, so that its named schemas can
+                // reference types brought in transitively
+                var transitiveTypes = new List<JObject>();
+                var transitiveMessages = new JObject();
+                foreach (var transitiveImport in parseTree._imports)
+                {
+                    await ProcessImport(transitiveImport, transitiveTypes, transitiveMessages, nestedContext, cancellationToken);
+                }
+
+                foreach (var transitiveType in transitiveTypes)
+                {
+                    importedTypes.Add(transitiveType);
+
+                    var transitiveName = GetSchemaName(transitiveType, parsingContext);
+                    if (!string.IsNullOrEmpty(transitiveName))
+                    {
+                        parsingContext.NamedSchemas[transitiveName] = transitiveType;
+
+                        // mark as already emitted so that this document's own types refer to it by
+                        // name instead of inlining it as an apparent forward reference
+                        nestedContext.ProcessedSchemas.Add(transitiveName);
+                    }
+                }
+
                 // the imported file's types resolve references among themselves, so that they may be
                 // declared in any order, just as those of a protocol are
                 foreach (var schemaJson in TranslateNamedSchemas(parseTree._namedSchemas, nestedContext))

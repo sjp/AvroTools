@@ -72,6 +72,18 @@ internal class ImportedSchemaSyntaxTests
         Assert.That(((ArraySchema)b.Fields[0].Schema).ItemSchema.Fullname, Is.EqualTo("x.y.A"));
     }
 
+    [Test]
+    public async Task Translate_GivenImportedSchemaFileThatItselfImportsAnotherSchemaFile_ResolvesTheTransitiveImport()
+    {
+        _tempDir.WriteFile("base.avdl", "namespace a; record Base { string s; }");
+        _tempDir.WriteFile("types.avdl", """namespace a; import idl "base.avdl"; record T { Base b; }""");
+        var main = _tempDir.WriteFile("main.avdl", """protocol P { import idl "types.avdl"; record R { a.T t; } }""");
+
+        var protocol = await TranslateProtocol(main);
+
+        Assert.That(protocol.Types.Select(t => t.Fullname), Is.EqualTo(new[] { "a.Base", "a.T", "R" }));
+    }
+
     private async Task<Protocol> TranslateProtocol(string filePath)
     {
         var content = await File.ReadAllTextAsync(filePath, TestContext.CurrentContext.CancellationToken);
