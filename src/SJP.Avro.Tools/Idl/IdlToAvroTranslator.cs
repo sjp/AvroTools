@@ -435,7 +435,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         IdlParsingContext parsingContext)
     {
         var fieldName = IdlName.EscapeName(varDecl.fieldName.GetText());
-        var fieldType = TranslateFullType(fieldDecl.fieldType, parsingContext);
+        var defaultValue = varDecl.defaultValue != null ? TranslateJsonValue(varDecl.defaultValue) : null;
+        var fieldType = TranslateFullType(fieldDecl.fieldType, parsingContext, defaultValue);
         var doc = fieldDecl.doc.ExtractDocumentation()
             ?? varDecl.doc.ExtractDocumentation();
         var properties = TranslateProperties(varDecl._schemaProperties);
@@ -449,8 +450,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (!string.IsNullOrWhiteSpace(doc))
             field["doc"] = doc;
 
-        if (varDecl.defaultValue != null)
-            field["default"] = TranslateJsonValue(varDecl.defaultValue);
+        if (defaultValue != null)
+            field["default"] = defaultValue;
 
         foreach (var prop in properties)
         {
@@ -471,7 +472,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         foreach (var param in context._formalParameters)
         {
             var paramName = IdlName.EscapeName(param.parameter.fieldName.GetText());
-            var paramType = TranslateFullType(param.parameterType, parsingContext);
+            var paramDefault = param.parameter.defaultValue != null ? TranslateJsonValue(param.parameter.defaultValue) : null;
+            var paramType = TranslateFullType(param.parameterType, parsingContext, paramDefault);
             var paramDoc = param.doc.ExtractDocumentation();
 
             var requestParam = new JObject
@@ -483,8 +485,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             if (!string.IsNullOrWhiteSpace(paramDoc))
                 requestParam["doc"] = paramDoc;
 
-            if (param.parameter.defaultValue != null)
-                requestParam["default"] = TranslateJsonValue(param.parameter.defaultValue);
+            if (paramDefault != null)
+                requestParam["default"] = paramDefault;
 
             request.Add(requestParam);
         }
@@ -524,10 +526,10 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         return message;
     }
 
-    private JToken TranslateFullType(IdlParser.FullTypeContext context, IdlParsingContext parsingContext)
+    private JToken TranslateFullType(IdlParser.FullTypeContext context, IdlParsingContext parsingContext, JToken? defaultValue = null)
     {
         var properties = TranslateProperties(context._schemaProperties);
-        var typeToken = TranslatePlainType(context.plainType(), parsingContext);
+        var typeToken = TranslatePlainType(context.plainType(), parsingContext, defaultValue);
 
         if (properties.Count == 0)
             return typeToken;
@@ -554,7 +556,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         return wrapper;
     }
 
-    private JToken TranslatePlainType(IdlParser.PlainTypeContext context, IdlParsingContext parsingContext)
+    private JToken TranslatePlainType(IdlParser.PlainTypeContext context, IdlParsingContext parsingContext, JToken? defaultValue = null)
     {
         if (context.arrayType() != null)
             return TranslateArrayType(context.arrayType(), parsingContext);
@@ -566,7 +568,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             return TranslateUnionType(context.unionType(), parsingContext);
 
         if (context.nullableType() != null)
-            return TranslateNullableType(context.nullableType(), parsingContext);
+            return TranslateNullableType(context.nullableType(), parsingContext, defaultValue);
 
         throw new InvalidOperationException("Unknown plain type");
     }
@@ -599,12 +601,16 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         return new JArray(fullTypes);
     }
 
-    private JToken TranslateNullableType(IdlParser.NullableTypeContext context, IdlParsingContext parsingContext)
+    private JToken TranslateNullableType(IdlParser.NullableTypeContext context, IdlParsingContext parsingContext, JToken? defaultValue = null)
     {
         var baseType = TranslatePrimitiveOrReference(context, parsingContext);
-        return context.QuestionMark() != null
-            ? new JArray { "null", baseType }
-            : baseType;
+        if (context.QuestionMark() == null)
+            return baseType;
+
+        var hasNonNullDefault = defaultValue != null && defaultValue.Type != JTokenType.Null;
+        return hasNonNullDefault
+            ? new JArray { baseType, "null" }
+            : new JArray { "null", baseType };
     }
 
     private JToken TranslatePrimitiveOrReference(IdlParser.NullableTypeContext context, IdlParsingContext parsingContext)

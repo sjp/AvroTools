@@ -123,6 +123,50 @@ internal class IdlToAvroTranslatorTests
     }
 
     [Test]
+    public async Task Translate_GivenOptionalFieldWithNonNullDefault_EmitsNullLastUnion()
+    {
+        const string idl = "protocol P { record R { int? i = 3; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var type = result.Json.SelectToken("types[0].fields[0].type");
+        Assert.That(type?.Values<string>(), Is.EqualTo(new[] { "int", "null" }));
+    }
+
+    [Test]
+    public async Task Translate_GivenOptionalFieldWithNullDefault_EmitsNullFirstUnion()
+    {
+        const string idl = "protocol P { record R { int? i = null; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var type = result.Json.SelectToken("types[0].fields[0].type");
+        Assert.That(type?.Values<string>(), Is.EqualTo(new[] { "null", "int" }));
+    }
+
+    [Test]
+    public async Task Translate_GivenOptionalFieldWithNoDefault_EmitsNullFirstUnion()
+    {
+        const string idl = "protocol P { record R { int? i; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var type = result.Json.SelectToken("types[0].fields[0].type");
+        Assert.That(type?.Values<string>(), Is.EqualTo(new[] { "null", "int" }));
+    }
+
+    [Test]
+    public async Task Translate_GivenMessageParameterWithOptionalTypeAndNonNullDefault_EmitsNullLastUnion()
+    {
+        const string idl = "protocol P { void f(int? i = 3); }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var type = result.Json.SelectToken("messages.f.request[0].type");
+        Assert.That(type?.Values<string>(), Is.EqualTo(new[] { "int", "null" }));
+    }
+
+    [Test]
     public void Translate_GivenTextThatCannotBeTokenised_ThrowsWithPosition()
     {
         const string idl = "protocol TestProtocol { record TestRecord { string a; # } }";

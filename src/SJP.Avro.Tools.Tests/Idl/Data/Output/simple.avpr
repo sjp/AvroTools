@@ -97,11 +97,11 @@
         {
           "name": "t",
           "type": [
-            "null",
             {
               "type": "int",
               "logicalType": "time-millis"
-            }
+            },
+            "null"
           ],
           "default": 0
         },
