@@ -32,11 +32,11 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
 
         var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, baseNamespace, schema.Fullname);
 
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
+        var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
         var namespaces = GetRequiredNamespaces();
         var usingStatements = namespaces
-            .Select(static ns => ParseName(ns))
+            .Select(SyntaxUtilities.SafeNamespaceName)
             .Select(UsingDirective)
             .ToList();
 

@@ -102,6 +102,47 @@ internal static class GeneratedCodeCompilationTests
         }
     }
 
+    [Test]
+    public static void Generate_GivenNamespaceSegmentsThatAreKeywords_ProducesCompilableCrossNamespaceReferences()
+    {
+        // Avro namespaces admit segments that are C# keywords, and a record referring across them
+        // has to escape those segments in both its own declaration and its using directives.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledKeywordNamespaceWidget",
+  "namespace" : "{{TestNamespace}}.record",
+  "fields" : [
+    { "name" : "kind", "type" : { "type" : "enum", "name" : "CompiledKeywordKind", "namespace" : "{{TestNamespace}}.enum", "symbols" : [ "Small", "Large" ] } },
+    { "name" : "hash", "type" : { "type" : "fixed", "name" : "CompiledKeywordHash", "namespace" : "{{TestNamespace}}.fixed", "size" : 4 } }
+  ]
+}
+""");
+
+        var enumSchema = (EnumSchema)schema.Fields[0].Schema;
+        var fixedSchema = (FixedSchema)schema.Fields[1].Schema;
+
+        var recordSource = new AvroRecordGenerator().Generate(schema, TestNamespace);
+        var assembly = GeneratedSourceCompiler.Compile(
+            new AvroEnumGenerator().Generate(enumSchema, TestNamespace),
+            new AvroFixedGenerator().Generate(fixedSchema, TestNamespace),
+            recordSource);
+
+        var generatedType = assembly.GetType($"{TestNamespace}.record.CompiledKeywordNamespaceWidget")!;
+        var enumType = assembly.GetType($"{TestNamespace}.enum.CompiledKeywordKind")!;
+        var widget = (ISpecificRecord)Activator.CreateInstance(generatedType)!;
+        widget.Put(0, Enum.Parse(enumType, "Large"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(recordSource, Does.Contain($"namespace {TestNamespace}.record"));
+            Assert.That(recordSource, Does.Contain($"using {TestNamespace}.@enum;"));
+            Assert.That(recordSource, Does.Contain($"using {TestNamespace}.@fixed;"));
+            Assert.That(assembly.GetType($"{TestNamespace}.fixed.CompiledKeywordHash"), Is.Not.Null);
+            Assert.That(widget.Get(0), Is.EqualTo(Enum.Parse(enumType, "Large")));
+        }
+    }
+
     [TestCase("P", 0)]
     [TestCase("C", 1)]
     [TestCase("CF", 2)]

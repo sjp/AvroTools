@@ -35,11 +35,11 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
         var isError = schema.Tag == Schema.Type.Error;
         var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, baseNamespace, schema.Fullname);
 
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
+        var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
         var namespaces = GetRequiredNamespaces(schema);
         var usingStatements = namespaces
-            .Select(static ns => ParseName(ns))
+            .Select(SyntaxUtilities.SafeNamespaceName)
             .Select(UsingDirective)
             .ToList();
 

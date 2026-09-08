@@ -492,9 +492,9 @@ using System;
 using System.Collections.Generic;
 using Avro;
 using Avro.Specific;
-using avro.test.enum;
+using avro.test.@enum;
 using avro.test.error;
-using avro.test.fixed;
+using avro.test.@fixed;
 using avro.test.record;
 using AvroSchema = Avro.Schema;
 

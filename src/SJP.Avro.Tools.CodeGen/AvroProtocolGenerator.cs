@@ -36,7 +36,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 
         var ns = SyntaxUtilities.ResolveNamespace(protocol.Namespace, baseNamespace, protocol.Name);
 
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
+        var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
         var protocolField = AvroSchemaUtilities.CreateProtocolDefinition(protocol.ToString());
         var protocolProperty = AvroSchemaUtilities.CreateProtocolProperty();
@@ -44,7 +44,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         var requestMethod = BuildRequestMethod(protocol);
         var namespaces = GetRequiredNamespaces(protocol);
         var usingStatements = namespaces
-            .Select(static ns => ParseName(ns))
+            .Select(SyntaxUtilities.SafeNamespaceName)
             .Select(UsingDirective)
             .ToList();
 

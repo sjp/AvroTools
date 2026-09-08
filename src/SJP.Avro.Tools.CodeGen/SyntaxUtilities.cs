@@ -125,7 +125,49 @@ internal static class SyntaxUtilities
         if (!IsKeyword(name))
             return Identifier(name);
 
-        return Identifier(TriviaList(), SyntaxKind.IdentifierToken, "@" + name, name, TriviaList());
+        return EscapedIdentifier(name);
+    }
+
+    private static SyntaxToken EscapedIdentifier(string name) =>
+        Identifier(TriviaList(), SyntaxKind.IdentifierToken, "@" + name, name, TriviaList());
+
+    /// <summary>
+    /// Creates a namespace name from a dot-separated namespace, for use in a namespace declaration
+    /// or a using directive. Avro namespaces admit segments that are C# keywords
+    /// (<c>avro.test.enum</c>), which have to be emitted verbatim (<c>avro.test.@enum</c>) for the
+    /// declaration or directive to parse at all. A segment that arrives already escaped is left as
+    /// it is rather than escaped twice.
+    /// </summary>
+    /// <param name="namespaceName">A dot-separated namespace.</param>
+    /// <returns>A name that is always a legal C# namespace name.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="namespaceName"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="namespaceName"/> is empty or whitespace, or contains an empty segment.</exception>
+    public static NameSyntax SafeNamespaceName(string namespaceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(namespaceName);
+
+        var segments = namespaceName.Split('.');
+
+        NameSyntax result = SafeNamespaceSegment(segments[0]);
+        for (var i = 1; i < segments.Length; i++)
+            result = QualifiedName(result, SafeNamespaceSegment(segments[i]));
+
+        return result;
+    }
+
+    private static IdentifierNameSyntax SafeNamespaceSegment(string segment)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(segment);
+
+        var name = segment.StartsWith('@') ? segment[1..] : segment;
+
+        // Only reserved keywords need escaping here. A namespace declaration or a using directive
+        // is already committed to reading a name, so a contextual keyword that would be taken for
+        // a modifier at the start of a declaration is unambiguous as a namespace segment.
+        return IdentifierName(
+            SyntaxFacts.GetKeywordKind(name) == SyntaxKind.None
+                ? Identifier(name)
+                : EscapedIdentifier(name));
     }
 
     /// <summary>

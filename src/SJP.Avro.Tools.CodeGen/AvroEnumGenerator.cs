@@ -30,7 +30,7 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
 
         var ns = SyntaxUtilities.ResolveNamespace(schema.Namespace, baseNamespace, schema.Fullname);
 
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
+        var namespaceDeclaration = NamespaceDeclaration(SyntaxUtilities.SafeNamespaceName(ns));
 
         // Symbols keep their schema order, and each is given the ordinal that order implies.
         // Avro encodes an enum as the position of its symbol, and the specific reader turns that
