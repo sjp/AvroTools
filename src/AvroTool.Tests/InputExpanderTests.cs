@@ -1,5 +1,4 @@
 using System.IO;
-using System.Linq;
 using NUnit.Framework;
 
 namespace AvroTool.Tests;
@@ -19,7 +18,8 @@ internal class InputExpanderTests
 
     private string Touch(string relativePath)
     {
-        var full = Path.Combine(_tempDir.DirectoryPath, relativePath);
+        var segments = relativePath.Split('/');
+        var full = Path.Combine([_tempDir.DirectoryPath, .. segments]);
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         File.WriteAllText(full, "// placeholder");
         return full;
