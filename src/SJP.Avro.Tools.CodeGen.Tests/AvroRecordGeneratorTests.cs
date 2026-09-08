@@ -948,4 +948,31 @@ namespace Test.Avro.Namespace
 
         Assert.That(backingFieldDeclarations, Is.Unique);
     }
+
+    [Test]
+    public static void Generate_GivenEmptyDocumentation_GeneratesCodeWithoutDocComments()
+    {
+        var recordGenerator = new AvroRecordGenerator();
+
+        var schema = (RecordSchema)Schema.Parse("""
+{
+  "type" : "record",
+  "name" : "Widget",
+  "namespace" : "Test.Avro.Namespace",
+  "doc" : "",
+  "fields" : [
+    { "name" : "x", "type" : "int", "doc" : "   " },
+    { "name" : "y", "type" : "int", "doc" : "*" }
+  ]
+}
+""");
+
+        var result = recordGenerator.Generate(schema, TestNamespace);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Does.Contain("public int x { get; set; }"));
+            Assert.That(result, Does.Not.Contain("<summary>"));
+        }
+    }
 }

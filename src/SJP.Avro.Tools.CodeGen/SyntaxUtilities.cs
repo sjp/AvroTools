@@ -14,16 +14,17 @@ namespace SJP.Avro.Tools.CodeGen;
 internal static class SyntaxUtilities
 {
     /// <summary>
-    /// Constructs a documentation comment definition for use with Roslyn.
+    /// Constructs a documentation comment definition for use with Roslyn. A comment that carries
+    /// no text once its line prefixes are stripped documents nothing, so it produces no trivia.
     /// </summary>
-    /// <param name="comment">A comment.</param>
-    /// <returns>Syntax nodes that represent the comment.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="comment"/> is <c>null</c>.</exception>
-    public static SyntaxTriviaList BuildCommentTrivia(string comment)
+    /// <param name="comment">A comment, if any.</param>
+    /// <returns>Syntax nodes that represent the comment, or no trivia when the comment is empty.</returns>
+    public static SyntaxTriviaList BuildCommentTrivia(string? comment)
     {
-        ArgumentNullException.ThrowIfNull(comment);
-
         var commentLines = GetLines(comment);
+        if (commentLines.Count == 0)
+            return TriviaList();
+
         var commentNodes = commentLines.Count > 1
             ? commentLines.SelectMany(static l => new XmlNodeSyntax[] { XmlParaElement(XmlText(l)), XmlText(XmlNewline) }).ToArray()
             : [XmlText(XmlTextLiteral(commentLines.Single()), XmlNewline)];
@@ -40,9 +41,10 @@ internal static class SyntaxUtilities
 
     private static readonly char[] LineEndingChars = ['\r', '\n'];
 
-    private static IReadOnlyCollection<string> GetLines(string comment)
+    private static IReadOnlyCollection<string> GetLines(string? comment)
     {
-        ArgumentNullException.ThrowIfNull(comment);
+        if (string.IsNullOrWhiteSpace(comment))
+            return [];
 
         var result = comment.Split(LineEndingChars, StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim().TrimStart('*').Trim())
@@ -56,9 +58,12 @@ internal static class SyntaxUtilities
         {
             if (string.IsNullOrEmpty(line))
             {
-                // done with paragraph
+                // done with paragraph, unless nothing has been written to it. A line that is
+                // blank once its leading asterisks are stripped separates paragraphs; it does
+                // not introduce an empty one.
                 var paragraph = builder.ToString();
-                paragraphs.Add(paragraph);
+                if (!string.IsNullOrEmpty(paragraph))
+                    paragraphs.Add(paragraph);
 
                 builder.Clear();
                 continue;

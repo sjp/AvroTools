@@ -166,4 +166,28 @@ namespace {{TestNamespace}}
 
         Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
+
+    [Test]
+    public static void Generate_GivenEmptyDocumentation_GeneratesCodeWithoutDocComments()
+    {
+        var fixedGenerator = new AvroFixedGenerator();
+
+        var schema = (FixedSchema)Schema.Parse("""
+{
+    "type": "fixed",
+    "name": "MD5",
+    "doc": "",
+    "namespace": "org.apache.avro.test",
+    "size": 16
+}
+""");
+
+        var result = fixedGenerator.Generate(schema, TestNamespace);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Does.Contain("public class MD5 : SpecificFixed"));
+            Assert.That(result, Does.Not.Contain("<summary>"));
+        }
+    }
 }

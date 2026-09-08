@@ -53,11 +53,8 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
             .WithMembers(SeparatedList(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
-        if (schema.Documentation != null)
-        {
-            generatedEnum = generatedEnum
-                .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
-        }
+        generatedEnum = generatedEnum
+            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
 
         var document = CompilationUnit()
             .WithMembers(

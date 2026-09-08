@@ -254,4 +254,28 @@ internal static class AvroEnumGeneratorTests
 
         Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
+
+    [Test]
+    public static void Generate_GivenEmptyDocumentation_GeneratesCodeWithoutDocComments()
+    {
+        var enumGenerator = new AvroEnumGenerator();
+
+        var schema = (EnumSchema)Schema.Parse("""
+{
+    "type": "enum",
+    "name": "Position",
+    "doc": "  ",
+    "namespace": "avro.examples.baseball",
+    "symbols": [ "P", "C" ]
+}
+""");
+
+        var result = enumGenerator.Generate(schema, TestNamespace);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Does.Contain("public enum Position"));
+            Assert.That(result, Does.Not.Contain("<summary>"));
+        }
+    }
 }

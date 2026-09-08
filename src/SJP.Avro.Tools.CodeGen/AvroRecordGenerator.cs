@@ -103,11 +103,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
-        if (schema.Documentation != null)
-        {
-            generatedType = generatedType
-                .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
-        }
+        generatedType = generatedType
+            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
 
         var document = CompilationUnit()
             .WithUsings(List(usingStatements))
@@ -219,11 +216,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                 .WithAccessorList(accessorList)
                 .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));
 
-            if (field.Documentation != null)
-            {
-                initProperty = initProperty
-                    .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(field.Documentation));
-            }
+            initProperty = initProperty
+                .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(field.Documentation));
 
             yield return backingField;
             yield return initProperty;
@@ -235,11 +229,8 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
             .WithAccessorList(SyntaxUtilities.PropertyGetSetDeclaration)
             .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));
 
-        if (field.Documentation != null)
-        {
-            columnSyntax = columnSyntax
-                .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(field.Documentation));
-        }
+        columnSyntax = columnSyntax
+            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(field.Documentation));
 
         if (!isNotNullRefType || isRequired)
         {

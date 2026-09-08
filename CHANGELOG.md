@@ -24,6 +24,10 @@ version out of this file and fails if there is no section for it.
 
 ### Fixed
 
+- `codegen` accepts a `doc` that is empty, whitespace, or made up only of the asterisks that
+  prefix each line of a block comment. Such a documentation string describes nothing, so the
+  generated member simply carries no documentation comment; generation for the whole input
+  previously failed.
 - `codegen` reports a `decimal` stored in a `fixed` as unsupported instead of generating code
   that cannot be used. `Apache.Avro` exchanges such a value as a generic fixed, which its
   specific writer rejects and its specific reader cannot hand to a generated class, so the

@@ -70,11 +70,8 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
             .WithMembers(List(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
-        if (schema.Documentation != null)
-        {
-            generatedClass = generatedClass
-                .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
-        }
+        generatedClass = generatedClass
+            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(schema.Documentation));
 
         var document = CompilationUnit()
             .WithUsings(List(usingStatements))

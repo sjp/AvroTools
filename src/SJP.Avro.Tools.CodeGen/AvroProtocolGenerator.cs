@@ -76,11 +76,8 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             .WithMembers(List(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
 
-        if (protocol.Doc != null)
-        {
-            generatedRecord = generatedRecord
-                .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(protocol.Doc));
-        }
+        generatedRecord = generatedRecord
+            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(protocol.Doc));
 
         var document = CompilationUnit()
             .WithUsings(List(usingStatements))
@@ -289,11 +286,8 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                 Token(SyntaxKind.SemicolonToken))
             .WithTrailingTrivia(TriviaList(CarriageReturnLineFeed, CarriageReturnLineFeed));
 
-        if (message.Doc != null)
-        {
-            method = method
-                .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(message.Doc));
-        }
+        method = method
+            .WithLeadingTrivia(SyntaxUtilities.BuildCommentTrivia(message.Doc));
 
         return method;
     }

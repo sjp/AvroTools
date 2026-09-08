@@ -726,4 +726,34 @@ namespace org.apache.avro.test
 
         Assert.That(result, Is.EqualTo(expected).IgnoreLineEndingFormat);
     }
+
+    [Test]
+    public static void Generate_GivenEmptyDocumentation_GeneratesCodeWithoutDocComments()
+    {
+        var protocolGenerator = new AvroProtocolGenerator();
+
+        var protocol = Protocol.Parse("""
+{
+  "protocol" : "Simple",
+  "namespace" : "org.apache.avro.test",
+  "doc" : "",
+  "types" : [ ],
+  "messages" : {
+    "ping" : {
+      "doc" : "   ",
+      "request" : [ ],
+      "response" : "null"
+    }
+  }
+}
+""");
+
+        var result = protocolGenerator.Generate(protocol, TestNamespace);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Does.Contain("public abstract void ping();"));
+            Assert.That(result, Does.Not.Contain("<summary>"));
+        }
+    }
 }
