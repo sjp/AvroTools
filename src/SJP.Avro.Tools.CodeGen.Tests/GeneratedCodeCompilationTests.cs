@@ -102,6 +102,49 @@ internal static class GeneratedCodeCompilationTests
         }
     }
 
+    [TestCase("P", 0)]
+    [TestCase("C", 1)]
+    [TestCase("CF", 2)]
+    [TestCase("LF", 3)]
+    public static void Generate_GivenEnumWithNonFirstDefault_ReadsEverySymbolBackAsItself(string symbol, int ordinal)
+    {
+        // An enum travels as the position of its symbol, and the specific reader turns that
+        // position straight into the C# enum value, so schema order has to survive generation
+        // even when the schema names a default other than its first symbol.
+        var schema = (RecordSchema)Schema.Parse($$"""
+{
+  "type" : "record",
+  "name" : "CompiledDefaultedEnumWidget_{{symbol}}",
+  "namespace" : "{{TestNamespace}}",
+  "fields" : [
+    { "name" : "pos", "type" : { "type" : "enum", "name" : "CompiledDefaultedPosition_{{symbol}}", "symbols" : [ "P", "C", "CF", "LF" ], "default" : "CF" } }
+  ]
+}
+""");
+
+        var enumSchema = (EnumSchema)schema.Fields[0].Schema;
+        var assembly = GeneratedSourceCompiler.Compile(
+            new AvroEnumGenerator().Generate(enumSchema, TestNamespace),
+            new AvroRecordGenerator().Generate(schema, TestNamespace));
+
+        // Each case declares its own type names: the specific reader resolves a generated type by
+        // name across every loaded assembly, so reusing one name across cases would bind to
+        // whichever assembly was compiled first.
+        var enumType = assembly.GetType($"{TestNamespace}.CompiledDefaultedPosition_{symbol}")!;
+
+        var written = new GenericRecord(schema);
+        written.Add("pos", new GenericEnum(enumSchema, symbol));
+
+        var deserialized = WriteGenericReadSpecific(schema, written);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Enum.GetNames(enumType), Is.EqualTo(new[] { "P", "C", "CF", "LF" }));
+            Assert.That((int)Enum.Parse(enumType, symbol), Is.EqualTo(ordinal));
+            Assert.That(deserialized.Get(0), Is.EqualTo(Enum.Parse(enumType, symbol)));
+        }
+    }
+
     [Test]
     public static void Generate_GivenProtocol_ProducesCompilableSpecificProtocol()
     {

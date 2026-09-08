@@ -32,18 +32,19 @@ public class AvroEnumGenerator : ICodeGenerator<EnumSchema>
 
         var namespaceDeclaration = NamespaceDeclaration(ParseName(ns));
 
-        var orderedSymbols = schema.Symbols;
-
-        // reorder to place default in front (so that default(Enum) == defaultValue)
-        if (schema.Default != null)
-        {
-            orderedSymbols = new[] { schema.Default }
-                .Concat(orderedSymbols.Where(s => s != schema.Default))
-                .ToList();
-        }
-
-        var members = orderedSymbols
-            .Select(m => EnumMemberDeclaration(SyntaxUtilities.SafeIdentifier(m)))
+        // Symbols keep their schema order, and each is given the ordinal that order implies.
+        // Avro encodes an enum as the position of its symbol, and the specific reader turns that
+        // position straight into the C# enum value, so any other numbering would decode to the
+        // wrong symbol. A schema-level default is deliberately not hoisted to the front: it is
+        // applied by schema resolution when a writer's symbol is unknown to the reader, and does
+        // not need to be the C# default value.
+        var members = schema.Symbols
+            .Select((m, ordinal) => EnumMemberDeclaration(SyntaxUtilities.SafeIdentifier(m))
+                .WithEqualsValue(
+                    EqualsValueClause(
+                        LiteralExpression(
+                            SyntaxKind.NumericLiteralExpression,
+                            Literal(ordinal)))))
             .ToList();
 
         var generatedEnum = EnumDeclaration(SyntaxUtilities.SafeIdentifier(schema.Name))

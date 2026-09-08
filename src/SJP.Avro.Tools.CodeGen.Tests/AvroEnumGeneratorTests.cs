@@ -141,16 +141,16 @@ internal static class AvroEnumGeneratorTests
     /// </summary>
     public enum Position
     {
-        P,
-        C,
-        B1,
-        B2,
-        B3,
-        SS,
-        LF,
-        CF,
-        RF,
-        DH
+        P = 0,
+        C = 1,
+        B1 = 2,
+        B2 = 3,
+        B3 = 4,
+        SS = 5,
+        LF = 6,
+        CF = 7,
+        RF = 8,
+        DH = 9
     }
 }";
 
@@ -187,16 +187,16 @@ internal static class AvroEnumGeneratorTests
 {{
     public enum Position
     {{
-        P,
-        C,
-        B1,
-        B2,
-        B3,
-        SS,
-        LF,
-        CF,
-        RF,
-        DH
+        P = 0,
+        C = 1,
+        B1 = 2,
+        B2 = 3,
+        B3 = 4,
+        SS = 5,
+        LF = 6,
+        CF = 7,
+        RF = 8,
+        DH = 9
     }}
 }}";
 
@@ -204,7 +204,7 @@ internal static class AvroEnumGeneratorTests
     }
 
     [Test]
-    public static void Generate_GivenEnumSchemaWithDefault_OrdersDefaultValueFirst()
+    public static void Generate_GivenEnumSchemaWithDefault_KeepsSchemaSymbolOrder()
     {
         var enumGenerator = new AvroEnumGenerator();
 
@@ -239,16 +239,16 @@ internal static class AvroEnumGeneratorTests
     /// </summary>
     public enum Position
     {
-        CF,
-        P,
-        C,
-        B1,
-        B2,
-        B3,
-        SS,
-        LF,
-        RF,
-        DH
+        P = 0,
+        C = 1,
+        B1 = 2,
+        B2 = 3,
+        B3 = 4,
+        SS = 5,
+        LF = 6,
+        CF = 7,
+        RF = 8,
+        DH = 9
     }
 }";
 

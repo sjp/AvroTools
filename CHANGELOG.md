@@ -19,6 +19,11 @@ version out of this file and fails if there is no section for it.
 
 ### Fixed
 
+- `codegen` keeps an enum's symbols in schema order and gives each one the ordinal that
+  order implies. Symbols were previously reordered to put a schema-declared default first,
+  which made every generated value disagree with the position Avro encodes, so data written
+  by any other implementation — or by the generated code itself — was read back as the wrong
+  symbol.
 - `diff` matches a union branch renamed through an alias to the branch it replaces, so the
   rename and the changes inside the branch are reported instead of one branch removed and
   an unrelated one added.

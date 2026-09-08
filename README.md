@@ -267,8 +267,11 @@ nullable (`T?`) annotations for optional (`["null", ...]`) fields. Avro `fixed`
 and `error` types are generated as `class`es instead: they derive from the
 `SpecificFixed` and `SpecificException` base classes in `Apache.Avro`, and a C#
 record may only inherit from `object` or another record. Avro enums are
-generated as C# `enum`s. Two further output styles are opt-in via flags on
-`codegen`:
+generated as C# `enum`s whose members keep the schema's symbol order and carry
+the ordinal that order implies, which is the value Avro encodes on the wire; a
+schema-declared `default` does not change that order, because it is applied by
+schema resolution when a writer uses a symbol the reader does not know. Two
+further output styles are opt-in via flags on `codegen`:
 
 | Option | Effect |
 |--------|--------|
