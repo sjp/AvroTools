@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
@@ -151,6 +152,51 @@ internal class IdlCommandTests
             Assert.That(resultFileContents, Does.Contain("日本語 & <markup>"));
             Assert.That(resultFileContents, Does.Contain("\"default\": \"é<>&\""));
             Assert.That(resultFileContents, Does.Not.Contain("\\u"));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenAPropertyTheAvroObjectModelDoesNotRoundTrip_WritesItAnyway()
+    {
+        const string protocolJsonWithFieldOrder = """
+{
+  "protocol": "TestProtocol",
+  "types": [
+    {
+      "type": "record",
+      "name": "TestRecord",
+      "fields": [
+        {
+          "name": "FirstName",
+          "type": "string",
+          "order": "descending"
+        }
+      ]
+    }
+  ],
+  "messages": {}
+}
+""";
+
+        // constructed with the raw JSON kept alongside the parsed protocol, exactly as the real
+        // translator now does, so that a property the parsed protocol itself would not have
+        // reproduced (Apache.Avro does not write a field's "order" back out) still survives.
+        _parseResult = IdlParseResult.Protocol(
+            AvroProtocol.Parse(protocolJsonWithFieldOrder),
+            JObject.Parse(protocolJsonWithFieldOrder));
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
+
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", _tempDir.DirectoryPath], TestContext.CurrentContext.CancellationToken);
+        var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestProtocol.avpr"), TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(resultFileContents, Does.Contain("\"order\": \"descending\""));
+            Assert.That(AvroProtocol.Parse(protocolJsonWithFieldOrder).ToString(), Does.Not.Contain("order"),
+                "this assumes Apache.Avro drops field order when writing a protocol back out; if it no longer does, this test no longer demonstrates anything");
         }
     }
 

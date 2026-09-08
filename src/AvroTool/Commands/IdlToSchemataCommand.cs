@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SJP.Avro.Tools;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -150,23 +148,18 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
 
         try
         {
-            var schemas = parsed.Match(
-                p => p.Types,
-                s => [s]);
-
-            // A protocol's declared types may each reach the same nested type, so the
-            // same named type can be seen more than once.
-            var namedTypes = schemas
-                .SelectMany(s => s.GetNamedTypes())
-                .DistinctBy(static t => t.Fullname, StringComparer.Ordinal)
-                .ToList();
+            var namedTypes = parsed.GetNamedTypesJson();
 
             // format output so it's human-readable
             var reservations = namedTypes
-                .Select(s => new OutputReservation(
-                    Path.Combine(outputDir.FullName, s.Fullname + ".avsc"),
-                    $"type '{s.Fullname}'",
-                    JsonFormatting.Indent(s.ToString())))
+                .Select(s =>
+                {
+                    var fullName = IdlJson.GetFullName(s);
+                    return new OutputReservation(
+                        Path.Combine(outputDir.FullName, fullName + ".avsc"),
+                        $"type '{fullName}'",
+                        JsonFormatting.Indent(s.ToString()));
+                })
                 .ToList();
 
             var plan = collector.Reserve(reservations, source);

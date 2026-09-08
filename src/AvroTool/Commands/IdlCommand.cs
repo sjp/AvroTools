@@ -1,7 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools.Idl;
@@ -168,11 +167,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
         try
         {
-            var output = parsed.Match(
-                p => p.ToString(),
-                s => s.ToString());
-
-            var formattedOutput = JsonFormatting.Indent(output);
+            var formattedOutput = JsonFormatting.Indent(parsed.Json.ToString());
 
             if (settings.ToStandardOutput)
             {

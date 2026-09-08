@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
@@ -7,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AvroTool.Commands;
 using Moq;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using SJP.Avro.Tools.CodeGen;
 using SJP.Avro.Tools.Idl;
@@ -207,6 +209,72 @@ record PairVolume {
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(schemaCount, Has.Exactly(3).Items);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenARecordReferencingAnotherDeclaredType_WritesEachSchemaSelfContainedWithItsProperties()
+    {
+        const string input = """
+protocol TestProtocol {
+  record Datum {
+    int @order("descending") value;
+  }
+
+  record TestRecord {
+    Datum datum;
+  }
+}
+""";
+
+        // built the way the real translator does: a field's type is a bare reference, resolved
+        // against a separate table of every named type the document declares, so that a property
+        // the Avro object model would not preserve (a field's "order") still has to be recovered
+        // from that table when each type is written out on its own.
+        var datumJson = JObject.Parse("""
+            {
+              "type": "record",
+              "name": "Datum",
+              "namespace": "TestNamespace",
+              "fields": [ { "name": "value", "type": "int", "order": "descending" } ]
+            }
+            """);
+        var testRecordJson = JObject.Parse("""
+            {
+              "type": "record",
+              "name": "TestRecord",
+              "namespace": "TestNamespace",
+              "fields": [ { "name": "datum", "type": "Datum" } ]
+            }
+            """);
+        var namedSchemas = new Dictionary<string, JObject>
+        {
+            ["TestNamespace.Datum"] = datumJson,
+            ["TestNamespace.TestRecord"] = testRecordJson,
+        };
+
+        // the parsed schema itself is not consulted by idl2schemata; only the raw JSON and the
+        // named-type table are, so a trivial placeholder is enough to satisfy the constructor.
+        _parseResult = IdlParseResult.Schema(AvroSchema.Parse(SimpleTestAvroSchema), testRecordJson, namedSchemas);
+
+        var sourceFile = new FileInfo(Path.Combine(_tempDir.DirectoryPath, "test_input.avdl"));
+        await File.WriteAllTextAsync(sourceFile.FullName, input, TestContext.CurrentContext.CancellationToken);
+
+        var sourceDir = new DirectoryInfo(_tempDir.DirectoryPath);
+        var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        var datumFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.Datum.avsc"), TestContext.CurrentContext.CancellationToken);
+        var testRecordFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestNamespace.TestRecord.avsc"), TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(datumFileContents, Does.Contain("\"order\": \"descending\""));
+
+            // TestRecord.avsc must be usable on its own, so its "datum" field must carry the full
+            // Datum definition rather than a bare name nothing in the file defines.
+            Assert.That(testRecordFileContents, Does.Contain("\"name\": \"Datum\""));
+            Assert.That(testRecordFileContents, Does.Contain("\"order\": \"descending\""));
         }
     }
 

@@ -49,12 +49,77 @@ internal class IdlToAvroTranslatorTests
 
         await using var inputFileReadStream = inputFile.CreateReadStream();
         var parseResult = await _translator.Translate(inputFileReadStream, TestContext.CurrentContext.CancellationToken);
-        var jsonText = parseResult.Match(p => p.ToString(), s => s.ToString());
 
         var patcher = new JsonDiffPatch();
-        var diffResult = patcher.Diff(JObject.Parse(jsonText), JObject.Parse(outputContents));
+        var diffResult = patcher.Diff((JObject)parseResult.Json, JObject.Parse(outputContents));
 
         Assert.That(diffResult, Is.Null);
+    }
+
+    [Test]
+    public async Task Translate_GivenFieldOrderAnnotatedOnTheType_PreservesOrderOnTheType()
+    {
+        const string idl = "protocol P { record R { @order(\"descending\") int b; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var order = result.Json.SelectToken("types[0].fields[0].type.order");
+        Assert.That(order?.Value<string>(), Is.EqualTo("descending"));
+    }
+
+    [Test]
+    public async Task Translate_GivenFieldOrderAnnotatedOnTheField_PreservesOrderOnTheField()
+    {
+        const string idl = "protocol P { record R { int @order(\"descending\") b; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var order = result.Json.SelectToken("types[0].fields[0].order");
+        Assert.That(order?.Value<string>(), Is.EqualTo("descending"));
+    }
+
+    [Test]
+    public async Task Translate_GivenAliasesAnnotatedOnAPrimitiveType_PreservesAliasesOnTheType()
+    {
+        const string idl = "protocol P { record R { @aliases([\"old\"]) string c; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var aliases = result.Json.SelectToken("types[0].fields[0].type.aliases");
+        Assert.That(aliases?.Values<string>(), Is.EqualTo(new[] { "old" }));
+    }
+
+    [Test]
+    public async Task Translate_GivenPropertyAnnotatedOnAReferenceToANamedType_PreservesThePropertyOnTheReference()
+    {
+        const string idl = "protocol P { record R { int a; } record S { @foo(\"bar\") R h; } }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var fooProperty = result.Json.SelectToken("types[1].fields[0].type.foo");
+        Assert.That(fooProperty?.Value<string>(), Is.EqualTo("bar"));
+    }
+
+    [Test]
+    public async Task Translate_GivenAMessageWithACustomProperty_PreservesThePropertyOnTheMessage()
+    {
+        const string idl = "protocol P { @x(5) int f(int p); }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var xProperty = result.Json.SelectToken("messages.f.x");
+        Assert.That(xProperty?.Value<int>(), Is.EqualTo(5));
+    }
+
+    [Test]
+    public async Task Translate_GivenAProtocolWithACustomProperty_PreservesThePropertyOnTheProtocol()
+    {
+        const string idl = "@version(\"1.0\") protocol P { }";
+
+        var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
+
+        var version = result.Json.SelectToken("version");
+        Assert.That(version?.Value<string>(), Is.EqualTo("1.0"));
     }
 
     [Test]

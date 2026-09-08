@@ -110,20 +110,16 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     {
         if (context.protocol != null)
         {
-            var protocol = await TranslateProtocol(context.protocol, parsingContext, cancellationToken);
-            return IdlParseResult.Protocol(protocol);
+            var protocolJson = await TranslateProtocolToJson(context.protocol, parsingContext, cancellationToken);
+            var protocol = AvroProtocol.Parse(protocolJson.ToString());
+            return IdlParseResult.Protocol(protocol, protocolJson, parsingContext.NamedSchemas);
         }
         else
         {
-            var schema = await TranslateSchema(context, parsingContext, cancellationToken);
-            return IdlParseResult.Schema(schema);
+            var schemaJson = await TranslateSchemaToJson(context, parsingContext, cancellationToken);
+            var schema = AvroSchema.Parse(schemaJson.ToString());
+            return IdlParseResult.Schema(schema, schemaJson, parsingContext.NamedSchemas);
         }
-    }
-
-    private async Task<AvroSchema> TranslateSchema(IdlParser.IdlFileContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
-    {
-        var schemaJson = await TranslateSchemaToJson(context, parsingContext, cancellationToken);
-        return AvroSchema.Parse(schemaJson.ToString());
     }
 
     private async Task<JToken> TranslateSchemaToJson(IdlParser.IdlFileContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
@@ -181,13 +177,6 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         return mainSchemaJson;
     }
 
-    private async Task<AvroProtocol> TranslateProtocol(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
-    {
-        var protocolJson = await TranslateProtocolToJson(context, parsingContext, cancellationToken);
-        var protocolJsonText = protocolJson.ToString();
-        return AvroProtocol.Parse(protocolJsonText);
-    }
-
     private async Task<JObject> TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
         var protocolName = context.name.GetText();
@@ -237,11 +226,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (!string.IsNullOrWhiteSpace(doc))
             protocolJson["doc"] = doc;
 
-        if (types.Count > 0)
-            protocolJson["types"] = new JArray(types);
-
-        if (messages.Count > 0)
-            protocolJson["messages"] = messages;
+        protocolJson["types"] = new JArray(types);
+        protocolJson["messages"] = messages;
 
         var nonNamespaceProperties = properties.Where(p => p.Key != "namespace");
         foreach (var prop in nonNamespaceProperties)

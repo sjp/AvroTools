@@ -1,72 +1,95 @@
 {
-  "protocol" : "nestedimport",
-  "namespace" : "org.apache.avro.ipc.specific",
-  "types" : [ {
-    "type" : "enum",
-    "name" : "Position",
-    "namespace" : "avro.examples.baseball",
-    "symbols" : [ "P", "C", "B1", "B2", "B3", "SS", "LF", "CF", "RF", "DH" ]
-  }, {
-    "type" : "record",
-    "name" : "Player",
-    "namespace" : "avro.examples.baseball",
-    "fields" : [ {
-      "name" : "number",
-      "type" : "int"
-    }, {
-      "name" : "first_name",
-      "type" : "string"
-    }, {
-      "name" : "last_name",
-      "type" : "string"
-    }, {
-      "name" : "position",
-      "type" : {
-        "type" : "array",
-        "items" : "Position"
-      }
-    } ]
-  }, {
-    "type" : "record",
-    "name": "ImportBar",
-    "namespace": "org.apache.avro.ipc.specific",
-    "fields" : [ {
-      "name" : "foo",
-      "type" : "avro.examples.baseball.Player"
-    } ]
-  } ],
-  "messages" : {
-    "error" : {
-      "request" : [ ],
-      "response" : "null"
+  "protocol": "nestedimport",
+  "namespace": "org.apache.avro.ipc.specific",
+  "types": [
+    {
+      "type": "enum",
+      "name": "Position",
+      "namespace": "avro.examples.baseball",
+      "symbols": [
+        "P",
+        "C",
+        "B1",
+        "B2",
+        "B3",
+        "SS",
+        "LF",
+        "CF",
+        "RF",
+        "DH"
+      ]
     },
-    "void" : {
-      "request" : [ ],
-      "response" : "null"
+    {
+      "type": "record",
+      "name": "Player",
+      "namespace": "avro.examples.baseball",
+      "fields": [
+        {
+          "name": "number",
+          "type": "int"
+        },
+        {
+          "name": "first_name",
+          "type": "string"
+        },
+        {
+          "name": "last_name",
+          "type": "string"
+        },
+        {
+          "name": "position",
+          "type": {
+            "type": "array",
+            "items": "Position"
+          }
+        }
+      ]
     },
-    "idl" : {
-      "request" : [ ],
-      "response" : "null"
-    },
-    "import" : {
-      "request" : [ ],
-      "response" : "null"
-    },
-    "oneway" : {
-      "request" : [ ],
-      "response" : "null"
-    },
-    "null" : {
-      "request" : [ ],
-      "response" : "null"
-    },
-    "local_timestamp_ms" : {
-      "request" : [ ],
-      "response" : "null"
-    },
-    "bar" : {
-      "request" : [ ],
-      "response" : "null"
+    {
+      "type": "record",
+      "name": "ImportBar",
+      "fields": [
+        {
+          "name": "foo",
+          "type": "avro.examples.baseball.Player"
+        }
+      ],
+      "namespace": "org.apache.avro.ipc.specific"
     }
-  }
+  ],
+  "messages": {
+    "error": {
+      "request": [],
+      "response": "null"
+    },
+    "void": {
+      "request": [],
+      "response": "null"
+    },
+    "idl": {
+      "request": [],
+      "response": "null"
+    },
+    "import": {
+      "request": [],
+      "response": "null"
+    },
+    "oneway": {
+      "request": [],
+      "response": "null"
+    },
+    "null": {
+      "request": [],
+      "response": "null"
+    },
+    "local_timestamp_ms": {
+      "request": [],
+      "response": "null"
+    },
+    "bar": {
+      "request": [],
+      "response": "null"
+    }
+  },
+  "version": "1.0.5"
 }
