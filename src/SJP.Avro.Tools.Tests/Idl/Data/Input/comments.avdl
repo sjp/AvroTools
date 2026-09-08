@@ -1,16 +1,16 @@
 @namespace("testing")
 protocol Comments {
   /** Documented Enum */
-  enum DocumentedEnum {
+  enum /** Dangling Enum1 */ DocumentedEnum /** Dangling Enum2 */ {
     /** Dangling Enum3 */ A,
     /** Dangling Enum4 */ B,
     /** Dangling Enum5 */ C
-    } = A;
+    /** Dangling Enum6 */ } /** Dangling Enum7 */ = A /** Dangling Enum8 */;
 
   enum UndocumentedEnum {D,E}
 
   /** Documented Fixed Type */
-  fixed DocumentedFixed(16);
+  fixed /** Dangling Fixed1 */ DocumentedFixed(/** Dangling Fixed2 */ 16);
 
   fixed UndocumentedFixed(16);
 
@@ -21,19 +21,22 @@ protocol Comments {
     reason,
     /** Default Doc Explanation Field */
     explanation;
+    /** Dangling Error1 */
   }
 
   record UndocumentedRecord {
     string description;
   }
 
+  /** Superseded Method Doc */
   /** Documented Method */
   void documentedMethod(
     /** Documented Parameter */
     string message,
     /** Default Documented Parameter */
     string defMsg)
-    throws DocumentedError;
+    throws /** Dangling Method1 */ DocumentedError;
 
   void undocumentedMethod(string message);
+  /** Dangling Protocol1 */
 }

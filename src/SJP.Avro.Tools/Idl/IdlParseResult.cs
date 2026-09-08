@@ -19,18 +19,20 @@ public sealed record IdlParseResult
     private readonly JToken _json;
     private readonly IReadOnlyDictionary<string, JObject> _namedSchemas;
 
-    private IdlParseResult(AvroProtocol protocol, JToken json, IReadOnlyDictionary<string, JObject> namedSchemas)
+    private IdlParseResult(AvroProtocol protocol, JToken json, IReadOnlyDictionary<string, JObject> namedSchemas, IReadOnlyList<string> warnings)
     {
         _protocol = protocol;
         _json = json;
         _namedSchemas = namedSchemas;
+        Warnings = warnings;
     }
 
-    private IdlParseResult(AvroSchema schema, JToken json, IReadOnlyDictionary<string, JObject> namedSchemas)
+    private IdlParseResult(AvroSchema schema, JToken json, IReadOnlyDictionary<string, JObject> namedSchemas, IReadOnlyList<string> warnings)
     {
         _schema = schema;
         _json = json;
         _namedSchemas = namedSchemas;
+        Warnings = warnings;
     }
 
     /// <summary>
@@ -39,11 +41,11 @@ public sealed record IdlParseResult
     /// <paramref name="protocol"/> itself, which loses any property the Avro object model does not
     /// preserve when writing a protocol back out as JSON.
     /// </summary>
-    public static IdlParseResult Protocol(AvroProtocol protocol, JObject? json = null, IReadOnlyDictionary<string, JObject>? namedSchemas = null)
+    public static IdlParseResult Protocol(AvroProtocol protocol, JObject? json = null, IReadOnlyDictionary<string, JObject>? namedSchemas = null, IReadOnlyList<string>? warnings = null)
     {
         ArgumentNullException.ThrowIfNull(protocol);
 
-        return new(protocol, json ?? JObject.Parse(protocol.ToString()), namedSchemas ?? EmptyNamedSchemas);
+        return new(protocol, json ?? JObject.Parse(protocol.ToString()), namedSchemas ?? EmptyNamedSchemas, warnings ?? []);
     }
 
     /// <summary>
@@ -52,11 +54,11 @@ public sealed record IdlParseResult
     /// <paramref name="schema"/> itself, which loses any property the Avro object model does not
     /// preserve when writing a schema back out as JSON.
     /// </summary>
-    public static IdlParseResult Schema(AvroSchema schema, JToken? json = null, IReadOnlyDictionary<string, JObject>? namedSchemas = null)
+    public static IdlParseResult Schema(AvroSchema schema, JToken? json = null, IReadOnlyDictionary<string, JObject>? namedSchemas = null, IReadOnlyList<string>? warnings = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
 
-        return new(schema, json ?? JToken.Parse(schema.ToString()), namedSchemas ?? EmptyNamedSchemas);
+        return new(schema, json ?? JToken.Parse(schema.ToString()), namedSchemas ?? EmptyNamedSchemas, warnings ?? []);
     }
 
     /// <summary>
@@ -75,6 +77,13 @@ public sealed record IdlParseResult
     /// the Avro object model itself does not round-trip.
     /// </summary>
     public JToken Json => _json;
+
+    /// <summary>
+    /// Describes anything about the document that is worth reporting but did not stop it being
+    /// translated, such as a doc comment written where no declaration can claim it. A warning
+    /// raised by an imported document names the import it came from.
+    /// </summary>
+    public IReadOnlyList<string> Warnings { get; }
 
     /// <summary>
     /// Enables actions to be performed depending on the contained value.

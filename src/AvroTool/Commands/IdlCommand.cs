@@ -164,6 +164,9 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             return false;
         }
 
+        foreach (var warning in parsed.Warnings)
+            _console.MarkupLineInterpolated($"[yellow]{source}: {warning}[/]");
+
         var avroOutputType = parsed.Match(_ => "protocol", _ => "schema");
 
         try

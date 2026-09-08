@@ -52,4 +52,18 @@ public sealed record IdlParsingContext
     /// the document being parsed. When <c>null</c>, import paths are used exactly as written.
     /// </summary>
     public string? BaseDirectory { get; set; }
+
+    /// <summary>
+    /// The documentation attached to the declarations of the document being parsed. Every document
+    /// in an import graph has its own, because a declaration is identified by where it sits in the
+    /// token stream of the document it was written in.
+    /// </summary>
+    internal IdlDocComments DocComments { get; set; } = IdlDocComments.Empty;
+
+    /// <summary>
+    /// Describes anything about the document that is worth reporting but does not stop it being
+    /// translated, such as a doc comment written where no declaration can claim it. Warnings raised
+    /// while translating an imported document are carried up, named by the import they came from.
+    /// </summary>
+    public List<string> Warnings { get; } = [];
 }

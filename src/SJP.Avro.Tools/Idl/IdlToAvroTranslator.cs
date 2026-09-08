@@ -66,13 +66,13 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         ArgumentException.ThrowIfNullOrWhiteSpace(idlContent);
 
         var antlrStream = new AntlrInputStream(idlContent);
-        var parseTree = ParseIdlContent(antlrStream);
-        var context = new IdlParsingContext { BaseDirectory = NormaliseBaseDirectory(baseDirectory) };
+        var parsed = ParseIdlContent(antlrStream);
+        var context = CreateRootContext(parsed, baseDirectory);
 
         if (!string.IsNullOrEmpty(sourcePath))
             context.ProcessedImports.Add(Path.GetFullPath(sourcePath));
 
-        return await Translate(parseTree, context, cancellationToken);
+        return await Translate(parsed.Tree, context, cancellationToken);
     }
 
     /// <summary>
@@ -94,9 +94,21 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     public async Task<IdlParseResult> Translate(Stream idlContent, string? baseDirectory, CancellationToken cancellationToken)
     {
         var antlrStream = new AntlrInputStream(idlContent);
-        var parseTree = ParseIdlContent(antlrStream);
-        var context = new IdlParsingContext { BaseDirectory = NormaliseBaseDirectory(baseDirectory) };
-        return await Translate(parseTree, context, cancellationToken);
+        var parsed = ParseIdlContent(antlrStream);
+        var context = CreateRootContext(parsed, baseDirectory);
+        return await Translate(parsed.Tree, context, cancellationToken);
+    }
+
+    private static IdlParsingContext CreateRootContext(ParsedIdlDocument parsed, string? baseDirectory)
+    {
+        var context = new IdlParsingContext
+        {
+            BaseDirectory = NormaliseBaseDirectory(baseDirectory),
+            DocComments = parsed.DocComments
+        };
+        context.Warnings.AddRange(parsed.DocComments.Warnings);
+
+        return context;
     }
 
     private static string? NormaliseBaseDirectory(string? baseDirectory)
@@ -106,7 +118,14 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             : Path.GetFullPath(baseDirectory);
     }
 
-    private static IdlParser.IdlFileContext ParseIdlContent(AntlrInputStream inputStream)
+    /// <summary>
+    /// A parsed IDL document, together with the documentation written against its declarations.
+    /// Doc comments are tokenised onto a hidden channel, so they are resolved from the token stream
+    /// rather than read out of the parse tree.
+    /// </summary>
+    private readonly record struct ParsedIdlDocument(IdlParser.IdlFileContext Tree, IdlDocComments DocComments);
+
+    private static ParsedIdlDocument ParseIdlContent(AntlrInputStream inputStream)
     {
         var errorListener = new ThrowingErrorListener();
 
@@ -120,7 +139,9 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errorListener);
 
-        return parser.idlFile();
+        var tree = parser.idlFile();
+
+        return new ParsedIdlDocument(tree, IdlDocComments.Resolve(tokenStream, tree));
     }
 
     /// <summary>
@@ -132,13 +153,13 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         {
             var protocolJson = await TranslateProtocolToJson(context.protocol, parsingContext, cancellationToken);
             var protocol = AvroProtocol.Parse(protocolJson.ToString());
-            return IdlParseResult.Protocol(protocol, protocolJson, parsingContext.NamedSchemas);
+            return IdlParseResult.Protocol(protocol, protocolJson, parsingContext.NamedSchemas, parsingContext.Warnings);
         }
         else
         {
             var schemaJson = await TranslateSchemaToJson(context, parsingContext, cancellationToken);
             var schema = AvroSchema.Parse(schemaJson.ToString());
-            return IdlParseResult.Schema(schema, schemaJson, parsingContext.NamedSchemas);
+            return IdlParseResult.Schema(schema, schemaJson, parsingContext.NamedSchemas, parsingContext.Warnings);
         }
     }
 
@@ -205,7 +226,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     private async Task<JObject> TranslateProtocolToJson(IdlParser.ProtocolDeclarationContext context, IdlParsingContext parsingContext, CancellationToken cancellationToken)
     {
         var (protocolName, protocolOwnNamespace) = SplitDeclaredName(context.name.GetName());
-        var doc = context.doc.ExtractDocumentation();
+        var doc = parsingContext.DocComments.For(context);
         var properties = TranslateProperties(context._schemaProperties);
         var body = context.body;
 
@@ -356,7 +377,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     {
         var (name, ownNamespace) = SplitDeclaredName(context.name.GetName());
         var size = IdlNumericLiteral.ParseInt32(context.size.Text);
-        var doc = context.doc.ExtractDocumentation();
+        var doc = parsingContext.DocComments.For(context);
         var properties = TranslateProperties(context._schemaProperties);
 
         var fixedJson = new JObject
@@ -386,7 +407,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     private JObject TranslateEnum(IdlParser.EnumDeclarationContext context, IdlParsingContext parsingContext)
     {
         var (name, ownNamespace) = SplitDeclaredName(context.name.GetName());
-        var doc = context.doc.ExtractDocumentation();
+        var doc = parsingContext.DocComments.For(context);
         var properties = TranslateProperties(context._schemaProperties);
 
         var symbols = new JArray();
@@ -429,7 +450,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     private JObject TranslateRecord(IdlParser.RecordDeclarationContext context, IdlParsingContext parsingContext)
     {
         var (name, ownNamespace) = SplitDeclaredName(context.name.GetName());
-        var doc = context.doc.ExtractDocumentation();
+        var doc = parsingContext.DocComments.For(context);
         var properties = TranslateProperties(context._schemaProperties);
 
         var explicitRecordNamespace = properties.TryGetValue("namespace", out var ns) ? ns.ToString() : null;
@@ -488,8 +509,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         var fieldType = TranslateFullType(fieldDecl.fieldType, parsingContext, defaultValue);
         // a comment attached to the variable describes that variable alone, so it wins over the
         // comment on the declaration, which is shared by every variable declared with the same type
-        var doc = varDecl.doc.ExtractDocumentation()
-            ?? fieldDecl.doc.ExtractDocumentation();
+        var doc = parsingContext.DocComments.For(varDecl)
+            ?? parsingContext.DocComments.For(fieldDecl);
         var properties = TranslateProperties(varDecl._schemaProperties);
 
         var field = new JObject
@@ -514,7 +535,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
 
     private JObject TranslateMessage(IdlParser.MessageDeclarationContext context, IdlParsingContext parsingContext)
     {
-        var doc = context.doc.ExtractDocumentation();
+        var doc = parsingContext.DocComments.For(context);
         var properties = TranslateProperties(context._schemaProperties);
         var isOneway = context.oneway != null;
 
@@ -529,8 +550,8 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             var paramType = TranslateFullType(param.parameterType, parsingContext, paramDefault);
             // a comment written against the parameter name itself is preferred over one written
             // ahead of its type, matching the precedence used for record fields
-            var paramDoc = param.parameter.doc.ExtractDocumentation()
-                ?? param.doc.ExtractDocumentation();
+            var paramDoc = parsingContext.DocComments.For(param.parameter)
+                ?? parsingContext.DocComments.For(param);
             var paramProperties = TranslateProperties(param.parameter._schemaProperties);
 
             var requestParam = new JObject
@@ -986,13 +1007,16 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         {
             await using var idlContent = _fileReader.OpenRead(importPath);
             var antlrInputStream = new AntlrInputStream(idlContent);
-            var parseTree = ParseIdlContent(antlrInputStream);
+            var parsed = ParseIdlContent(antlrInputStream);
+            var parseTree = parsed.Tree;
 
             var nestedContext = new IdlParsingContext
             {
-                BaseDirectory = GetImportBaseDirectory(importPath, parsingContext.BaseDirectory)
+                BaseDirectory = GetImportBaseDirectory(importPath, parsingContext.BaseDirectory),
+                DocComments = parsed.DocComments
             };
             nestedContext.ProcessedImports.UnionWith(parsingContext.ProcessedImports); // Carry forward processed imports
+            nestedContext.Warnings.AddRange(parsed.DocComments.Warnings);
 
             if (parseTree.protocol != null)
             {
@@ -1076,6 +1100,11 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             }
 
             parsingContext.ProcessedImports.UnionWith(nestedContext.ProcessedImports);
+
+            // an imported document's warnings are named by the import they came from, so that the
+            // reader can tell which file a comment they never wrote is being reported against
+            foreach (var warning in nestedContext.Warnings)
+                parsingContext.Warnings.Add($"{importPath}: {warning}");
         }
         catch (Exception ex)
         {

@@ -43,7 +43,7 @@ idlFile: (
     namespace=namespaceDeclaration? mainSchema=mainSchemaDeclaration? (imports+=importStatement|namedSchemas+=namedSchemaDeclaration)*
 ) ('\u001a' .*?)? EOF;
 
-protocolDeclaration: (doc=DocComment)? schemaProperties+=schemaProperty* Protocol name=identifier body=protocolDeclarationBody;
+protocolDeclaration: schemaProperties+=schemaProperty* Protocol name=identifier body=protocolDeclarationBody;
 
 protocolDeclarationBody : LBrace (imports+=importStatement|namedSchemas+=namedSchemaDeclaration|messages+=messageDeclaration)* RBrace ;
 
@@ -95,28 +95,28 @@ importStatement: Import importType=(Schema|Protocol|IDL) location=StringLiteral 
 
 namedSchemaDeclaration: fixedDeclaration | enumDeclaration | recordDeclaration;
 
-fixedDeclaration: (doc=DocComment)? schemaProperties+=schemaProperty* Fixed name=identifier LParen size=IntegerLiteral RParen Semicolon;
+fixedDeclaration: schemaProperties+=schemaProperty* Fixed name=identifier LParen size=IntegerLiteral RParen Semicolon;
 
-enumDeclaration: (doc=DocComment)? schemaProperties+=schemaProperty* Enum name=identifier
+enumDeclaration: schemaProperties+=schemaProperty* Enum name=identifier
     LBrace (enumSymbols+=enumSymbol (Comma enumSymbols+=enumSymbol)*)? RBrace defaultSymbol=enumDefault?;
 
-enumSymbol: (doc=DocComment)? schemaProperties+=schemaProperty* name=identifier;
+enumSymbol: schemaProperties+=schemaProperty* name=identifier;
 
 enumDefault : Equals defaultSymbolName=identifier Semicolon;
 
-recordDeclaration: (doc=DocComment)? schemaProperties+=schemaProperty* recordType=(Record|Error) name=identifier body=recordBody;
+recordDeclaration: schemaProperties+=schemaProperty* recordType=(Record|Error) name=identifier body=recordBody;
 
 recordBody : LBrace fields+=fieldDeclaration* RBrace;
 
-fieldDeclaration: (doc=DocComment)? fieldType=fullType variableDeclarations+=variableDeclaration (Comma variableDeclarations+=variableDeclaration)* Semicolon;
+fieldDeclaration: fieldType=fullType variableDeclarations+=variableDeclaration (Comma variableDeclarations+=variableDeclaration)* Semicolon;
 
-variableDeclaration: (doc=DocComment)? schemaProperties+=schemaProperty* fieldName=identifier (Equals defaultValue=jsonValue)?;
+variableDeclaration: schemaProperties+=schemaProperty* fieldName=identifier (Equals defaultValue=jsonValue)?;
 
-messageDeclaration: (doc=DocComment)? schemaProperties+=schemaProperty* returnType=resultType name=identifier
+messageDeclaration: schemaProperties+=schemaProperty* returnType=resultType name=identifier
     LParen (formalParameters+=formalParameter (Comma formalParameters+=formalParameter)*)? RParen
     (oneway=Oneway | Throws errors+=identifier (Comma errors+=identifier)*)? Semicolon;
 
-formalParameter: (doc=DocComment)? parameterType=fullType parameter=variableDeclaration;
+formalParameter: parameterType=fullType parameter=variableDeclaration;
 
 resultType: Void | plainType;
 
@@ -156,8 +156,10 @@ jsonArray: LBracket (jsonValues+=jsonValue (Comma jsonValues+=jsonValue)*)? RBra
 // Note 1: this might be more efficient using lexer modes, but these cannot be used in a mixed file like this.
 // Note 1: To do so, split this file into 'idl_lexer.g4' and 'idl_parser.g4', and import the tokens with 'options { tokenVocab=idl_lexer; }'
 
-// Note 2: DOC_COMMENT is now a regular token.
-DocComment: '/**' .*? '*/';
+// Note 2: doc comments are emitted on the hidden channel, so that one written anywhere a
+// declaration does not expect it is still tokenised rather than being a syntax error. A
+// declaration's documentation is the doc comment token immediately to its left.
+DocComment: '/**' .*? '*/' -> channel(HIDDEN);
 EmptyComment: '/**/' -> skip;
 MultiLineComment: '/*' ~[*] .*? '*/' -> skip;
 SingleLineComment: '//' .*? ('\n' | '\r' '\n'?) -> skip;

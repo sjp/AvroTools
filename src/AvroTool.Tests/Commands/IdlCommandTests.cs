@@ -244,6 +244,30 @@ internal class IdlCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenAnOutOfPlaceDocComment_ReportsItAndStillSucceeds()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
+        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(new StatusConsole(console), _streams, translator));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<IdlCommand>();
+
+        var sourceFile = Path.Combine(_tempDir.DirectoryPath, "stray.avdl");
+        await File.WriteAllTextAsync(sourceFile, "protocol TestProtocol {\n  record TestRecord { string FirstName; }\n  /** stray */\n}\n", TestContext.CurrentContext.CancellationToken);
+
+        var result = await app.RunAsync([sourceFile, "--stdout"], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(console.Output, Does.Contain("Line 3, char 3: Ignoring out-of-place documentation comment."));
+            Assert.That(_streams.OutputText, Does.Contain("TestRecord"));
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenStdinInputAndStdoutOption_PipesInputToOutput()
     {
         _streams.StandardInputText = SimpleTestIdl;

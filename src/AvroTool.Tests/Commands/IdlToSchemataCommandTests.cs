@@ -454,6 +454,32 @@ protocol TestProtocol {
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenAnOutOfPlaceDocComment_ReportsItAndStillWritesTheSchema()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
+        registrar.RegisterInstance(typeof(IdlToSchemataCommand), new IdlToSchemataCommand(new StatusConsole(console), _streams, translator));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<IdlToSchemataCommand>();
+
+        var sourceFile = Path.Combine(_tempDir.DirectoryPath, "stray.avdl");
+        await File.WriteAllTextAsync(sourceFile, "protocol TestProtocol {\n  record TestRecord { string FirstName; }\n  /** stray */\n}\n", TestContext.CurrentContext.CancellationToken);
+
+        var outputDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "out"));
+
+        var result = await app.RunAsync([sourceFile, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(console.Output, Does.Contain("Line 3, char 3: Ignoring out-of-place documentation comment."));
+            Assert.That(File.Exists(Path.Combine(outputDir.FullName, "TestRecord.avsc")), Is.True);
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenUnreadableInputAlongsideValidOne_ReportsItAndWritesTheOther()
     {
         var console = new TestConsole().Width(200);

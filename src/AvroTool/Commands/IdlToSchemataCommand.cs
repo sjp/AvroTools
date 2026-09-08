@@ -146,6 +146,9 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
             return false;
         }
 
+        foreach (var warning in parsed.Warnings)
+            _console.MarkupLineInterpolated($"[yellow]{source}: {warning}[/]");
+
         try
         {
             var namedTypes = parsed.GetNamedTypesJson();
