@@ -158,7 +158,7 @@ standard input, and fixes a long list of IDL translation and code generation def
 - The tool runs with the invariant globalization mode, so it starts on an image that
   carries no ICU library and behaves the same whatever the machine's locale is.
 - The package leaves out the localized resources of its dependencies, none of which the
-  tool reads, and carries an icon.
+  tool reads.
 
 ### Fixed
 

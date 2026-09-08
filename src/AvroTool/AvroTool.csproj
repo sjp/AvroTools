@@ -22,7 +22,6 @@
     <PackageReleaseNotes>Release notes are at https://github.com/sjp/AvroTools/blob/master/CHANGELOG.md</PackageReleaseNotes>
     <PackageTags>avro;idl;apache-avro;code-generation;codegen;schema;schema-evolution;compatibility;diff;canonical-form;fingerprint;dotnet-tool</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>icon.png</PackageIcon>
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
     <PackageId>SJP.AvroTool</PackageId>
@@ -47,7 +46,6 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

@@ -9,7 +9,6 @@
     <PackageReleaseNotes>Release notes are at https://github.com/sjp/AvroTools/blob/master/CHANGELOG.md</PackageReleaseNotes>
     <PackageTags>avro;idl;apache-avro;schema;schema-evolution;compatibility;diff;json</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>icon.png</PackageIcon>
     <IsPackable>true</IsPackable>
     <PackageId>SJP.Avro.Tools</PackageId>
   </PropertyGroup>
@@ -23,7 +22,6 @@
 
   <ItemGroup>
     <None Update="README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
