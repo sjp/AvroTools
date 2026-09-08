@@ -338,6 +338,20 @@ internal class DiffCommandTests
     }
 
     [Test]
+    public async Task Validate_GivenNonIntegerStandardInputPosition_ReturnsError()
+    {
+        var a = WriteSchema("a.avsc", V1);
+
+        var result = await _app.RunAsync(["--stdin", "--stdin-as", "nope", a], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("Failed to convert 'nope'"));
+        }
+    }
+
+    [Test]
     public async Task Validate_GivenStandardInputPositionOutOfRange_ReturnsError()
     {
         var a = WriteSchema("a.avsc", V1);

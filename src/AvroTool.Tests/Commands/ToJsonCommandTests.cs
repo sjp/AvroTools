@@ -82,6 +82,32 @@ internal class ToJsonCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenDeflateCodedFile_WritesOneJsonLinePerRecord()
+    {
+        var schema = Schema;
+        var alice = new GenericRecord(schema);
+        alice.Add("name", "Alice");
+        alice.Add("nickname", "Ally");
+        var bob = new GenericRecord(schema);
+        bob.Add("name", "Bob");
+        bob.Add("nickname", null);
+
+        var path = Path.Combine(_tempDir.DirectoryPath, "People.avro");
+        AvroDataFileFixtures.WriteContainerFile(path, schema, Codec.Type.Deflate, alice, bob);
+
+        var result = await _app.RunAsync([path], TestContext.CurrentContext.CancellationToken);
+
+        var lines = _streams.OutputText.Trim().ReplaceLineEndings("\n").Split('\n');
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(lines, Has.Length.EqualTo(2));
+            Assert.That(lines[0], Is.EqualTo("""{"name":"Alice","nickname":{"string":"Ally"}}"""));
+            Assert.That(lines[1], Is.EqualTo("""{"name":"Bob","nickname":null}"""));
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenStdin_WritesOneJsonLinePerRecord()
     {
         var schema = Schema;

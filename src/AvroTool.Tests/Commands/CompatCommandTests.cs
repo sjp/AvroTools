@@ -324,6 +324,21 @@ internal class CompatCommandTests
     }
 
     [Test]
+    public async Task Validate_GivenNonIntegerStandardInputPosition_ReturnsError()
+    {
+        var reader = WriteSchema("v2.avsc", V2);
+        var writer = WriteSchema("v1.avsc", V1);
+
+        var result = await _app.RunAsync(["--stdin", "--stdin-as", "nope", reader, writer], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.Output, Does.Contain("Failed to convert 'nope'"));
+        }
+    }
+
+    [Test]
     public async Task Validate_GivenStandardInputPositionOutOfRange_ReturnsError()
     {
         var writer = WriteSchema("v1.avsc", V1);

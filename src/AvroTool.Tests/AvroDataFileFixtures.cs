@@ -13,9 +13,12 @@ namespace AvroTool.Tests;
 /// </summary>
 internal static class AvroDataFileFixtures
 {
-    public static void WriteContainerFile(string path, RecordSchema schema, params GenericRecord[] records)
+    public static void WriteContainerFile(string path, RecordSchema schema, params GenericRecord[] records) =>
+        WriteContainerFile(path, schema, Codec.Type.Null, records);
+
+    public static void WriteContainerFile(string path, RecordSchema schema, Codec.Type codec, params GenericRecord[] records)
     {
-        using var writer = DataFileWriter<GenericRecord>.OpenWriter(new GenericDatumWriter<GenericRecord>(schema), path, Codec.CreateCodec(Codec.Type.Null));
+        using var writer = DataFileWriter<GenericRecord>.OpenWriter(new GenericDatumWriter<GenericRecord>(schema), path, Codec.CreateCodec(codec));
         foreach (var record in records)
             writer.Append(record);
 

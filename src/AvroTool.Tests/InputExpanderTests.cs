@@ -124,4 +124,77 @@ internal class InputExpanderTests
             Assert.That(result.UnmatchedTokens, Is.Empty);
         }
     }
+
+    [Test]
+    public void Expand_GivenGlobAnchoredAtTheFilesystemRoot_ResolvesWithoutThrowing()
+    {
+        // No subdirectory precedes the wildcard, so the base directory computed from the
+        // pattern is the filesystem root itself rather than a path beneath it.
+        var result = InputExpander.Expand(["/*.avdl-that-should-never-exist"], IdlExtensions, recursive: true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Files, Is.Empty);
+            Assert.That(result.UnmatchedTokens, Has.Count.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void Expand_GivenGlobWithAParentDirectorySegment_ResolvesRelativeToTheParent()
+    {
+        var top = Touch("top.avdl");
+        Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "nested"));
+
+        var glob = Path.Combine(_tempDir.DirectoryPath, "nested", "..", "*.avdl");
+        var result = InputExpander.Expand([glob], IdlExtensions, recursive: true);
+
+        Assert.That(result.Files, Is.EqualTo(new[] { top }));
+    }
+
+    [Test]
+    public void Expand_GivenGlobWithWindowsStyleSeparators_MatchesAsIfTheyWereForwardSlashes()
+    {
+        var nested = Touch("nested/deep.avdl");
+
+        var glob = _tempDir.DirectoryPath + @"\nested\*.avdl";
+        var result = InputExpander.Expand([glob], IdlExtensions, recursive: true);
+
+        Assert.That(result.Files, Is.EqualTo(new[] { nested }));
+    }
+
+    [Test]
+    public void Expand_GivenDirectoryWithADifferentlyCasedExtension_MatchesCaseInsensitively()
+    {
+        var file = Touch("Test.AVDL");
+
+        var result = InputExpander.Expand([_tempDir.DirectoryPath], IdlExtensions, recursive: true);
+
+        Assert.That(result.Files, Is.EqualTo(new[] { file }));
+    }
+
+    [Test]
+    public void Expand_GivenDirectoryWithNoMatchingFiles_ReportsUnmatched()
+    {
+        Touch("readme.txt");
+
+        var result = InputExpander.Expand([_tempDir.DirectoryPath], IdlExtensions, recursive: true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Files, Is.Empty);
+            Assert.That(result.UnmatchedTokens, Is.EqualTo(new[] { _tempDir.DirectoryPath }));
+        }
+    }
+
+    [Test]
+    public void Expand_GivenDirectory_ReturnsFilesInOrdinalOrderRegardlessOfCreationOrder()
+    {
+        var z = Touch("z.avdl");
+        var a = Touch("a.avdl");
+        var m = Touch("m.avdl");
+
+        var result = InputExpander.Expand([_tempDir.DirectoryPath], IdlExtensions, recursive: true);
+
+        Assert.That(result.Files, Is.EqualTo(new[] { a, m, z }));
+    }
 }

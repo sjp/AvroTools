@@ -173,6 +173,31 @@ internal class IdlCommandTests
     }
 
     [Test]
+    public async Task ExecuteAsync_GivenStdoutOptionAndMoreThanOneInput_ReportsErrorAndWritesNothing()
+    {
+        var console = new TestConsole().Width(200);
+        var registrar = new FakeTypeRegistrar();
+        registrar.RegisterInstance(typeof(IdlCommand), new IdlCommand(new StatusConsole(console), _streams, _idlTranslator.Object));
+
+        var app = new CommandAppTester(registrar);
+        app.SetDefaultCommand<IdlCommand>();
+
+        var first = Path.Combine(_tempDir.DirectoryPath, "first.avdl");
+        var second = Path.Combine(_tempDir.DirectoryPath, "second.avdl");
+        await File.WriteAllTextAsync(first, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
+        await File.WriteAllTextAsync(second, SimpleTestIdl, TestContext.CurrentContext.CancellationToken);
+
+        var result = await app.RunAsync([first, second, "--stdout"], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(console.Output, Does.Contain("The --stdout option is only valid for a single input."));
+            Assert.That(_streams.OutputText, Is.Empty);
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_GivenStdinInputAndStdoutOption_PipesInputToOutput()
     {
         _streams.StandardInputText = SimpleTestIdl;
