@@ -156,3 +156,12 @@ csharp_space_between_square_brackets = false
 # Wrapping preferences
 csharp_preserve_single_line_blocks = true
 csharp_preserve_single_line_statements = true
+
+# The Avro IDL lexer, parser and listeners are ANTLR output, checked in exactly as the
+# tool emits them so that regenerating them never needs a follow-up hand edit. Two compiler
+# diagnostics that the generated shape always raises are turned off here instead: the token
+# constant named "Equals" hides object.Equals, and the tool marks its types
+# [CLSCompliant(false)] although the assembly makes no CLS-compliance claim.
+[SJP.Avro.Tools/Idl/Parsing/Idl*.cs]
+dotnet_diagnostic.CS0108.severity = none
+dotnet_diagnostic.CS3021.severity = none

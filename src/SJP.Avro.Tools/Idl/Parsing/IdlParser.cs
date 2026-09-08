@@ -31,6 +31,7 @@ using Antlr4.Runtime.Tree;
 using DFA = Antlr4.Runtime.Dfa.DFA;
 
 [System.CodeDom.Compiler.GeneratedCode("ANTLR", "4.13.2")]
+[System.CLSCompliant(false)]
 public partial class IdlParser : Parser {
 	protected static DFA[] decisionToDFA;
 	protected static PredictionContextCache sharedContextCache = new PredictionContextCache();
@@ -41,7 +42,7 @@ public partial class IdlParser : Parser {
 		Float=22, Double=23, String=24, Bytes=25, Null=26, BTrue=27, BFalse=28, 
 		Decimal=29, Date=30, Time=31, Timestamp=32, LocalTimestamp=33, UUID=34, 
 		Void=35, Oneway=36, Throws=37, LParen=38, RParen=39, LBrace=40, RBrace=41, 
-		LBracket=42, RBracket=43, Colon=44, Semicolon=45, Comma=46, At=47, EqualsOp=48, 
+		LBracket=42, RBracket=43, Colon=44, Semicolon=45, Comma=46, At=47, Equals=48, 
 		Dot=49, Dash=50, QuestionMark=51, LT=52, GT=53, StringLiteral=54, IntegerLiteral=55, 
 		FloatingPointLiteral=56, IdentifierToken=57;
 	public const int
@@ -1032,7 +1033,7 @@ public partial class IdlParser : Parser {
 			State = 172;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if (_la==EqualsOp) {
+			if (_la==Equals) {
 				{
 				State = 171;
 				_localctx.defaultSymbol = enumDefault();
@@ -1122,7 +1123,7 @@ public partial class IdlParser : Parser {
 
 	public partial class EnumDefaultContext : ParserRuleContext {
 		public IdentifierContext defaultSymbolName;
-		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Equals() { return GetToken(IdlParser.EqualsOp, 0); }
+		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Equals() { return GetToken(IdlParser.Equals, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Semicolon() { return GetToken(IdlParser.Semicolon, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public IdentifierContext identifier() {
 			return GetRuleContext<IdentifierContext>(0);
@@ -1152,7 +1153,7 @@ public partial class IdlParser : Parser {
 			EnterOuterAlt(_localctx, 1);
 			{
 			State = 182;
-			Match(EqualsOp);
+			Match(Equals);
 			State = 183;
 			_localctx.defaultSymbolName = identifier();
 			State = 184;
@@ -1413,7 +1414,7 @@ public partial class IdlParser : Parser {
 		[System.Diagnostics.DebuggerNonUserCode] public IdentifierContext identifier() {
 			return GetRuleContext<IdentifierContext>(0);
 		}
-		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Equals() { return GetToken(IdlParser.EqualsOp, 0); }
+		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Equals() { return GetToken(IdlParser.Equals, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public SchemaPropertyContext[] schemaProperty() {
 			return GetRuleContexts<SchemaPropertyContext>();
 		}
@@ -1468,10 +1469,10 @@ public partial class IdlParser : Parser {
 			State = 225;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if (_la==EqualsOp) {
+			if (_la==Equals) {
 				{
 				State = 223;
-				Match(EqualsOp);
+				Match(Equals);
 				State = 224;
 				_localctx.defaultValue = jsonValue();
 				}

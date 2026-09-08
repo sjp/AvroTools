@@ -28,6 +28,7 @@ using Antlr4.Runtime.Misc;
 using DFA = Antlr4.Runtime.Dfa.DFA;
 
 [System.CodeDom.Compiler.GeneratedCode("ANTLR", "4.13.2")]
+[System.CLSCompliant(false)]
 public partial class IdlLexer : Lexer {
 	protected static DFA[] decisionToDFA;
 	protected static PredictionContextCache sharedContextCache = new PredictionContextCache();
@@ -38,7 +39,7 @@ public partial class IdlLexer : Lexer {
 		Float=22, Double=23, String=24, Bytes=25, Null=26, BTrue=27, BFalse=28, 
 		Decimal=29, Date=30, Time=31, Timestamp=32, LocalTimestamp=33, UUID=34, 
 		Void=35, Oneway=36, Throws=37, LParen=38, RParen=39, LBrace=40, RBrace=41, 
-		LBracket=42, RBracket=43, Colon=44, Semicolon=45, Comma=46, At=47, EqualsOp=48, 
+		LBracket=42, RBracket=43, Colon=44, Semicolon=45, Comma=46, At=47, Equals=48, 
 		Dot=49, Dash=50, QuestionMark=51, LT=52, GT=53, StringLiteral=54, IntegerLiteral=55, 
 		FloatingPointLiteral=56, IdentifierToken=57;
 	public static string[] channelNames = {
