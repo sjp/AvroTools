@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avro;
 using Newtonsoft.Json;
@@ -280,8 +279,8 @@ public static class SchemaDiff
                     newValue: after.Documentation));
             }
 
-            var beforeAliases = NamedSchemaAliases(before).ToHashSet(StringComparer.Ordinal);
-            var afterAliases = NamedSchemaAliases(after).ToHashSet(StringComparer.Ordinal);
+            var beforeAliases = before.AliasFullnames().ToHashSet(StringComparer.Ordinal);
+            var afterAliases = after.AliasFullnames().ToHashSet(StringComparer.Ordinal);
             if (!beforeAliases.SetEquals(afterAliases))
             {
                 sink.Add(new SchemaChange(
@@ -796,8 +795,7 @@ public static class SchemaDiff
     /// the other's full name among its aliases.
     /// </summary>
     private static bool LinkedByAlias(NamedSchema before, NamedSchema after) =>
-        NamedSchemaAliases(before).Contains(after.Fullname, StringComparer.Ordinal) ||
-        NamedSchemaAliases(after).Contains(before.Fullname, StringComparer.Ordinal);
+        before.HasAliasFor(after) || after.HasAliasFor(before);
 
     /// <summary>
     /// The type a schema is compared as. A protocol error is a record that carries an error flag,
@@ -811,19 +809,6 @@ public static class SchemaDiff
 
     /// <summary>The scale Avro assumes for a decimal that doesn't declare one.</summary>
     private const string DefaultDecimalScale = "0";
-
-    // Named-type aliases are not surfaced publicly by Apache.Avro, so read the private backing
-    // field. Cached, and defensively falls back to no aliases if the field ever moves.
-    private static readonly FieldInfo? AliasesField =
-        typeof(NamedSchema).GetField("aliases", BindingFlags.NonPublic | BindingFlags.Instance);
-
-    private static IEnumerable<string> NamedSchemaAliases(NamedSchema schema)
-    {
-        if (AliasesField?.GetValue(schema) is not IEnumerable<SchemaName> aliases)
-            return [];
-
-        return aliases.Select(a => a.Fullname);
-    }
 
     /// <summary>The location of the pair currently being computed, which every change hangs off.</summary>
     private const string RelativeRoot = "";

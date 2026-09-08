@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avro;
 
@@ -355,20 +354,7 @@ public static class SchemaCompatibility
         if (string.Equals(reader.Name, writer.Name, StringComparison.Ordinal))
             return true;
 
-        return NamedSchemaAliases(reader).Contains(writer.Fullname, StringComparer.Ordinal);
-    }
-
-    // Named-type aliases are not surfaced publicly by Apache.Avro, so read the private backing
-    // field. Cached, and defensively falls back to no aliases if the field ever moves.
-    private static readonly FieldInfo? AliasesField =
-        typeof(NamedSchema).GetField("aliases", BindingFlags.NonPublic | BindingFlags.Instance);
-
-    private static IEnumerable<string> NamedSchemaAliases(NamedSchema schema)
-    {
-        if (AliasesField?.GetValue(schema) is not IEnumerable<SchemaName> aliases)
-            return [];
-
-        return aliases.Select(a => a.Fullname);
+        return reader.HasAliasFor(writer);
     }
 
     /// <summary>An identity-based reader/writer pair, used to terminate recursion on recursive schemas.</summary>

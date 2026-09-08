@@ -209,6 +209,41 @@ internal static class SchemaCompatibilityTests
     }
 
     [Test]
+    public static void Check_GivenRecordMovedToAnotherNamespaceWithQualifiedAlias_IsCompatible()
+    {
+        const string writer = """{"type":"record","name":"R","namespace":"v1","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"record","name":"R","namespace":"v2","aliases":["v1.R"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenRenamedRecordWithBareAliasInSameNamespace_IsCompatible()
+    {
+        const string writer = """{"type":"record","name":"Old","namespace":"ns","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"record","name":"New","namespace":"ns","aliases":["Old"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Check(reader, writer);
+        Assert.That(result.IsCompatible, Is.True);
+    }
+
+    [Test]
+    public static void Check_GivenRenamedRecordWithBareAliasInAnotherNamespace_ReportsNameMismatch()
+    {
+        const string writer = """{"type":"record","name":"Old","namespace":"other","fields":[{"name":"a","type":"int"}]}""";
+        const string reader = """{"type":"record","name":"New","namespace":"ns","aliases":["Old"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Check(reader, writer);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsCompatible, Is.False);
+            Assert.That(result.Incompatibilities.Single().Type, Is.EqualTo(SchemaIncompatibilityType.NameMismatch));
+        }
+    }
+
+    [Test]
     public static void Check_GivenNestedFieldPromotion_RecursesIntoRecords()
     {
         const string writer = """{"type":"record","name":"R","fields":[{"name":"a","type":"int"}]}""";

@@ -713,6 +713,34 @@ internal static class SchemaDiffTests
     }
 
     [Test]
+    public static void Compare_GivenRootRecordRenamedWithBareAliasInSameNamespace_ReportsTypeRenamed()
+    {
+        const string before = """{"type":"record","name":"Old","namespace":"ns","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"New","namespace":"ns","aliases":["Old"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Compare(before, after);
+        var change = result.Changes.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(change.Kind, Is.EqualTo(ChangeKind.TypeRenamed));
+            Assert.That(change.OldValue, Is.EqualTo("ns.Old"));
+            Assert.That(change.NewValue, Is.EqualTo("ns.New"));
+        }
+    }
+
+    [Test]
+    public static void Compare_GivenRootRecordRenamedWithBareAliasInAnotherNamespace_DoesNotReportTypeRenamed()
+    {
+        const string before = """{"type":"record","name":"Old","namespace":"other","fields":[{"name":"a","type":"int"}]}""";
+        const string after = """{"type":"record","name":"New","namespace":"ns","aliases":["Old"],"fields":[{"name":"a","type":"int"}]}""";
+
+        var result = Compare(before, after);
+
+        Assert.That(result.Changes.Any(c => c.Kind == ChangeKind.TypeRenamed), Is.False);
+    }
+
+    [Test]
     public static void Compare_GivenNestedRecordRenamedWithAlias_ReportsTypeRenamedAtNestedLocation()
     {
         const string before = """
