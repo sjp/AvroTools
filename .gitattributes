@@ -1,4 +1,10 @@
+# Normalise every text file to LF in the repository, and check it out with the
+# platform's native line endings.
 * text=auto
-* eol=crlf
 
-*.sh eol=lf
+# Shell scripts must be LF on disk everywhere, including Windows checkouts, so
+# they stay runnable under WSL, Git Bash and container builds.
+*.sh text eol=lf
+
+# Avro container files are binary and must never be line-ending converted.
+*.avro binary
