@@ -150,6 +150,9 @@ internal static class Program
         services.AddSingleton(streams);
         services.AddTransient<ICodeGeneratorResolver, CodeGeneratorResolver>();
         services.AddTransient<IIdlFileReader, PhysicalIdlFileReader>();
+        // one cache for the process, so that a file imported by several of a command's inputs is
+        // read and parsed once; a run is short enough that a file changing under it is not a concern
+        services.AddSingleton<IIdlImportCache, IdlImportCache>();
         services.AddTransient<IIdlToAvroTranslator, IdlToAvroTranslator>();
     }
 

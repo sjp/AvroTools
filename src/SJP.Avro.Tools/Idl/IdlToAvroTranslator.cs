@@ -18,16 +18,34 @@ namespace SJP.Avro.Tools.Idl;
 public class IdlToAvroTranslator : IIdlToAvroTranslator
 {
     private readonly IIdlFileReader _fileReader;
+    private readonly IIdlImportCache? _importCache;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IdlToAvroTranslator"/> class, reading and
+    /// parsing an imported file each time it is imported.
+    /// </summary>
+    /// <param name="fileReader">The reader to use for retrieving imported files.</param>
+    public IdlToAvroTranslator(IIdlFileReader fileReader)
+        : this(fileReader, null)
+    {
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IdlToAvroTranslator"/> class.
     /// </summary>
     /// <param name="fileReader">The reader to use for retrieving imported files.</param>
-    public IdlToAvroTranslator(IIdlFileReader fileReader)
+    /// <param name="importCache">
+    /// Keeps the parse of each imported IDL document, so that documents importing the same file do
+    /// not each read and parse it. A cache does not notice a file changing once it has been read,
+    /// so one should not outlive the run of work it was created for. When <c>null</c>, an imported
+    /// file is read and parsed each time it is imported.
+    /// </param>
+    public IdlToAvroTranslator(IIdlFileReader fileReader, IIdlImportCache? importCache)
     {
         ArgumentNullException.ThrowIfNull(fileReader);
 
         _fileReader = fileReader;
+        _importCache = importCache;
     }
 
     /// <summary>
@@ -130,13 +148,6 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             ? null
             : Path.GetFullPath(baseDirectory);
     }
-
-    /// <summary>
-    /// A parsed IDL document, together with the documentation written against its declarations.
-    /// Doc comments are tokenised onto a hidden channel, so they are resolved from the token stream
-    /// rather than read out of the parse tree.
-    /// </summary>
-    private readonly record struct ParsedIdlDocument(IdlParser.IdlFileContext Tree, IdlDocComments DocComments);
 
     private static ParsedIdlDocument ParseIdlContent(AntlrInputStream inputStream)
     {
@@ -1072,6 +1083,27 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
             ? Path.GetDirectoryName(importPath)
             : Path.GetDirectoryName(importPath.Replace('\\', '/'));
 
+    /// <summary>
+    /// The parse of an imported document, taken from the import cache when one is held and the
+    /// document has been read already. A parse describes only what was written in the file, so it
+    /// can be translated afresh against each document importing it.
+    /// </summary>
+    private async ValueTask<ParsedIdlDocument> GetParsedImport(string importPath)
+    {
+        if (_importCache != null && _importCache.TryGetDocument(importPath, out var cached) && cached != null)
+            return cached;
+
+        ParsedIdlDocument parsed;
+        await using (var idlContent = _fileReader.OpenRead(importPath))
+        {
+            parsed = ParseIdlContent(new AntlrInputStream(idlContent));
+        }
+
+        _importCache?.AddDocument(importPath, parsed);
+
+        return parsed;
+    }
+
     private async Task ProcessIdlImport(
         string importPath,
         List<JObject> importedTypes,
@@ -1081,9 +1113,7 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
     {
         try
         {
-            await using var idlContent = _fileReader.OpenRead(importPath);
-            var antlrInputStream = new AntlrInputStream(idlContent);
-            var parsed = ParseIdlContent(antlrInputStream);
+            var parsed = await GetParsedImport(importPath);
             var parseTree = parsed.Tree;
 
             var nestedContext = new IdlParsingContext
