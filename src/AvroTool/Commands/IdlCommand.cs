@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -171,7 +172,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
 
         try
         {
-            var formattedOutput = JsonFormatting.Indent(parsed.Json.ToString());
+            var formattedOutput = parsed.Json.ToString(Formatting.Indented);
 
             if (settings.ToStandardOutput)
             {

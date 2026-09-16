@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -161,7 +162,7 @@ internal sealed class IdlToSchemataCommand : AsyncCommand<IdlToSchemataCommand.S
                     return new OutputReservation(
                         Path.Combine(outputDir.FullName, fullName + ".avsc"),
                         $"type '{fullName}'",
-                        JsonFormatting.Indent(s.ToString()));
+                        s.ToString(Formatting.Indented));
                 })
                 .ToList();
 
