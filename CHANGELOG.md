@@ -57,6 +57,13 @@ version out of this file and fails if there is no section for it.
 - `codegen` documents the errors a protocol message declares, with an `<exception>` tag
   naming each of them on the generated method. The `errors` an Avro message declares were
   dropped, so nothing in the generated protocol said which types a caller has to handle.
+- `tojson` builds what Apache.Avro derives from a schema to encode a record — the tree of
+  write delegates and the JSON grammar and parser behind them — once for the whole file
+  rather than once per record, and writes each record straight into its output buffer.
+  That per-record rebuilding cost more than encoding the data did, so a 300,000-record
+  container file converts in roughly half the time it took, byte for byte the same output.
+  `SJP.Avro.Tools` exposes the same thing as `AvroJsonEncoder`, for callers encoding many
+  datums of one schema.
 
 ### Fixed
 

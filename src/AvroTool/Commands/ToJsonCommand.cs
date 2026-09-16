@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools;
@@ -75,18 +76,41 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
             // left, including when decoding fails part way through.
             var output = new BufferedTextWriter(_streams.Output);
 
+            // Everything Apache.Avro builds to encode a record is derived from the schema, so
+            // one encoder serves the whole file; built per record, that analysis costs more than
+            // encoding the data does.
+            //
+            // Compact records are written straight into the buffer. Indenting still needs the
+            // record as a string, so in that mode the encoder writes into a builder that is
+            // cleared and reused per record instead.
+            var prettyBuffer = settings.Pretty ? new StringBuilder() : null;
+            using var prettyWriter = prettyBuffer == null ? null : new StringWriter(prettyBuffer);
+            var encoder = new AvroJsonEncoder(schema, prettyWriter ?? (TextWriter)output);
+
             try
             {
                 while (reader.HasNext())
                 {
                     var record = reader.Next();
-                    var json = AvroJsonWriter.Encode(schema, record);
-                    if (settings.Pretty)
-                        json = JsonFormatting.Indent(json);
 
                     try
                     {
-                        await output.WriteLineAsync(json.AsMemory(), cancellationToken);
+                        if (prettyBuffer != null)
+                        {
+                            prettyBuffer.Clear();
+                            encoder.Write(record);
+                            await output.WriteLineAsync(JsonFormatting.Indent(prettyBuffer.ToString()).AsMemory(), cancellationToken);
+                        }
+                        else
+                        {
+                            // The encoder writes through to the buffer, so a reader that has gone
+                            // away can surface here as readily as from the line ending below.
+                            encoder.Write(record);
+
+                            // An empty write for the line ending alone, so that cancellation is
+                            // still observed once per record.
+                            await output.WriteLineAsync(ReadOnlyMemory<char>.Empty, cancellationToken);
+                        }
                     }
                     catch (IOException)
                     {

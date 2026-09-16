@@ -561,7 +561,7 @@ Everything the tool does is available to call directly, from two packages that t
 
 | Package | Contents |
 |---------|----------|
-| [`SJP.Avro.Tools`](https://www.nuget.org/packages/SJP.Avro.Tools) | The IDL compiler (`IdlToAvroTranslator`), the compatibility checker (`SchemaCompatibility`), the schema diff (`SchemaDiff`) and the JSON encoder (`AvroJsonWriter`). |
+| [`SJP.Avro.Tools`](https://www.nuget.org/packages/SJP.Avro.Tools) | The IDL compiler (`IdlToAvroTranslator`), the compatibility checker (`SchemaCompatibility`), the schema diff (`SchemaDiff`) and the JSON encoder (`AvroJsonWriter`, `AvroJsonEncoder`). |
 | [`SJP.Avro.Tools.CodeGen`](https://www.nuget.org/packages/SJP.Avro.Tools.CodeGen) | The C# generators for records, errors, enums, fixed types and protocols, reached through `CodeGeneratorResolver`. |
 
 Both speak the `Avro.Schema` and `Avro.Protocol` types from

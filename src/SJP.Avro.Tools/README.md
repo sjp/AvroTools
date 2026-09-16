@@ -120,6 +120,27 @@ using SJP.Avro.Tools;
 var json = AvroJsonWriter.Encode(schema, record);
 ```
 
+Everything Apache.Avro builds to encode a datum comes from the schema rather than the
+datum, and `Encode` throws it away afterwards. For a sequence of datums of one schema —
+the records of an object container file, say — build an `AvroJsonEncoder` once instead and
+write each datum to it:
+
+```csharp
+using var output = new StreamWriter("people.json");
+
+var encoder = new AvroJsonEncoder(schema, output);
+foreach (var record in reader.NextEntries)
+{
+    encoder.Write(record);
+    output.WriteLine();
+}
+```
+
+The encoder writes each datum straight to the writer with no separator of its own, and
+never flushes, closes or disposes it. It is stateful and not thread-safe, so use one
+instance per thread, and discard an instance whose `Write` threw rather than writing
+another datum through it.
+
 ## Related packages
 
 * [`SJP.AvroTool`](https://www.nuget.org/packages/SJP.AvroTool) — the same functionality as

@@ -2,8 +2,6 @@ using System;
 using System.IO;
 using Avro;
 using Avro.Generic;
-using Avro.IO;
-using Newtonsoft.Json;
 
 namespace SJP.Avro.Tools;
 
@@ -20,6 +18,12 @@ public static class AvroJsonWriter
     /// <param name="datum">The datum to encode, e.g. a <see cref="GenericRecord"/>. <c>null</c> is a
     /// valid datum for a <c>"null"</c> schema, or for a union with a <c>"null"</c> branch.</param>
     /// <returns>The datum encoded as JSON, following Avro's JSON encoding conventions.</returns>
+    /// <remarks>
+    /// Everything this builds to encode the datum comes from the schema, and is thrown away
+    /// afterwards. Encoding many datums of one schema costs far less through an
+    /// <see cref="AvroJsonEncoder"/>, which is built once and writes each datum to a
+    /// <see cref="TextWriter"/>.
+    /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c>.</exception>
     /// <exception cref="AvroTypeException">The datum does not match the schema, e.g. a value of the
     /// wrong type for a field, or a value matching no branch of a union.</exception>
@@ -30,24 +34,9 @@ public static class AvroJsonWriter
         ArgumentNullException.ThrowIfNull(schema);
 
         using var stringWriter = new StringWriter();
-        using (var jsonWriter = new JsonTextWriter(stringWriter))
-        {
-            var encoder = new JsonEncoder(schema, jsonWriter)
-            {
-                // Apache.Avro's JsonEncoder defaults this to false, which drops the union
-                // type-wrapper entirely for named-type branches (record/enum/fixed) instead of
-                // using their name -- e.g. a ["null", Inner] union encodes as the bare inner
-                // value rather than {"ns.Inner": {...}}, which isn't valid Avro JSON. Setting
-                // this to true is what actually produces spec-compliant output.
-                IncludeNamespace = true
-            };
 
-            var writer = new GenericDatumWriter<object>(schema);
-            // Apache.Avro's writer declares its datum non-nullable, but null is the datum a
-            // "null" schema (or the null branch of a union) is written from.
-            writer.Write(datum!, encoder);
-            encoder.Flush();
-        }
+        var encoder = new AvroJsonEncoder(schema, stringWriter);
+        encoder.Write(datum);
 
         return stringWriter.ToString();
     }
