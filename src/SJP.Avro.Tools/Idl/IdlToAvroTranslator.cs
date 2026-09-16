@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
@@ -176,13 +177,13 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         if (context.protocol != null)
         {
             var protocolJson = await TranslateProtocolToJson(context.protocol, parsingContext, cancellationToken);
-            var protocol = ParseTranslated(() => AvroProtocol.Parse(protocolJson.ToString()), "protocol");
+            var protocol = ParseTranslated(() => AvroProtocol.Parse(protocolJson.ToString(Formatting.None)), "protocol");
             return IdlParseResult.Protocol(protocol, protocolJson, parsingContext.NamedSchemas, parsingContext.Warnings);
         }
         else
         {
             var schemaJson = await TranslateSchemaToJson(context, parsingContext, cancellationToken);
-            var schema = ParseTranslated(() => AvroSchema.Parse(schemaJson.ToString()), "schema");
+            var schema = ParseTranslated(() => AvroSchema.Parse(schemaJson.ToString(Formatting.None)), "schema");
             return IdlParseResult.Schema(schema, schemaJson, parsingContext.NamedSchemas, parsingContext.Warnings);
         }
     }
@@ -350,12 +351,17 @@ public class IdlToAvroTranslator : IIdlToAvroTranslator
         {
             var fullName = GetDeclaredSchemaFullName(namedSchema, parsingContext);
 
+            // a declaration already inlined at its point of first use is not repeated in the types
+            // array, and the inlined copy carried its own nested forward references with it, so
+            // there is nothing left to translate
+            if (!string.IsNullOrEmpty(fullName) && parsingContext.InlinedForwardRefs.Contains(fullName))
+                continue;
+
             if (!string.IsNullOrEmpty(fullName))
                 parsingContext.ProcessedSchemas.Add(fullName);
 
             var schemaJson = TranslateNamedSchema(namedSchema, parsingContext);
-            // only add if it wasn't inlined as a forward reference elsewhere
-            if (!string.IsNullOrEmpty(fullName) && !parsingContext.InlinedForwardRefs.Contains(fullName))
+            if (!string.IsNullOrEmpty(fullName))
                 types.Add(schemaJson);
         }
 
