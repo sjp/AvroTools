@@ -1,7 +1,8 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using SJP.Avro.Tools.Idl;
@@ -70,11 +71,24 @@ internal sealed class AvroInputResult
 }
 
 /// <summary>
-/// Resolves textual input to an <see cref="AvroInput"/>, trying JSON protocol, then JSON
-/// schema, then Avro IDL (in that order), mirroring the detection used across the commands.
+/// Resolves textual input to an <see cref="AvroInput"/>, as a JSON protocol, a JSON schema or
+/// an Avro IDL document, mirroring the detection used across the commands.
 /// </summary>
+/// <remarks>
+/// The shape of the content chooses which parser to run first rather than each being tried in
+/// turn: content that opens with a brace or a bracket is JSON, and a top-level <c>protocol</c>
+/// property tells the two JSON parsers apart. A failed <c>Parse</c> costs a full Newtonsoft
+/// parse and a thrown exception, so every IDL input used to pay for two of them before the
+/// translator was reached, and every JSON schema for one. The remaining parsers are still tried
+/// in their original order when the one the content was sniffed as does not accept it, so
+/// anything that defies the sniff — a bare primitive name such as <c>"string"</c> is a valid
+/// schema document that opens with neither — resolves exactly as it did before.
+/// </remarks>
 internal static class AvroInputResolver
 {
+    /// <summary>The top-level property that marks a JSON document as a protocol.</summary>
+    private static ReadOnlySpan<byte> ProtocolPropertyName => "protocol"u8;
+
     /// <summary>
     /// Attempts to parse the given content as a protocol, schema or IDL document.
     /// </summary>
@@ -85,12 +99,33 @@ internal static class AvroInputResolver
     /// <returns>The resolved input, or the reason it could not be parsed as any of the three.</returns>
     public static async Task<AvroInputResult> ResolveAsync(string content, IIdlToAvroTranslator translator, string? baseDirectory, CancellationToken cancellationToken)
     {
-        if (TryParseProtocol(content, out var protocol, out var protocolError))
-            return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
+        var isJson = LooksLikeJson(content);
+        var declaresProtocol = isJson && DeclaresProtocol(content);
 
-        if (TryParseSchema(content, out var schema, out var schemaError))
-            return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
+        string? protocolError = null;
+        string? schemaError = null;
 
+        if (isJson)
+        {
+            if (declaresProtocol)
+            {
+                if (TryParseProtocol(content, out var protocol, out protocolError))
+                    return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
+
+                if (TryParseSchema(content, out var schema, out schemaError))
+                    return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
+            }
+            else
+            {
+                if (TryParseSchema(content, out var schema, out schemaError))
+                    return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
+
+                if (TryParseProtocol(content, out var protocol, out protocolError))
+                    return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
+            }
+        }
+
+        string idlError;
         try
         {
             var result = await translator.Translate(content, baseDirectory, cancellationToken);
@@ -98,8 +133,19 @@ internal static class AvroInputResolver
         }
         catch (Exception ex)
         {
-            return AvroInputResult.Failed(DescribeFailure(content, protocolError, schemaError, ex.Message));
+            idlError = ex.Message;
         }
+
+        if (!isJson)
+        {
+            if (TryParseProtocol(content, out var protocol, out protocolError))
+                return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
+
+            if (TryParseSchema(content, out var schema, out schemaError))
+                return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
+        }
+
+        return AvroInputResult.Failed(DescribeFailure(isJson, declaresProtocol, protocolError!, schemaError!, idlError));
     }
 
     /// <summary>
@@ -153,15 +199,28 @@ internal static class AvroInputResolver
     /// one parser the content was plainly meant for keeps the real cause visible, instead of
     /// three unrelated messages or none at all.
     /// </summary>
-    private static string DescribeFailure(string content, string protocolError, string schemaError, string idlError)
+    /// <remarks>
+    /// These are the same two questions the parser order was chosen by, so the answers are
+    /// passed in rather than asked again of content that is by now known to be unusable.
+    /// </remarks>
+    private static string DescribeFailure(bool isJson, bool declaresProtocol, string protocolError, string schemaError, string idlError)
     {
-        var start = content.AsSpan().TrimStart();
-        if (start.Length == 0 || (start[0] != '{' && start[0] != '['))
+        if (!isJson)
             return $"could not be parsed as Avro IDL: {idlError}";
 
-        return DeclaresProtocol(content)
+        return declaresProtocol
             ? $"could not be parsed as a JSON protocol: {protocolError}"
             : $"could not be parsed as a JSON schema: {schemaError}";
+    }
+
+    /// <summary>
+    /// Whether the content opens as a JSON object or array. Content that does not is Avro IDL,
+    /// or too malformed for any parser to make sense of.
+    /// </summary>
+    private static bool LooksLikeJson(string content)
+    {
+        var start = content.AsSpan().TrimStart();
+        return start.Length > 0 && (start[0] == '{' || start[0] == '[');
     }
 
     /// <summary>
@@ -169,15 +228,40 @@ internal static class AvroInputResolver
     /// distinguishes a protocol document from a schema one. Content too malformed to read as
     /// JSON at all is treated as a schema, the more common of the two.
     /// </summary>
+    /// <remarks>
+    /// Only the top-level property names are of interest, so the document is scanned with a
+    /// reader and its values skipped rather than materialised into a node tree: the answer is
+    /// wanted before either parser has run, and building a whole second document to find one
+    /// key would cost more than the parse it saves.
+    /// </remarks>
     private static bool DeclaresProtocol(string content)
     {
+        var buffer = ArrayPool<byte>.Shared.Rent(Encoding.UTF8.GetByteCount(content));
         try
         {
-            return JsonNode.Parse(content) is JsonObject document && document.ContainsKey("protocol");
+            var length = Encoding.UTF8.GetBytes(content, buffer);
+            var reader = new Utf8JsonReader(buffer.AsSpan(0, length));
+
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+                return false;
+
+            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+            {
+                if (reader.ValueTextEquals(ProtocolPropertyName))
+                    return true;
+
+                reader.Skip();
+            }
+
+            return false;
         }
         catch (JsonException)
         {
             return false;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
