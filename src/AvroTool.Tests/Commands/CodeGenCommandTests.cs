@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Avro;
 using AvroTool.Commands;
 using Moq;
 using NUnit.Framework;
@@ -1028,19 +1030,53 @@ namespace TestNamespace
     /// An app wired to the real IDL translator and a console whose output the test can read,
     /// for the cases where the message under test is produced by an actual parser.
     /// </summary>
-    private (CommandAppTester App, TestConsole Console) CreateAppWithRealParsers()
+    private (CommandAppTester App, TestConsole Console) CreateAppWithRealParsers(ICodeGeneratorResolver? codeGeneratorResolver = null)
     {
         // wide enough that a parser's message is not wrapped, matching the unwrapped width
         // the tool uses when its output is redirected
         var console = new TestConsole().Width(10000);
         var registrar = new FakeTypeRegistrar();
         var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
-        registrar.RegisterInstance(typeof(CodeGenCommand), new CodeGenCommand(new StatusConsole(console), _streams, new CodeGeneratorResolver(), translator));
+        registrar.RegisterInstance(typeof(CodeGenCommand), new CodeGenCommand(new StatusConsole(console), _streams, codeGeneratorResolver ?? new CodeGeneratorResolver(), translator));
 
         var app = new CommandAppTester(registrar);
         app.SetDefaultCommand<CodeGenCommand>();
 
         return (app, console);
+    }
+
+    /// <summary>
+    /// The real generators, counting how many times each named type or protocol is put through
+    /// one, so that work avoided rather than merely discarded can be told apart.
+    /// </summary>
+    private sealed class CountingCodeGeneratorResolver(ICodeGeneratorResolver inner) : ICodeGeneratorResolver
+    {
+        private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
+
+        public int GenerationsOf(string name) => _counts.TryGetValue(name, out var count) ? count : 0;
+
+        public ICodeGenerator<T>? Resolve<T>()
+        {
+            var generator = inner.Resolve<T>();
+            return generator == null ? null : new CountingCodeGenerator<T>(generator, _counts);
+        }
+
+        private sealed class CountingCodeGenerator<T>(ICodeGenerator<T> inner, Dictionary<string, int> counts) : ICodeGenerator<T>
+        {
+            public string? Generate(T source, string baseNamespace, CodeGenOptions? options = null)
+            {
+                var name = source switch
+                {
+                    NamedSchema named => named.Fullname,
+                    AvroProtocol protocol => protocol.Name,
+                    _ => source?.ToString() ?? string.Empty
+                };
+
+                counts[name] = counts.TryGetValue(name, out var count) ? count + 1 : 1;
+
+                return inner.Generate(source, baseNamespace, options);
+            }
+        }
     }
 
     [Test]
@@ -1069,6 +1105,37 @@ namespace TestNamespace
             Assert.That(File.Exists(Path.Combine(outputDir.FullName, "SharedRecord.cs")), Is.True);
             Assert.That(File.Exists(Path.Combine(outputDir.FullName, "RA.cs")), Is.True);
             Assert.That(File.Exists(Path.Combine(outputDir.FullName, "RB.cs")), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenTwoInputsSharingAnImport_GeneratesTheSharedTypeOnlyOnce()
+    {
+        var resolver = new CountingCodeGeneratorResolver(new CodeGeneratorResolver());
+        var (app, console) = CreateAppWithRealParsers(resolver);
+
+        var sharedDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "shared"));
+        await File.WriteAllTextAsync(
+            Path.Combine(sharedDir.FullName, "common.avdl"),
+            "protocol Shared { record SharedRecord { int s; } }",
+            TestContext.CurrentContext.CancellationToken);
+
+        var a = Path.Combine(_tempDir.DirectoryPath, "a.avdl");
+        var b = Path.Combine(_tempDir.DirectoryPath, "b.avdl");
+        await File.WriteAllTextAsync(a, """protocol A { import idl "shared/common.avdl"; record RA { SharedRecord s; } }""", TestContext.CurrentContext.CancellationToken);
+        await File.WriteAllTextAsync(b, """protocol B { import idl "shared/common.avdl"; record RB { SharedRecord s; } }""", TestContext.CurrentContext.CancellationToken);
+
+        var outputDir = Directory.CreateDirectory(Path.Combine(_tempDir.DirectoryPath, "out"));
+
+        var result = await app.RunAsync([a, b, "-n", TestNamespace, "--output-dir", outputDir.FullName], TestContext.CurrentContext.CancellationToken);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(resolver.GenerationsOf("SharedRecord"), Is.EqualTo(1));
+            Assert.That(resolver.GenerationsOf("RA"), Is.EqualTo(1));
+            Assert.That(resolver.GenerationsOf("RB"), Is.EqualTo(1));
+            Assert.That(console.Output, Does.Contain("already generated from"));
         }
     }
 

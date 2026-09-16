@@ -234,40 +234,36 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             var reservations = new List<OutputReservation>();
             if (generatesProtocol)
             {
-                var protocolGenerator = _codeGeneratorResolver.Resolve<AvroProtocol>()!;
-                var protocolOutput = protocolGenerator.Generate(protocol!, settings.BaseNamespace, codeGenOptions);
+                var protocolFullName = string.IsNullOrWhiteSpace(protocol!.Namespace)
+                    ? protocol.Name
+                    : $"{protocol.Namespace}.{protocol.Name}";
 
-                if (!string.IsNullOrWhiteSpace(protocolOutput))
-                {
-                    var protocolFullName = string.IsNullOrWhiteSpace(protocol!.Namespace)
-                        ? protocol.Name
-                        : $"{protocol.Namespace}.{protocol.Name}";
-
-                    reservations.Add(new OutputReservation(
-                        Path.Combine(outputDir.FullName, protocolFullName + ".cs"),
-                        $"protocol '{protocol.Name}'",
-                        protocolOutput));
-                }
+                reservations.Add(new OutputReservation(
+                    Path.Combine(outputDir.FullName, protocolFullName + ".cs"),
+                    $"protocol '{protocol.Name}'",
+                    GenerationIdentity(protocol.ToString(), settings.BaseNamespace, codeGenOptions),
+                    () => _codeGeneratorResolver.Resolve<AvroProtocol>()!.Generate(protocol, settings.BaseNamespace, codeGenOptions)));
             }
 
             foreach (var namedType in namedTypes)
             {
-                var schemaOutput = namedType.Tag switch
+                Func<string?>? generate = namedType.Tag switch
                 {
-                    AvroSchema.Type.Enumeration => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.BaseNamespace, codeGenOptions),
-                    AvroSchema.Type.Fixed => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)namedType, settings.BaseNamespace, codeGenOptions),
-                    AvroSchema.Type.Error => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace, codeGenOptions),
-                    AvroSchema.Type.Record => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace, codeGenOptions),
+                    AvroSchema.Type.Enumeration => () => _codeGeneratorResolver.Resolve<EnumSchema>()!.Generate((EnumSchema)namedType, settings.BaseNamespace, codeGenOptions),
+                    AvroSchema.Type.Fixed => () => _codeGeneratorResolver.Resolve<FixedSchema>()!.Generate((FixedSchema)namedType, settings.BaseNamespace, codeGenOptions),
+                    AvroSchema.Type.Error => () => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace, codeGenOptions),
+                    AvroSchema.Type.Record => () => _codeGeneratorResolver.Resolve<RecordSchema>()!.Generate((RecordSchema)namedType, settings.BaseNamespace, codeGenOptions),
                     _ => null
                 };
 
-                if (string.IsNullOrWhiteSpace(schemaOutput))
+                if (generate == null)
                     continue;
 
                 reservations.Add(new OutputReservation(
                     Path.Combine(outputDir.FullName, namedType.Fullname + ".cs"),
                     $"type '{namedType.Fullname}'",
-                    schemaOutput));
+                    GenerationIdentity(namedType.ToString(), settings.BaseNamespace, codeGenOptions),
+                    generate));
             }
 
             var plan = collector.Reserve(reservations, source);
@@ -289,4 +285,13 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             return false;
         }
     }
+
+    /// <summary>
+    /// Everything the generated C# for one named type or protocol is derived from: the Avro
+    /// definition as written, the base namespace applied to it, and the output options. Generation
+    /// depends on nothing else, so two inputs reaching the same identity — a type shared through
+    /// an import, typically — produce the same file, and the second need not be generated at all.
+    /// </summary>
+    private static string GenerationIdentity(string avroJson, string baseNamespace, CodeGenOptions options)
+        => $"{baseNamespace}\n{options.RequiredProperties}\n{options.InitOnlyProperties}\n{avroJson}";
 }

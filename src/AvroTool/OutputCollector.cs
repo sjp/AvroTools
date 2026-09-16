@@ -11,24 +11,46 @@ using Spectre.Console;
 namespace AvroTool;
 
 /// <summary>
-/// One output file that an input will produce, and the content it will hold.
+/// One output file that an input will produce, and how to produce the content it will hold.
 /// </summary>
 /// <param name="Path">The full path of the file to be written.</param>
 /// <param name="Description">
 /// A human-readable description of the part of the input that produces the file,
 /// e.g. <c>protocol 'Foo'</c>, used when reporting a clash between two outputs.
 /// </param>
-/// <param name="Content">The content the file will hold.</param>
-internal readonly record struct OutputReservation(string Path, string Description, string Content);
+/// <param name="Identity">
+/// Everything about the input that determines the content: producing an output twice from the
+/// same identity yields the same text, so a path already claimed under this identity does not
+/// need producing a second time.
+/// </param>
+/// <param name="ProduceContent">
+/// Produces the content the file will hold. Called at most once, and only when the content is
+/// actually needed; returns <c>null</c> or whitespace when the input turns out to have nothing
+/// to write to the path after all.
+/// </param>
+internal readonly record struct OutputReservation(string Path, string Description, string Identity, Func<string?> ProduceContent)
+{
+    /// <summary>
+    /// An output whose content is already in hand, and so is cheap enough to be its own identity.
+    /// </summary>
+    public OutputReservation(string path, string description, string content)
+        : this(path, description, content, () => content)
+    {
+    }
+}
 
 /// <summary>
 /// One output of an input, and what is to be done with it.
 /// </summary>
-/// <param name="Output">The file and the content it will hold.</param>
+/// <param name="Path">The full path of the file.</param>
+/// <param name="Content">
+/// The content to write, or <c>null</c> when an earlier input already produced the file and this
+/// input never had to produce it.
+/// </param>
 /// <param name="AlreadyGeneratedFrom">
 /// The earlier input that produced this exact file, or <c>null</c> when this input writes it.
 /// </param>
-internal readonly record struct PlannedOutput(OutputReservation Output, string? AlreadyGeneratedFrom);
+internal readonly record struct PlannedOutput(string Path, string? Content, string? AlreadyGeneratedFrom);
 
 /// <summary>
 /// What is to become of one input's outputs: the files to write, or the reason the input
@@ -59,12 +81,46 @@ internal sealed record OutputPlan(string? Error, IReadOnlyList<PlannedOutput> Ou
 internal sealed class OutputCollector
 {
     /// <summary>
-    /// An output path already claimed, and by what. Content is held as a hash so that a run over
-    /// a large tree does not keep every generated file in memory.
+    /// An output path already claimed, and by what. Both the content and the identity of the
+    /// input behind it are held as hashes so that a run over a large tree does not keep every
+    /// generated file in memory.
     /// </summary>
-    private sealed record Claim(string Source, byte[] ContentHash)
+    private sealed record Claim(string Source, byte[] ContentHash, byte[] IdentityHash)
     {
+        public bool CameFrom(string identity) => IdentityHash.AsSpan().SequenceEqual(HashOf(identity));
+
         public bool Holds(string content) => ContentHash.AsSpan().SequenceEqual(HashOf(content));
+    }
+
+    /// <summary>
+    /// One requested output, holding on to its content once produced so that a path examined more
+    /// than once is never produced twice.
+    /// </summary>
+    private sealed class PendingOutput(OutputReservation reservation)
+    {
+        private string? _content;
+        private bool _produced;
+
+        public string Path => reservation.Path;
+
+        public string Description => reservation.Description;
+
+        public string Identity => reservation.Identity;
+
+        /// <summary>The content the file will hold, produced on first use.</summary>
+        public string? Content
+        {
+            get
+            {
+                if (!_produced)
+                {
+                    _content = reservation.ProduceContent();
+                    _produced = true;
+                }
+
+                return _content;
+            }
+        }
     }
 
     private readonly StringComparer _pathComparer;
@@ -134,44 +190,64 @@ internal sealed class OutputCollector
     public OutputPlan Reserve(IReadOnlyList<OutputReservation> outputs, string source)
     {
         var planned = new List<PlannedOutput>(outputs.Count);
-        var claimedHere = new Dictionary<string, OutputReservation>(_pathComparer);
+        var claimedHere = new Dictionary<string, PendingOutput>(_pathComparer);
+        var toClaim = new List<PendingOutput>();
 
-        foreach (var output in outputs)
+        foreach (var reservation in outputs)
         {
+            var output = new PendingOutput(reservation);
+
             if (claimedHere.TryGetValue(output.Path, out var sibling))
             {
+                // The same file described twice within one input: write it once. Two descriptions
+                // of the same thing cannot disagree, so neither has to be produced to find out.
+                if (string.Equals(sibling.Identity, output.Identity, StringComparison.Ordinal))
+                    continue;
+
                 if (!string.Equals(sibling.Content, output.Content, StringComparison.Ordinal))
                     return OutputPlan.Failed($"{sibling.Description} and {output.Description} disagree over the content of '{output.Path}'.");
 
-                // The same file described twice within one input: write it once.
                 continue;
             }
-
-            claimedHere[output.Path] = output;
 
             if (_claims.TryGetValue(output.Path, out var claim))
             {
-                if (!claim.Holds(output.Content))
-                    return OutputPlan.Failed($"'{output.Path}' was already generated from '{claim.Source}', with different content.");
+                // An earlier input already produced this file from the very same thing — a type
+                // shared through an import, typically — so its content is known to match without
+                // being produced again. Only a different input behind the same path has to be
+                // produced, to tell a genuine clash from two routes to the same output.
+                if (!claim.CameFrom(output.Identity))
+                {
+                    var content = output.Content;
+                    if (string.IsNullOrWhiteSpace(content))
+                        continue;
 
-                planned.Add(new PlannedOutput(output, claim.Source));
+                    if (!claim.Holds(content))
+                        return OutputPlan.Failed($"'{output.Path}' was already generated from '{claim.Source}', with different content.");
+                }
+
+                claimedHere[output.Path] = output;
+                planned.Add(new PlannedOutput(output.Path, null, claim.Source));
                 continue;
             }
 
-            planned.Add(new PlannedOutput(output, null));
-        }
+            if (string.IsNullOrWhiteSpace(output.Content))
+                continue;
 
-        var toWrite = planned.Where(p => p.AlreadyGeneratedFrom == null).ToList();
+            claimedHere[output.Path] = output;
+            toClaim.Add(output);
+            planned.Add(new PlannedOutput(output.Path, output.Content, null));
+        }
 
         if (!_overwrite)
         {
-            var existing = toWrite.Select(p => p.Output.Path).Where(File.Exists).ToList();
+            var existing = toClaim.Select(static o => o.Path).Where(File.Exists).ToList();
             if (existing.Count > 0)
                 return OutputPlan.Failed($"one or more output files already exist ({string.Join(", ", existing)}). Consider using the 'overwrite' option.");
         }
 
-        foreach (var output in toWrite)
-            _claims[output.Output.Path] = new Claim(source, HashOf(output.Output.Content));
+        foreach (var output in toClaim)
+            _claims[output.Path] = new Claim(source, HashOf(output.Content!), HashOf(output.Identity));
 
         return OutputPlan.Planned(planned);
     }
@@ -206,12 +282,12 @@ internal sealed class OutputCollector
         {
             if (planned.AlreadyGeneratedFrom is { } owner)
             {
-                console.MarkupLineInterpolated($"[grey]Skipped {planned.Output.Path}, already generated from '{owner}'[/]");
+                console.MarkupLineInterpolated($"[grey]Skipped {planned.Path}, already generated from '{owner}'[/]");
                 continue;
             }
 
-            await WriteAsync(planned.Output.Path, planned.Output.Content, cancellationToken).ConfigureAwait(false);
-            console.MarkupLineInterpolated($"[green]Generated {planned.Output.Path}[/]");
+            await WriteAsync(planned.Path, planned.Content!, cancellationToken).ConfigureAwait(false);
+            console.MarkupLineInterpolated($"[green]Generated {planned.Path}[/]");
         }
     }
 
