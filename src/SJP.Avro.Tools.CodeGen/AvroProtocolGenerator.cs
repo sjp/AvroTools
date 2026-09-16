@@ -56,6 +56,11 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
         if (string.Equals(typeName, nameof(ISpecificProtocol.Request), StringComparison.Ordinal))
             requestMethod = SyntaxUtilities.AsExplicitImplementation(requestMethod, typeof(ISpecificProtocol));
 
+        // The request method is one switch over the protocol's messages, and formatting the
+        // assembled tree spends nearly all of its time on it. Laying it out here leaves the
+        // formatter only the surrounding declaration to work on.
+        requestMethod = SyntaxUtilities.WithConcreteWhitespace(requestMethod);
+
         var methodNames = BuildMethodNames(protocol, typeName, protocolFieldName);
         var messageMethods = protocol.Messages.Values
             .Select(m => BuildMethod(m, methodNames[m.Name], ns))

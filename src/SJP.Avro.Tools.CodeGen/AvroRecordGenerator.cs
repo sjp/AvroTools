@@ -102,6 +102,12 @@ public class AvroRecordGenerator : ICodeGenerator<RecordSchema>
                 putMethod = SyntaxUtilities.AsExplicitImplementation(putMethod, typeof(ISpecificRecord));
         }
 
+        // Both methods are one large switch over the fields, which is where formatting the
+        // assembled tree spends nearly all of its time. Laying them out here leaves the formatter
+        // only the surrounding declaration to work on.
+        getMethod = SyntaxUtilities.WithConcreteWhitespace(getMethod);
+        putMethod = SyntaxUtilities.WithConcreteWhitespace(putMethod);
+
         var enumDecl = GenerateFieldMappingEnum(schema, fieldEnumName);
 
         var members = new MemberDeclarationSyntax[]

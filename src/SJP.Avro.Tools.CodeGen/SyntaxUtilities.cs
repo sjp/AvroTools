@@ -123,6 +123,14 @@ internal static class SyntaxUtilities
     /// </summary>
     private const string GeneratedNewLine = "\n";
 
+    /// <summary>
+    /// The indentation one nesting level adds in generated source. Fixed for the same reason as
+    /// <see cref="GeneratedNewLine"/>, and matching what the formatter produces so that a member
+    /// laid out by <see cref="WithConcreteWhitespace{T}(T)"/> is indistinguishable from one the
+    /// formatter has laid out itself.
+    /// </summary>
+    private const string GeneratedIndentation = "    ";
+
     private static readonly SyntaxToken XmlNewline = XmlTextNewLine(GeneratedNewLine);
 
     /// <summary>
@@ -158,6 +166,31 @@ internal static class SyntaxUtilities
             .WithLeadingTrivia(NullableContextDirective);
 
         return Formatter.Format(document, FormattingWorkspace, FormatterOptions).ToFullString();
+    }
+
+    /// <summary>
+    /// Lays out a member's interior with real whitespace, leaving the formatter nothing to derive
+    /// inside it. A factory-built member carries elastic trivia on every token, and the cost of
+    /// resolving it over a large <c>switch</c> grows with the square of the number of cases; the
+    /// same layout arrived at directly is a fraction of the price.
+    /// </summary>
+    /// <param name="member">A member built from syntax factories, carrying no documentation comment.</param>
+    /// <typeparam name="T">The kind of member being laid out.</typeparam>
+    /// <returns>The member, with concrete whitespace inside it and its own outer trivia intact.</returns>
+    /// <remarks>
+    /// Only the interior is normalised. A member's leading and trailing trivia place it among its
+    /// siblings, and the blank line between two methods is trailing trivia the formatter derives,
+    /// so they are set aside and restored rather than normalised away. Documentation comments do
+    /// not survive normalisation, so a member carrying one must not be passed here.
+    /// </remarks>
+    public static T WithConcreteWhitespace<T>(T member) where T : MemberDeclarationSyntax
+    {
+        return member
+            .WithLeadingTrivia(TriviaList())
+            .WithTrailingTrivia(TriviaList())
+            .NormalizeWhitespace(indentation: GeneratedIndentation, eol: GeneratedNewLine)
+            .WithLeadingTrivia(member.GetLeadingTrivia())
+            .WithTrailingTrivia(member.GetTrailingTrivia());
     }
 
     /// <summary>
