@@ -84,11 +84,25 @@ public static class IdlJson
     public static IReadOnlyList<JObject> GetNamedTypes(JToken root, IReadOnlyDictionary<string, JObject> namedSchemas)
     {
         ArgumentNullException.ThrowIfNull(root);
+
+        return GetNamedTypes([root], namedSchemas);
+    }
+
+    /// <summary>
+    /// Finds every named type reachable from any of <paramref name="roots"/>, in the order the Avro
+    /// object model would discover them, walking the roots in turn. One set of visited names is
+    /// shared across the roots, so a type two of them both reach is walked, and returned, once.
+    /// </summary>
+    public static IReadOnlyList<JObject> GetNamedTypes(IEnumerable<JToken> roots, IReadOnlyDictionary<string, JObject> namedSchemas)
+    {
+        ArgumentNullException.ThrowIfNull(roots);
         ArgumentNullException.ThrowIfNull(namedSchemas);
 
         var visited = new HashSet<string>(StringComparer.Ordinal);
         var results = new List<JObject>();
-        Walk(root, namedSchemas, visited, results, namespaceContext: null);
+        foreach (var root in roots)
+            Walk(root, namedSchemas, visited, results, namespaceContext: null);
+
         return results;
     }
 
@@ -186,18 +200,37 @@ public static class IdlJson
             foreach (var field in fields.OfType<JObject>())
             {
                 if (field["type"] is { } fieldType)
-                    field["type"] = InlineTypeRef(fieldType, namedSchemas, written, namespaceContext);
+                    ReplaceIfChanged(field, "type", fieldType, namedSchemas, written, namespaceContext);
             }
         }
 
         if (obj["items"] is { } items)
-            obj["items"] = InlineTypeRef(items, namedSchemas, written, namespaceContext);
+            ReplaceIfChanged(obj, "items", items, namedSchemas, written, namespaceContext);
 
         if (obj["values"] is { } values)
-            obj["values"] = InlineTypeRef(values, namedSchemas, written, namespaceContext);
+            ReplaceIfChanged(obj, "values", values, namedSchemas, written, namespaceContext);
 
         if (obj["type"] is { } wrapped)
-            obj["type"] = InlineTypeRef(wrapped, namedSchemas, written, namespaceContext);
+            ReplaceIfChanged(obj, "type", wrapped, namedSchemas, written, namespaceContext);
+    }
+
+    /// <summary>
+    /// Inlines <paramref name="current"/> and writes the result back to <paramref name="property"/>
+    /// only when a different token came back. Newtonsoft clones a token that already has a parent
+    /// on assignment, so reassigning the same token would copy the whole subtree that
+    /// <see cref="InlineTypeRef"/> has just finished expanding in place.
+    /// </summary>
+    private static void ReplaceIfChanged(
+        JObject obj,
+        string property,
+        JToken current,
+        IReadOnlyDictionary<string, JObject> namedSchemas,
+        HashSet<string> written,
+        string? namespaceContext)
+    {
+        var replaced = InlineTypeRef(current, namedSchemas, written, namespaceContext);
+        if (!ReferenceEquals(replaced, current))
+            obj[property] = replaced;
     }
 
     private static JToken InlineTypeRef(
@@ -225,10 +258,15 @@ public static class IdlJson
 
             case JArray union:
                 {
-                    var branches = new JArray();
-                    foreach (var branch in union)
-                        branches.Add(InlineTypeRef(branch, namedSchemas, written, namespaceContext));
-                    return branches;
+                    for (var i = 0; i < union.Count; i++)
+                    {
+                        var branch = union[i];
+                        var replaced = InlineTypeRef(branch, namedSchemas, written, namespaceContext);
+                        if (!ReferenceEquals(replaced, branch))
+                            union[i] = replaced;
+                    }
+
+                    return union;
                 }
 
             case JObject obj:

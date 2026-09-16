@@ -130,9 +130,7 @@ public sealed record IdlParseResult
             ? (IEnumerable<JToken>?)(((JObject)_json)["types"] as JArray) ?? []
             : [_json];
 
-        return roots
-            .SelectMany(root => IdlJson.GetNamedTypes(root, _namedSchemas))
-            .DistinctBy(IdlJson.GetFullName, StringComparer.Ordinal)
+        return IdlJson.GetNamedTypes(roots, _namedSchemas)
             .Select(namedType => IdlJson.Inline(namedType, _namedSchemas))
             .ToList();
     }
