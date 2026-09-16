@@ -186,12 +186,9 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
 
         try
         {
-            // A protocol's declared types may each reach the same nested type, so the
-            // same named type can be seen more than once.
-            var namedTypes = schemas
-                .SelectMany(s => s.GetNamedTypes())
-                .DistinctBy(static t => t.Fullname, StringComparer.Ordinal)
-                .ToList();
+            // A protocol's declared types may each reach the same nested type. Walking them
+            // together yields every named type once, where it is first reached.
+            var namedTypes = schemas.GetNamedTypes().ToList();
 
             var generatesProtocol = protocol != null && protocol.Messages.Count > 0;
 

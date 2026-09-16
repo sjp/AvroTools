@@ -15,6 +15,11 @@ namespace SJP.Avro.Tools.CodeGen;
 /// </summary>
 public class AvroProtocolGenerator : ICodeGenerator<Protocol>
 {
+    // Built once each: naming a library type in full is the same work every time.
+    private static readonly NameSyntax SpecificProtocolType = SyntaxUtilities.GlobalName(typeof(ISpecificProtocol));
+    private static readonly NameSyntax CallbackRequestorType = SyntaxUtilities.GlobalName(typeof(ICallbackRequestor));
+    private static readonly NameSyntax AvroRuntimeExceptionType = SyntaxUtilities.GlobalName(typeof(AvroRuntimeException));
+
     /// <summary>
     /// Creates a C# implementation of an Avro protocol.
     /// </summary>
@@ -78,7 +83,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
             .AddModifiers(
                 Token(SyntaxKind.PublicKeyword),
                 Token(SyntaxKind.AbstractKeyword))
-            .AddBaseListTypes(SimpleBaseType(SyntaxUtilities.GlobalName(typeof(ISpecificProtocol))))
+            .AddBaseListTypes(SimpleBaseType(SpecificProtocolType))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
             .WithMembers(List(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));
@@ -143,7 +148,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                                 Parameter(
                                     Identifier("requestor"))
                                 .WithType(
-                                    SyntaxUtilities.GlobalName(typeof(ICallbackRequestor))),
+                                    CallbackRequestorType),
                                 Token(SyntaxKind.CommaToken),
                                 Parameter(
                                     Identifier("messageName"))
@@ -190,7 +195,7 @@ public class AvroProtocolGenerator : ICodeGenerator<Protocol>
                 SingletonList<StatementSyntax>(
                     ThrowStatement(
                         ObjectCreationExpression(
-                            SyntaxUtilities.GlobalName(typeof(AvroRuntimeException)))
+                            AvroRuntimeExceptionType)
                         .WithArgumentList(
                             ArgumentList(
                                 SingletonSeparatedList(

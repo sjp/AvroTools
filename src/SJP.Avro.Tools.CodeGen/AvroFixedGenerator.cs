@@ -14,6 +14,9 @@ namespace SJP.Avro.Tools.CodeGen;
 /// </summary>
 public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
 {
+    // Built once: naming a library type in full is the same work every time.
+    private static readonly NameSyntax SpecificFixedType = SyntaxUtilities.GlobalName(typeof(SpecificFixed));
+
     /// <summary>
     /// Creates a C# implementation of an Avro fixed type.
     /// </summary>
@@ -69,7 +72,7 @@ public class AvroFixedGenerator : ICodeGenerator<FixedSchema>
 
         var generatedClass = ClassDeclaration(SyntaxUtilities.SafeIdentifier(typeName))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
-            .AddBaseListTypes(SimpleBaseType(SyntaxUtilities.GlobalName(typeof(SpecificFixed))))
+            .AddBaseListTypes(SimpleBaseType(SpecificFixedType))
             .WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
             .WithMembers(List(members))
             .WithCloseBraceToken(Token(SyntaxKind.CloseBraceToken));

@@ -19,6 +19,18 @@ public static class SchemaExtensions
         return ExtractAllNamedTypesRecursive(schema, visitedTypes).ToList();
     }
 
+    /// <summary>
+    /// Retrieves all named types, e.g. records, fixed, enums, reachable from any of the given
+    /// schemas, each in the order it is first reached. Several schemas of one protocol commonly
+    /// reach the same nested type, and walking them together yields such a type once rather than
+    /// once per schema that reaches it.
+    /// </summary>
+    public static IEnumerable<NamedSchema> GetNamedTypes(this IEnumerable<Schema> schemas)
+    {
+        var visitedTypes = new HashSet<string>();
+        return schemas.SelectMany(s => ExtractAllNamedTypesRecursive(s, visitedTypes)).ToList();
+    }
+
     private static IEnumerable<NamedSchema> ExtractAllNamedTypesRecursive(Schema schema, HashSet<string> visitedTypes)
     {
         switch (schema)

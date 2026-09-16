@@ -30,11 +30,15 @@ internal sealed class AvroInput
     public AvroSchema? Schema { get; }
 
     /// <summary>
-    /// The top-level named schemas to operate on: the protocol's declared types, or the single schema.
+    /// The top-level named schemas to operate on: the protocol's declared types, or the single
+    /// schema. An input never changes, and callers read this two or three times, so the list is
+    /// built on first use and kept.
     /// </summary>
-    public IReadOnlyList<AvroSchema> Schemas => Protocol != null
+    public IReadOnlyList<AvroSchema> Schemas => _schemas ??= Protocol != null
         ? [.. Protocol.Types]
         : [Schema!];
+
+    private IReadOnlyList<AvroSchema>? _schemas;
 
     public static AvroInput FromProtocol(AvroProtocol protocol) => new(protocol, null);
 

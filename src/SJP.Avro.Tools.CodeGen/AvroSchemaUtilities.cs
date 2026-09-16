@@ -33,6 +33,12 @@ internal static class AvroSchemaUtilities
     /// </summary>
     public static readonly NameSyntax AvroProtocolType = SyntaxUtilities.GlobalName(typeof(Protocol));
 
+    // The types a logical type maps onto. Each is named in full in the generated code, and working
+    // that name out is the same for every field that reaches it.
+    private static readonly NameSyntax DateTimeType = SyntaxUtilities.GlobalName(typeof(DateTime));
+    private static readonly NameSyntax TimeSpanType = SyntaxUtilities.GlobalName(typeof(TimeSpan));
+    private static readonly NameSyntax GuidType = SyntaxUtilities.GlobalName(typeof(Guid));
+
     /// <summary>
     /// The name of the property that hands out the schema a generated record, error or fixed type
     /// was built from. It is fixed by <c>ISpecificRecord</c> and by the Avro base types.
@@ -148,14 +154,14 @@ internal static class AvroSchemaUtilities
         return logicalSchema.LogicalTypeName switch
         {
             DecimalLogicalTypeName => ResolveDecimalType(logicalSchema, convertDecimals),
-            "date" => SyntaxUtilities.GlobalName(typeof(DateTime)),
-            "time-millis" => SyntaxUtilities.GlobalName(typeof(TimeSpan)),
-            "time-micros" => SyntaxUtilities.GlobalName(typeof(TimeSpan)),
-            "timestamp-millis" => SyntaxUtilities.GlobalName(typeof(DateTime)),
-            "timestamp-micros" => SyntaxUtilities.GlobalName(typeof(DateTime)),
-            "local-timestamp-millis" => SyntaxUtilities.GlobalName(typeof(DateTime)),
-            "local-timestamp-micros" => SyntaxUtilities.GlobalName(typeof(DateTime)),
-            "uuid" => SyntaxUtilities.GlobalName(typeof(Guid)),
+            "date" => DateTimeType,
+            "time-millis" => TimeSpanType,
+            "time-micros" => TimeSpanType,
+            "timestamp-millis" => DateTimeType,
+            "timestamp-micros" => DateTimeType,
+            "local-timestamp-millis" => DateTimeType,
+            "local-timestamp-micros" => DateTimeType,
+            "uuid" => GuidType,
             _ => throw new NotSupportedException(
                 $"The logical type '{logicalSchema.LogicalTypeName}' is not supported by the code generator.")
         };
@@ -341,6 +347,12 @@ internal static class AvroSchemaUtilities
     /// <returns>The same document with every logical type written in its portable form.</returns>
     public static string ToPortableJson(string json)
     {
+        // Rewriting parses the document and rebuilds every node, only to throw the copy away unless
+        // a wrapper was found. No wrapper can exist without the attribute that makes one, so a
+        // document that never mentions it is returned without being parsed at all.
+        if (!json.Contains("\"logicalType\"", StringComparison.Ordinal))
+            return json;
+
         var flattened = false;
         var rewritten = FlattenLogicalTypes(JsonNode.Parse(json), ref flattened);
 
