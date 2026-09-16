@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
@@ -138,11 +139,49 @@ internal class ToJsonCommandTests
 
         var result = await _app.RunAsync([avroFile, "--pretty"], TestContext.CurrentContext.CancellationToken);
 
+        var expected = string.Join(
+            Environment.NewLine,
+            "{",
+            "  \"name\": \"Alice\",",
+            "  \"nickname\": null",
+            "}");
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
-            Assert.That(_streams.OutputText, Does.Contain("\n"));
-            Assert.That(_streams.OutputText, Does.Contain("  \"name\""));
+            Assert.That(_streams.OutputText.TrimEnd(), Is.EqualTo(expected));
+        }
+    }
+
+    [Test]
+    public async Task ExecuteAsync_GivenPrettyAndMultipleRecords_SeparatesThemByOneNewlineOnly()
+    {
+        var schema = Schema;
+        var alice = new GenericRecord(schema);
+        alice.Add("name", "Alice");
+        alice.Add("nickname", null);
+        var bob = new GenericRecord(schema);
+        bob.Add("name", "Bob");
+        bob.Add("nickname", null);
+
+        var avroFile = CreateAvroFile(alice, bob);
+
+        var result = await _app.RunAsync([avroFile, "--pretty"], TestContext.CurrentContext.CancellationToken);
+
+        var lines = _streams.OutputText.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(lines, Is.EqualTo(new[]
+            {
+                "{",
+                "  \"name\": \"Alice\",",
+                "  \"nickname\": null",
+                "}",
+                "{",
+                "  \"name\": \"Bob\",",
+                "  \"nickname\": null",
+                "}"
+            }));
         }
     }
 

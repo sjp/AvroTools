@@ -141,6 +141,15 @@ never flushes, closes or disposes it. It is stateful and not thread-safe, so use
 instance per thread, and discard an instance whose `Write` threw rather than writing
 another datum through it.
 
+Passing `indent: true` writes each datum over several lines, indented by two spaces per
+level. The indenting is done as the JSON is written rather than by re-serializing the
+compact text, so it costs a fraction of a round trip through a JSON document and changes
+nothing but whitespace.
+
+```csharp
+var encoder = new AvroJsonEncoder(schema, output, indent: true);
+```
+
 ## Related packages
 
 * [`SJP.AvroTool`](https://www.nuget.org/packages/SJP.AvroTool) — the same functionality as

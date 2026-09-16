@@ -64,6 +64,14 @@ version out of this file and fails if there is no section for it.
   container file converts in roughly half the time it took, byte for byte the same output.
   `SJP.Avro.Tools` exposes the same thing as `AvroJsonEncoder`, for callers encoding many
   datums of one schema.
+- `tojson --pretty` indents each record as it is written rather than parsing the encoded
+  record back out and serializing it again, which was the largest per-record cost left in
+  that mode; indenting now costs a few percent over compact output instead of a third more.
+  Indenting is the Avro encoder's own, so `--pretty` output is what `tojson` writes plus
+  whitespace, where before the two disagreed over three escapes: a DEL, a non-breaking
+  space and a character outside the basic multilingual plane (an emoji, say) were written
+  as `\uXXXX` escapes by `--pretty` and literally by `tojson`. All three are now literal in
+  both. `AvroJsonEncoder` takes the same option as `indent`.
 
 ### Fixed
 

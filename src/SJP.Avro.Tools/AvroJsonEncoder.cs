@@ -40,9 +40,13 @@ public sealed class AvroJsonEncoder
     /// <param name="output">The writer each datum's JSON is written to. It is not owned by the
     /// encoder: it is never flushed, closed or disposed, so the caller decides when written text
     /// reaches its destination.</param>
+    /// <param name="indent">Whether each datum is written over several lines, indented by two
+    /// spaces per level, rather than on one line. Indenting is done as the JSON is written, so it
+    /// costs a fraction of what re-serializing the compact text does, and changes nothing but
+    /// whitespace.</param>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> or <paramref name="output"/>
     /// is <c>null</c>.</exception>
-    public AvroJsonEncoder(Schema schema, TextWriter output)
+    public AvroJsonEncoder(Schema schema, TextWriter output, bool indent = false)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(output);
@@ -54,7 +58,13 @@ public sealed class AvroJsonEncoder
             // The writer outlives no datum in particular, so it must never take the destination
             // down with it, or close out a datum that a failed write left half-written.
             CloseOutput = false,
-            AutoCompleteOnClose = false
+            AutoCompleteOnClose = false,
+
+            // Nothing separates one datum from the next, indented or not: Newtonsoft's writer
+            // only indents within a datum, so consecutive datums still run together and the
+            // caller decides what goes between them.
+            Formatting = indent ? Formatting.Indented : Formatting.None,
+            Indentation = 2
         };
 
         _encoder = new JsonEncoder(schema, jsonWriter)

@@ -28,7 +28,50 @@ internal static class AvroJsonEncoderTests
 }
 """;
 
+    private const string EdgeSchemaJson = """
+{
+  "type": "record",
+  "name": "Edge",
+  "namespace": "ns",
+  "fields": [
+    { "name": "text", "type": "string" },
+    { "name": "tags", "type": { "type": "array", "items": "string" } },
+    { "name": "counts", "type": { "type": "map", "values": "int" } },
+    { "name": "nested", "type": { "type": "array", "items": { "type": "map", "values": "string" } } }
+  ]
+}
+""";
+
+    /// <summary>
+    /// Text carrying what one JSON writer is most likely to spell differently from another:
+    /// non-ASCII letters, text outside the Latin alphabet, and control characters.
+    /// </summary>
+    private const string EdgeText = "na\u00efve \u0001 tab\t \u4e16\u754c";
+
+    /// <summary>
+    /// <see cref="EdgeText"/> as it appears inside a JSON string: control characters escaped,
+    /// everything else written literally, indented or not.
+    /// </summary>
+    private const string EdgeTextJson = "na\u00efve \\u0001 tab\\t \u4e16\u754c";
+
     private static RecordSchema Schema => (RecordSchema)global::Avro.Schema.Parse(SchemaJson);
+
+    private static RecordSchema EdgeSchema => (RecordSchema)global::Avro.Schema.Parse(EdgeSchemaJson);
+
+    /// <summary>
+    /// A record whose values are the ones a pretty-printer is most likely to differ over: an
+    /// empty array, an empty map, a nested collection, and <see cref="EdgeText"/>.
+    /// </summary>
+    private static GenericRecord CreateEdgeRecord(RecordSchema schema)
+    {
+        var record = new GenericRecord(schema);
+        record.Add("text", EdgeText);
+        record.Add("tags", Array.Empty<object>());
+        record.Add("counts", new Dictionary<string, object>());
+        record.Add("nested", new object[] { new Dictionary<string, object> { ["k"] = "v" } });
+
+        return record;
+    }
 
     private static GenericRecord CreateRecord(RecordSchema schema, int index)
     {
@@ -159,6 +202,76 @@ internal static class AvroJsonEncoderTests
             Assert.That(writer.Disposals, Is.Zero);
             Assert.That(writer.Text, Is.Not.Empty);
         }
+    }
+
+    [Test]
+    public static void Write_GivenNoIndent_WritesEdgeCaseValuesOnOneLine()
+    {
+        var schema = EdgeSchema;
+
+        using var writer = new StringWriter();
+        var encoder = new AvroJsonEncoder(schema, writer);
+
+        encoder.Write(CreateEdgeRecord(schema));
+
+        var expected = $$"""{"text":"{{EdgeTextJson}}","tags":[],"counts":{},"nested":[{"k":"v"}]}""";
+        Assert.That(writer.ToString(), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public static void Write_GivenIndent_WritesEdgeCaseValuesOverSeveralLinesIndentedByTwoSpaces()
+    {
+        var schema = EdgeSchema;
+
+        using var writer = new StringWriter();
+        var encoder = new AvroJsonEncoder(schema, writer, indent: true);
+
+        encoder.Write(CreateEdgeRecord(schema));
+
+        // Nothing but whitespace separates this from the one-line form above: the same escaping,
+        // the same empty array and empty map, and the same text.
+        var expected = string.Join(
+            Environment.NewLine,
+            "{",
+            $"  \"text\": \"{EdgeTextJson}\",",
+            "  \"tags\": [],",
+            "  \"counts\": {},",
+            "  \"nested\": [",
+            "    {",
+            "      \"k\": \"v\"",
+            "    }",
+            "  ]",
+            "}");
+        Assert.That(writer.ToString(), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public static void Write_GivenIndentAndConsecutiveRecords_WritesThemOneAfterAnotherWithNoSeparator()
+    {
+        var schema = Schema;
+        var first = CreateRecord(schema, 0);
+        var second = CreateRecord(schema, 1);
+
+        using var writer = new StringWriter();
+        var encoder = new AvroJsonEncoder(schema, writer, indent: true);
+
+        encoder.Write(first);
+        encoder.Write(second);
+
+        // A datum ends at its closing brace, with no newline of the writer's own after it, so a
+        // caller writing one record per line still decides where each line ends.
+        var expected = EncodeIndented(schema, first) + EncodeIndented(schema, second);
+        Assert.That(writer.ToString(), Is.EqualTo(expected));
+    }
+
+    private static string EncodeIndented(Schema schema, object? datum)
+    {
+        using var writer = new StringWriter();
+
+        var encoder = new AvroJsonEncoder(schema, writer, indent: true);
+        encoder.Write(datum);
+
+        return writer.ToString();
     }
 
     /// <summary>
