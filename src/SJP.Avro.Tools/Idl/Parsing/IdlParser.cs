@@ -32,6 +32,7 @@ using DFA = Antlr4.Runtime.Dfa.DFA;
 
 [System.CodeDom.Compiler.GeneratedCode("ANTLR", "4.13.2")]
 [System.CLSCompliant(false)]
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 public partial class IdlParser : Parser {
 	protected static DFA[] decisionToDFA;
 	protected static PredictionContextCache sharedContextCache = new PredictionContextCache();
@@ -119,6 +120,7 @@ public partial class IdlParser : Parser {
 		Interpreter = new ParserATNSimulator(this, _ATN, decisionToDFA, sharedContextCache);
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class IdlFileContext : ParserRuleContext {
 		public ProtocolDeclarationContext protocol;
 		public NamespaceDeclarationContext @namespace;
@@ -284,6 +286,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class ProtocolDeclarationContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -361,6 +364,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class ProtocolDeclarationBodyContext : ParserRuleContext {
 		public ImportStatementContext _importStatement;
 		public IList<ImportStatementContext> _imports = new List<ImportStatementContext>();
@@ -465,6 +469,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class NamespaceDeclarationContext : ParserRuleContext {
 		public IdentifierContext @namespace;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Namespace() { return GetToken(IdlParser.Namespace, 0); }
@@ -515,6 +520,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class MainSchemaDeclarationContext : ParserRuleContext {
 		public FullTypeContext mainSchema;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Schema() { return GetToken(IdlParser.Schema, 0); }
@@ -565,6 +571,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class IdentifierContext : ParserRuleContext {
 		public IToken word;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode IdentifierToken() { return GetToken(IdlParser.IdentifierToken, 0); }
@@ -647,6 +654,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class SchemaPropertyContext : ParserRuleContext {
 		public IdentifierContext name;
 		public JsonValueContext value;
@@ -706,6 +714,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class ImportStatementContext : ParserRuleContext {
 		public IToken importType;
 		public IToken location;
@@ -769,6 +778,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class NamedSchemaDeclarationContext : ParserRuleContext {
 		[System.Diagnostics.DebuggerNonUserCode] public FixedDeclarationContext fixedDeclaration() {
 			return GetRuleContext<FixedDeclarationContext>(0);
@@ -838,6 +848,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class FixedDeclarationContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -922,6 +933,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class EnumDeclarationContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -1053,6 +1065,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class EnumSymbolContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -1121,6 +1134,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class EnumDefaultContext : ParserRuleContext {
 		public IdentifierContext defaultSymbolName;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Equals() { return GetToken(IdlParser.Equals, 0); }
@@ -1171,6 +1185,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class RecordDeclarationContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -1258,6 +1273,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class RecordBodyContext : ParserRuleContext {
 		public FieldDeclarationContext _fieldDeclaration;
 		public IList<FieldDeclarationContext> _fields = new List<FieldDeclarationContext>();
@@ -1326,6 +1342,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class FieldDeclarationContext : ParserRuleContext {
 		public FullTypeContext fieldType;
 		public VariableDeclarationContext _variableDeclaration;
@@ -1406,6 +1423,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class VariableDeclarationContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -1491,6 +1509,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class MessageDeclarationContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -1662,6 +1681,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class FormalParameterContext : ParserRuleContext {
 		public FullTypeContext parameterType;
 		public VariableDeclarationContext parameter;
@@ -1712,6 +1732,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class ResultTypeContext : ParserRuleContext {
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Void() { return GetToken(IdlParser.Void, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public PlainTypeContext plainType() {
@@ -1769,6 +1790,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class FullTypeContext : ParserRuleContext {
 		public SchemaPropertyContext _schemaProperty;
 		public IList<SchemaPropertyContext> _schemaProperties = new List<SchemaPropertyContext>();
@@ -1836,6 +1858,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class PlainTypeContext : ParserRuleContext {
 		[System.Diagnostics.DebuggerNonUserCode] public ArrayTypeContext arrayType() {
 			return GetRuleContext<ArrayTypeContext>(0);
@@ -1915,6 +1938,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class NullableTypeContext : ParserRuleContext {
 		public IdentifierContext referenceName;
 		public IToken optional;
@@ -1989,6 +2013,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class PrimitiveTypeContext : ParserRuleContext {
 		public IToken typeName;
 		public IToken precision;
@@ -2107,6 +2132,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class ArrayTypeContext : ParserRuleContext {
 		public FullTypeContext elementType;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Array() { return GetToken(IdlParser.Array, 0); }
@@ -2160,6 +2186,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class MapTypeContext : ParserRuleContext {
 		public FullTypeContext valueType;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode Map() { return GetToken(IdlParser.Map, 0); }
@@ -2213,6 +2240,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class UnionTypeContext : ParserRuleContext {
 		public FullTypeContext _fullType;
 		public IList<FullTypeContext> _types = new List<FullTypeContext>();
@@ -2293,6 +2321,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class JsonValueContext : ParserRuleContext {
 		[System.Diagnostics.DebuggerNonUserCode] public JsonObjectContext jsonObject() {
 			return GetRuleContext<JsonObjectContext>(0);
@@ -2369,6 +2398,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class JsonLiteralContext : ParserRuleContext {
 		public IToken literal;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode StringLiteral() { return GetToken(IdlParser.StringLiteral, 0); }
@@ -2425,6 +2455,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class JsonObjectContext : ParserRuleContext {
 		public JsonPairContext _jsonPair;
 		public IList<JsonPairContext> _jsonPairs = new List<JsonPairContext>();
@@ -2510,6 +2541,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class JsonPairContext : ParserRuleContext {
 		public IToken name;
 		public JsonValueContext value;
@@ -2561,6 +2593,7 @@ public partial class IdlParser : Parser {
 		return _localctx;
 	}
 
+	[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 	public partial class JsonArrayContext : ParserRuleContext {
 		public JsonValueContext _jsonValue;
 		public IList<JsonValueContext> _jsonValues = new List<JsonValueContext>();

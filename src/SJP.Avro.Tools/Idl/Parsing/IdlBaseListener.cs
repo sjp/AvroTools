@@ -34,6 +34,7 @@ using ParserRuleContext = Antlr4.Runtime.ParserRuleContext;
 [System.CodeDom.Compiler.GeneratedCode("ANTLR", "4.13.2")]
 [System.Diagnostics.DebuggerNonUserCode]
 [System.CLSCompliant(false)]
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 public partial class IdlBaseListener : IIdlListener {
 	/// <summary>
 	/// Enter a parse tree produced by <see cref="IdlParser.idlFile"/>.
