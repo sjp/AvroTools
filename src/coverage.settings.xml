@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration>
+  <!--
+    Microsoft.Testing.Platform code coverage settings, passed via the coverage-settings
+    command line option (see the dotnet test invocation in .github/workflows/ci.yml).
+
+    Excludes the checked-in ANTLR lexer, parser and listeners under Idl/Parsing/, which are
+    generated from Idl.g4 rather than written by hand. They are close to half the measured
+    lines in SJP.Avro.Tools, so leaving them in reports the generator's output as though it
+    were this project's code.
+
+    Only a source exclusion is added here; the coverage engine's own defaults, which already
+    leave out the test assemblies and third-party modules, are preserved.
+
+    NOTE: the settings parser rejects comments before the Configuration root element, and
+    rejects angle brackets, square brackets and double hyphens inside a comment, so keep any
+    documentation here plain.
+  -->
+  <CodeCoverage>
+    <Sources>
+      <Exclude>
+        <Source>.*[\\/]Idl[\\/]Parsing[\\/].*</Source>
+      </Exclude>
+    </Sources>
+  </CodeCoverage>
+</Configuration>

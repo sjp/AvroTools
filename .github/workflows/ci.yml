@@ -48,23 +48,36 @@ jobs:
       working-directory: src
 
     - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal --collect "XPlat Code Coverage" --logger trx --results-directory "${{ github.workspace }}/test-results"
+      # The report is left under the name the coverage engine picks. Naming it here would give
+      # every test project the same one, and they share a results directory, so each run would
+      # overwrite the last and only the project that finished last would be measured.
+      run: dotnet test --configuration Release --no-build --no-restore --verbosity normal -- --coverage --coverage-settings "${{ github.workspace }}/src/coverage.settings.xml" --coverage-output-format cobertura
       working-directory: src
 
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v7
-      with:
-        name: test-results-${{ matrix.os }}
-        path: test-results
-        if-no-files-found: error
+    - name: Collect the coverage reports
+      # The engine names each report after a fresh guid, which matches none of the patterns
+      # Codecov searches for. Copying them under names it does recognise is all this does.
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        mkdir -p coverage
+        count=0
+        for report in src/TestResults/*.cobertura.xml; do
+          count=$((count + 1))
+          cp "$report" "coverage/coverage.$count.cobertura.xml"
+        done
+        if [ "$count" -eq 0 ]; then
+          echo "::error::The test run wrote no Cobertura report." >&2
+          exit 1
+        fi
 
     - name: Coverage
       if: matrix.os == 'ubuntu-latest'
       uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        directory: test-results
+        directory: coverage
         fail_ci_if_error: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
     - name: Pack

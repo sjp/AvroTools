@@ -36,6 +36,12 @@
     <PropertyGroup Condition=" $(MSBuildProjectName.EndsWith('.Tests')) ">
         <IsPackable>false</IsPackable>
         <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+        <!-- Each test project is its own executable run by Microsoft.Testing.Platform, with
+             NUnit hosting the platform directly rather than through the VSTest bridge. The
+             runner is selected for 'dotnet test' by the 'test' section of global.json. -->
+        <OutputType>Exe</OutputType>
+        <EnableNUnitRunner>true</EnableNUnitRunner>
     </PropertyGroup>
 
     <ItemGroup>

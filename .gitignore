@@ -142,10 +142,12 @@ _TeamCity*
 .axoCover/*
 !.axoCover/settings.json
 
-# Coverlet is a free, cross platform Code Coverage Tool
+# Code coverage reports, which the test run writes beside the results it produces
 coverage*.json
 coverage*.xml
 coverage*.info
+# ...but not the settings the CI workflow passes to the run that produces them
+!src/coverage.settings.xml
 
 # Visual Studio code coverage results
 *.coverage
