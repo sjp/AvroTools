@@ -6,9 +6,12 @@
 # project file first. CHANGELOG.md must already have a section for the tagged version;
 # the notes for the GitHub release are taken from it.
 #
-# Pushing to nuget.org needs a repository secret named NUGET_API_KEY holding an API key
-# scoped to every package this repository publishes: SJP.AvroTool, SJP.Avro.Tools and
-# SJP.Avro.Tools.CodeGen.
+# Pushing to nuget.org needs no stored API key. The workflow exchanges a short-lived OIDC
+# token from GitHub for a temporary key, under the trusted publishing policy registered on
+# nuget.org for this repository: owner `sjp`, repository `AvroTools`, workflow file
+# `release.yml`, no environment. The policy's scopes have to cover pushing both new versions
+# and new package ids, over a glob that takes in every package this repository publishes:
+# SJP.AvroTool, SJP.Avro.Tools and SJP.Avro.Tools.CodeGen.
 
 name: Release
 
@@ -28,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
     - uses: actions/checkout@v7
       with:
@@ -91,6 +95,12 @@ jobs:
           exit 1
         fi
 
+    - name: Log in to NuGet
+      uses: NuGet/login@v1
+      id: nuget-login
+      with:
+        user: sjp
+
     - name: Push to NuGet
       # The symbol package is picked up automatically from alongside each .nupkg.
       run: |
@@ -100,7 +110,7 @@ jobs:
           --api-key "$NUGET_API_KEY" \
           --skip-duplicate
       env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
 
     - name: Create the GitHub release
       run: |
