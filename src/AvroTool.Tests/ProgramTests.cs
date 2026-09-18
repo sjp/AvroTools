@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -246,14 +248,17 @@ internal sealed class ProgramTests
     {
         var (exitCode, output, errorOutput) = await RunAsync("--version");
 
-        var expectedVersion = typeof(Program).Assembly.GetName().Version!;
+        var fileVersion = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyFileVersionAttribute>()!
+            .Version;
+        var expectedVersion = "v" + string.Join('.', fileVersion.Split('.').Take(3));
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exitCode, Is.EqualTo(ErrorCode.Success));
-            Assert.That(
-                output.Trim(),
-                Is.EqualTo($"v{expectedVersion.Major}.{expectedVersion.Minor}.{expectedVersion.Build}"));
+            Assert.That(output.Trim(), Does.StartWith(expectedVersion));
+            // The commit the build came from is metadata, not part of the version.
+            Assert.That(output, Does.Not.Contain("+"));
             Assert.That(errorOutput, Is.Empty);
         }
     }

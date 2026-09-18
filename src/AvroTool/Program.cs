@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -220,8 +221,34 @@ internal static class Program
         });
     }
 
-    private static string GetVersion()
+    /// <summary>
+    /// The version the running tool reports, as the release it was built from names it.
+    /// </summary>
+    /// <returns>The version, prefixed with <c>v</c>.</returns>
+    /// <remarks>
+    /// The informational version is the one to read: the version derived from the release tag
+    /// is written there in full, while the assembly version carries only its major component,
+    /// so every release before 1.0 would otherwise report itself as <c>v0.0.0</c>. The build
+    /// metadata appended after a <c>+</c> names the commit rather than the version, so it is
+    /// left off.
+    /// </remarks>
+    internal static string GetVersion()
     {
+        var informationalVersion = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            var metadataIndex = informationalVersion.IndexOf('+', StringComparison.Ordinal);
+            var version = metadataIndex < 0
+                ? informationalVersion
+                : informationalVersion[..metadataIndex];
+
+            if (version.Length > 0)
+                return "v" + version;
+        }
+
         var assemblyVersion = typeof(Program).Assembly.GetName().Version!;
         return $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}";
     }
