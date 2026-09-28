@@ -70,11 +70,11 @@ internal class NumericLiteralTests
     [TestCase("NaN")]
     [TestCase("Infinity")]
     [TestCase("-Infinity")]
-    public void Translate_GivenNonFiniteDefault_ThrowsWithExplanation(string literal)
+    public async Task Translate_GivenNonFiniteDefault_ThrowsWithExplanation(string literal)
     {
         var idl = $"protocol P {{ record R {{ double v = {literal}; }} }}";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain(literal).And.Contain("no JSON representation"));
     }
@@ -98,11 +98,11 @@ internal class NumericLiteralTests
         var record = (RecordSchema)protocol.Types.First();
         var schema = record.Fields[0].Schema;
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(schema.GetProperty("precision"), Is.EqualTo("16"));
             Assert.That(schema.GetProperty("scale"), Is.EqualTo("8"));
-        });
+        }
     }
 
     [TestCase("99999999999")]
@@ -110,11 +110,11 @@ internal class NumericLiteralTests
     [TestCase("0x80000000")]
     [TestCase("0xFFFFFFFF")]
     [TestCase("020000000000")]
-    public void Translate_GivenFixedSizeOutsideTheInt32Range_ThrowsWithExplanation(string literal)
+    public async Task Translate_GivenFixedSizeOutsideTheInt32Range_ThrowsWithExplanation(string literal)
     {
         var idl = $"protocol P {{ fixed F({literal}); }}";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain(literal).And.Contain("32-bit integer"));
     }
@@ -126,11 +126,11 @@ internal class NumericLiteralTests
     [TestCase("0xFFFFFFFFFFFFFFFF")]
     [TestCase("-0x8000000000000001")]
     [TestCase("01000000000000000000000")]
-    public void Translate_GivenIntegerDefaultOutsideTheInt64Range_ThrowsWithExplanation(string literal)
+    public async Task Translate_GivenIntegerDefaultOutsideTheInt64Range_ThrowsWithExplanation(string literal)
     {
         var idl = $"protocol P {{ record R {{ long v = {literal}; }} }}";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain(literal).And.Contain("64-bit integer"));
     }

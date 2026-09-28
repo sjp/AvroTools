@@ -205,8 +205,8 @@ internal static class SchemaDiffTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Changes, Has.Count.EqualTo(2));
-            Assert.That(result.Changes, Has.Some.Matches<SchemaChange>(c => c.Kind == ChangeKind.FieldAdded && c.Location == "/fields/b"));
-            Assert.That(result.Changes, Has.Some.Matches<SchemaChange>(c => c.Kind == ChangeKind.FieldRemoved && c.Location == "/fields/a"));
+            Assert.That(result.Changes, Has.Some.Matches<SchemaChange>(c => c != null && c.Kind == ChangeKind.FieldAdded && c.Location == "/fields/b"));
+            Assert.That(result.Changes, Has.Some.Matches<SchemaChange>(c => c != null && c.Kind == ChangeKind.FieldRemoved && c.Location == "/fields/a"));
         }
     }
 

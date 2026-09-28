@@ -14,15 +14,15 @@ namespace SJP.Avro.Tools.Tests.Idl;
 internal class IdlTranslationErrorTests
 {
     [Test]
-    public void Translate_GivenNullStream_ThrowsArgumentNullException()
+    public async Task Translate_GivenNullStream_ThrowsArgumentNullException()
     {
         var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
 
-        Assert.ThrowsAsync<ArgumentNullException>(() => translator.Translate((Stream)null!, TestContext.CurrentContext.CancellationToken));
+        _ = await Assert.ThrowsAsync<ArgumentNullException>(() => translator.Translate((Stream)null!, TestContext.CurrentContext.CancellationToken));
     }
 
     [Test]
-    public void Translate_GivenASyntaxError_CarriesThePositionItWasFoundAt()
+    public async Task Translate_GivenASyntaxError_CarriesThePositionItWasFoundAt()
     {
         const string idl = """
                            protocol P {
@@ -31,18 +31,18 @@ internal class IdlTranslationErrorTests
                            """;
         var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(thrown.FileName, Is.Null);
             Assert.That(thrown.LineNumber, Is.EqualTo(2));
             Assert.That(thrown.ColumnNumber, Is.EqualTo(23));
-        });
+        }
     }
 
     [Test]
-    public void Translate_GivenADeclarationThatCannotBeTranslated_CarriesThePositionItWasFoundAt()
+    public async Task Translate_GivenADeclarationThatCannotBeTranslated_CarriesThePositionItWasFoundAt()
     {
         const string idl = """
                            protocol P {
@@ -51,18 +51,18 @@ internal class IdlTranslationErrorTests
                            """;
         var translator = new IdlToAvroTranslator(new PhysicalIdlFileReader());
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(thrown.LineNumber, Is.EqualTo(2));
             Assert.That(thrown.ColumnNumber, Is.EqualTo(2));
             Assert.That(thrown.Message, Does.Contain("One-way message must return void"));
-        });
+        }
     }
 
     [Test]
-    public void Translate_GivenASyntaxErrorInAnImportedDocument_NamesTheFileAndThePositionWithinIt()
+    public async Task Translate_GivenASyntaxErrorInAnImportedDocument_NamesTheFileAndThePositionWithinIt()
     {
         var reader = new DictionaryIdlFileReader
         {
@@ -74,35 +74,35 @@ internal class IdlTranslationErrorTests
         };
         var translator = new IdlToAvroTranslator(reader);
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(
             () => translator.Translate("protocol Main { import idl \"inner.avdl\"; }", TestContext.CurrentContext.CancellationToken));
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(thrown.FileName, Is.EqualTo("inner.avdl"));
             Assert.That(thrown.LineNumber, Is.EqualTo(2));
             Assert.That(thrown.ColumnNumber, Is.EqualTo(23));
-        });
+        }
     }
 
     [Test]
-    public void Translate_GivenAFileReaderThatIsCancelled_DoesNotReportCancellationAsAFailedImport()
+    public async Task Translate_GivenAFileReaderThatIsCancelled_DoesNotReportCancellationAsAFailedImport()
     {
         var translator = new IdlToAvroTranslator(new CancellingIdlFileReader());
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             () => translator.Translate("protocol Main { import idl \"inner.avdl\"; }", TestContext.CurrentContext.CancellationToken));
     }
 
     [Test]
-    public void Translate_GivenACancelledTokenWhileImportingAProtocol_DoesNotReportCancellationAsAFailedImport()
+    public async Task Translate_GivenACancelledTokenWhileImportingAProtocol_DoesNotReportCancellationAsAFailedImport()
     {
         var reader = new DictionaryIdlFileReader { ["inner.avpr"] = """{ "protocol": "Inner", "types": [], "messages": {} }""" };
         var translator = new IdlToAvroTranslator(reader);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             () => translator.Translate("protocol Main { import protocol \"inner.avpr\"; }", cancellation.Token));
     }
 
