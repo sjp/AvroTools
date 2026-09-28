@@ -88,11 +88,11 @@ internal class IdlImportCacheTests
         var first = await translator.Translate(FirstIdl.Replace("shared.Address", "Address"), TestContext.CurrentContext.CancellationToken);
         var second = await translator.Translate(SecondIdl.Replace("shared.Address", "Address"), TestContext.CurrentContext.CancellationToken);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(first.Warnings, Has.Exactly(1).Contains("Ignoring out-of-place documentation comment"));
             Assert.That(second.Warnings, Is.EqualTo(first.Warnings));
-        });
+        }
     }
 
     /// <summary>

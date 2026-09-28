@@ -37,11 +37,11 @@ internal class IdlDocCommentTests
 
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Warnings, Is.Empty);
             Assert.That(result.Json.SelectToken("types[0].doc")?.Value<string>(), Is.EqualTo("documented"));
-        });
+        }
     }
 
     [Test]
@@ -52,11 +52,11 @@ internal class IdlDocCommentTests
 
         var result = await TranslateFile(main);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Warnings, Is.EqualTo(new[] { WarningAt(2, 3) }));
             Assert.That(TypeNames(result), Is.EqualTo(new[] { "nested.InnerRecord", "Outer" }));
-        });
+        }
     }
 
     [Test]
@@ -66,11 +66,11 @@ internal class IdlDocCommentTests
 
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Warnings, Is.EqualTo(new[] { WarningAt(4, 5) }));
             Assert.That(result.Json.SelectToken("types[0].fields[0].name")?.Value<string>(), Is.EqualTo("a"));
-        });
+        }
     }
 
     [Test]
@@ -90,11 +90,11 @@ internal class IdlDocCommentTests
 
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Json.SelectToken("types[0].doc")?.Value<string>(), Is.EqualTo("second"));
             Assert.That(result.Warnings, Is.EqualTo(new[] { WarningAt(2, 3) }));
-        });
+        }
     }
 
     [Test]

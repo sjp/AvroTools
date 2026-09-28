@@ -58,10 +58,10 @@ internal static class SyntaxUtilitiesTests
     {
         var trivia = SyntaxUtilities.BuildCommentTrivia("first\n \nsecond").ToFullString();
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(trivia, Does.Contain("<para>first</para>"));
             Assert.That(trivia, Does.Contain("<para>second</para>"));
-        });
+        }
     }
 }

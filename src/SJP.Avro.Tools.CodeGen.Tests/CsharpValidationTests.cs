@@ -78,10 +78,10 @@ internal static class CsharpValidationTests
         var result = CsharpValidation.IsValidCsharpNamespace(input);
         stopwatch.Stop();
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.False);
             Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(1)));
-        });
+        }
     }
 }

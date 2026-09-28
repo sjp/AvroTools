@@ -106,11 +106,11 @@ internal class EscapedNameTests
         var protocolJson = await TranslateToJson("protocol P { record `record` { string a; } record S { `record` r; } }");
         var s = protocolJson["types"]!.First(t => t["name"]!.ToString() == "S");
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(protocolJson["types"]!.Count(), Is.EqualTo(2));
             Assert.That(s["fields"]![0]!["type"]!.ToString(), Is.EqualTo("record"));
-        });
+        }
     }
 
     [Test]
@@ -119,11 +119,11 @@ internal class EscapedNameTests
         var protocolJson = await TranslateToJson("protocol P { record S { `record` r; } record `record` { string a; } }");
         var s = protocolJson["types"]!.First(t => t["name"]!.ToString() == "S");
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(protocolJson["types"]!.Count(), Is.EqualTo(1));
             Assert.That(s["fields"]![0]!["type"]!["name"]!.ToString(), Is.EqualTo("record"));
-        });
+        }
     }
 
     [Test]
