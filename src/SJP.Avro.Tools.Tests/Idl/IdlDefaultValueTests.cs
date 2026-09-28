@@ -17,101 +17,101 @@ internal class IdlDefaultValueTests
     }
 
     [Test]
-    public void Translate_GivenAnIntegerDefaultTooLargeForAnInt_ReportsTheField()
+    public async Task Translate_GivenAnIntegerDefaultTooLargeForAnInt_ReportsTheField()
     {
         const string idl = "protocol P { record R { int x = 2147483648; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("field 'x'").And.Contain("outside the range of \"int\""));
     }
 
     [Test]
-    public void Translate_GivenAUnionDefaultMatchingALaterBranch_ReportsTheFirstBranchRule()
+    public async Task Translate_GivenAUnionDefaultMatchingALaterBranch_ReportsTheFirstBranchRule()
     {
         const string idl = "protocol P { record R { union { null, int } i = 3; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("field 'i'").And.Contain("first branch"));
     }
 
     [Test]
-    public void Translate_GivenADefaultOfTheWrongPrimitiveType_ReportsTheField()
+    public async Task Translate_GivenADefaultOfTheWrongPrimitiveType_ReportsTheField()
     {
         const string idl = "protocol P { record R { int x = \"one\"; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("field 'x'").And.Contain("not a valid \"int\" value"));
     }
 
     [Test]
-    public void Translate_GivenAnEnumDefaultThatIsNotAString_ReportsTheField()
+    public async Task Translate_GivenAnEnumDefaultThatIsNotAString_ReportsTheField()
     {
         const string idl = "protocol P { enum E { A, B } record R { E e = 3; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("field 'e'").And.Contain("'E'"));
     }
 
     [Test]
-    public void Translate_GivenAnArrayDefaultHoldingTheWrongElement_ReportsTheElement()
+    public async Task Translate_GivenAnArrayDefaultHoldingTheWrongElement_ReportsTheElement()
     {
         const string idl = "protocol P { record R { array<int> a = [1, \"two\"]; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("an element of the array").And.Contain("not a valid \"int\" value"));
     }
 
     [Test]
-    public void Translate_GivenAMapDefaultHoldingTheWrongValue_ReportsTheEntry()
+    public async Task Translate_GivenAMapDefaultHoldingTheWrongValue_ReportsTheEntry()
     {
         const string idl = "protocol P { record R { map<int> m = {\"a\": true}; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("map entry 'a'").And.Contain("not a valid \"int\" value"));
     }
 
     [Test]
-    public void Translate_GivenARecordDefaultMissingAFieldWithNoDefaultOfItsOwn_ReportsThatField()
+    public async Task Translate_GivenARecordDefaultMissingAFieldWithNoDefaultOfItsOwn_ReportsThatField()
     {
         const string idl = "protocol P { record Inner { int a; int b; } record R { Inner i = {\"a\": 1}; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("no value was given for field 'b'"));
     }
 
     [Test]
-    public void Translate_GivenARecordDefaultHoldingTheWrongFieldValue_ReportsThatField()
+    public async Task Translate_GivenARecordDefaultHoldingTheWrongFieldValue_ReportsThatField()
     {
         const string idl = "protocol P { record Inner { int a; } record R { Inner i = {\"a\": \"one\"}; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("for field 'a' of 'Inner'").And.Contain("not a valid \"int\" value"));
     }
 
     [Test]
-    public void Translate_GivenARecordDefaultAgainstATypeDeclaredLater_StillValidatesIt()
+    public async Task Translate_GivenARecordDefaultAgainstATypeDeclaredLater_StillValidatesIt()
     {
         const string idl = "protocol P { record R { Later l = {\"a\": \"one\"}; } record Later { int a; } }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("for field 'a' of 'Later'"));
     }
 
     [Test]
-    public void Translate_GivenAMessageParameterDefaultTheTypeCannotHold_ReportsTheParameter()
+    public async Task Translate_GivenAMessageParameterDefaultTheTypeCannotHold_ReportsTheParameter()
     {
         const string idl = "protocol P { int add(int arg = \"one\"); }";
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => _translator.Translate(idl, TestContext.CurrentContext.CancellationToken));
 
         Assert.That(thrown.Message, Does.Contain("parameter 'arg' of message 'add'"));
     }

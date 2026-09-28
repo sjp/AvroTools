@@ -151,12 +151,12 @@ internal class IdlImportResolutionTests
     }
 
     [Test]
-    public void Translate_GivenImportMissingFromTheImportingFilesDirectory_Throws()
+    public async Task Translate_GivenImportMissingFromTheImportingFilesDirectory_Throws()
     {
         _tempDir.WriteFile("inner.avdl", "@namespace(\"nested\") protocol Inner { record InnerRecord { string x; } }");
         var main = _tempDir.WriteFile(Path.Combine("sub", "main.avdl"), "protocol Main { import idl \"inner.avdl\"; record Outer { string x; } }");
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => Translate(main));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => Translate(main));
 
         Assert.That(thrown.Message, Does.Contain("Failed to import IDL"));
     }

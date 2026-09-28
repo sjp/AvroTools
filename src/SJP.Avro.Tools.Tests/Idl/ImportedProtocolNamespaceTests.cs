@@ -64,14 +64,14 @@ internal class ImportedProtocolNamespaceTests
     }
 
     [Test]
-    public void Translate_GivenImportedProtocolTypeReferencedByBareName_Throws()
+    public async Task Translate_GivenImportedProtocolTypeReferencedByBareName_Throws()
     {
         _tempDir.WriteFile("inner.avpr", InnerProtocol);
         var main = _tempDir.WriteFile(
             "main.avdl",
             """@namespace("my.ns") protocol Main { import protocol "inner.avpr"; record Outer { InnerRec i; } }""");
 
-        var thrown = Assert.ThrowsAsync<IdlTranslationException>(() => TranslateProtocol(main));
+        var thrown = await Assert.ThrowsAsync<IdlTranslationException>(() => TranslateProtocol(main));
 
         Assert.That(thrown.Message, Does.Contain("InnerRec"));
     }
