@@ -86,7 +86,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         _idlTranslator = idlTranslator;
     }
 
-    protected override ValidationResult Validate(CommandContext context, Settings settings)
+    public override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (!Modes.TryGetValue(NamingConventions.NormaliseOption(settings.Mode), out var mode))
             return ValidationResult.Error($"Unknown mode '{settings.Mode}'. Supported: {string.Join(", ", SupportedModes)}.");
@@ -122,7 +122,7 @@ internal sealed class CompatCommand : AsyncCommand<CompatCommand.Settings>
         return ValidationResult.Success();
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var mode = Modes[NamingConventions.NormaliseOption(settings.Mode)];
 

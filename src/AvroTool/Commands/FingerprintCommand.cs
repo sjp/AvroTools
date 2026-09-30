@@ -76,7 +76,7 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
         _idlTranslator = idlTranslator;
     }
 
-    protected override ValidationResult Validate(CommandContext context, Settings settings)
+    public override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (!Algorithms.ContainsKey(NamingConventions.NormaliseOption(settings.Algorithm)))
             return ValidationResult.Error($"Unknown algorithm '{settings.Algorithm}'. Supported: {string.Join(", ", SupportedAlgorithms)}.");
@@ -100,7 +100,7 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
         return ValidationResult.Success();
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var displayName = settings.FromStandardInput ? InputSource.StandardInputName : settings.SchemaFile;
         var content = await InputReader.TryReadAllTextAsync(_streams, settings.FromStandardInput, settings.SchemaFile, displayName, _console, cancellationToken);

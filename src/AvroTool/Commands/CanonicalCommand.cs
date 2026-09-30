@@ -42,7 +42,7 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
         _idlTranslator = idlTranslator;
     }
 
-    protected override ValidationResult Validate(CommandContext context, Settings settings)
+    public override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (settings.FromStandardInput)
             return InputValidation.ValidateStandardInputAlone(settings.SchemaFile, "A schema file");
@@ -56,7 +56,7 @@ internal sealed class CanonicalCommand : AsyncCommand<CanonicalCommand.Settings>
         return ValidationResult.Success();
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var displayName = settings.FromStandardInput ? InputSource.StandardInputName : settings.SchemaFile;
         var content = await InputReader.TryReadAllTextAsync(_streams, settings.FromStandardInput, settings.SchemaFile, displayName, _console, cancellationToken);

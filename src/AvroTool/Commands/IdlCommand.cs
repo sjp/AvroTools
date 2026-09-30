@@ -68,7 +68,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         _idlTranslator = idlTranslator;
     }
 
-    protected override ValidationResult Validate(CommandContext context, Settings settings)
+    public override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (settings.FromStandardInput)
             return InputValidation.ValidateStandardInputAlone(settings.IdlFiles, "IDL files");
@@ -76,7 +76,7 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         return InputValidation.Validate(settings.IdlFiles, "IDL");
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
         var pathComparer = StringComparer.Ordinal;

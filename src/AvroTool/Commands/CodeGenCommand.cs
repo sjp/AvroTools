@@ -91,7 +91,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         _idlTranslator = idlTranslator;
     }
 
-    protected override ValidationResult Validate(CommandContext context, Settings settings)
+    public override ValidationResult Validate(CommandContext context, Settings settings)
     {
         var inputResult = settings.FromStandardInput
             ? InputValidation.ValidateStandardInputAlone(settings.InputFiles, "Input files")
@@ -105,7 +105,7 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         return ValidationResult.Success();
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var outputDir = settings.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
         var directoryError = OutputCollector.EnsureDirectory(outputDir);
