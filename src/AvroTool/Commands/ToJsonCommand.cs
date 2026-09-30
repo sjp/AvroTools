@@ -40,7 +40,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
         _streams = streams;
     }
 
-    protected override ValidationResult Validate(CommandContext context, Settings settings)
+    public override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (settings.FromStandardInput)
             return InputValidation.ValidateStandardInputAlone(settings.AvroFile, "An Avro object container file");
@@ -54,7 +54,7 @@ internal sealed class ToJsonCommand : AsyncCommand<ToJsonCommand.Settings>
         return ValidationResult.Success();
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var source = settings.FromStandardInput ? InputSource.StandardInputName : settings.AvroFile;
 

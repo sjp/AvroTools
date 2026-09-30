@@ -27,7 +27,7 @@ internal sealed class ProgramTests
     {
         public sealed class Settings : CommandSettings;
 
-        protected override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
+        public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
             throw new InvalidDataException("something went wrong inside the tool");
     }
 
@@ -35,7 +35,7 @@ internal sealed class ProgramTests
     {
         public sealed class Settings : CommandSettings;
 
-        protected override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
+        public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken) =>
             throw new OperationCanceledException();
     }
 

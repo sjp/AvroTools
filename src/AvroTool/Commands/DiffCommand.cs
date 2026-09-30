@@ -66,7 +66,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         _idlTranslator = idlTranslator;
     }
 
-    protected override ValidationResult Validate(CommandContext context, Settings settings)
+    public override ValidationResult Validate(CommandContext context, Settings settings)
     {
         if (!settings.FromStandardInput)
         {
@@ -106,7 +106,7 @@ internal sealed class DiffCommand : AsyncCommand<DiffCommand.Settings>
         return ValidationResult.Success();
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var (pathA, pathB) = ResolveInputPaths(settings);
 

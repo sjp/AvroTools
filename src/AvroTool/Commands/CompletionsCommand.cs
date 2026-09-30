@@ -37,7 +37,7 @@ internal sealed class CompletionsCommand : AsyncCommand<CompletionsCommand.Setti
         _streams = streams;
     }
 
-    protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         try
         {
