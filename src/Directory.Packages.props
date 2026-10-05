@@ -17,7 +17,7 @@
     <ItemGroup Label="Build-time only">
         <PackageVersion Include="MinVer" Version="8.0.0" />
         <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
-        <PackageVersion Include="Roslynator.Analyzers" Version="5.0.0" />
+        <PackageVersion Include="Roslynator.Analyzers" Version="5.0.1" />
         <PackageVersion Include="Spectre.Console.Analyzer" Version="1.0.0" />
     </ItemGroup>
 
