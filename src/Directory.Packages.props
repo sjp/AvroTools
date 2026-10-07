@@ -24,7 +24,7 @@
     <ItemGroup Label="Testing">
         <PackageVersion Include="JsonDiffPatch.Net" Version="2.5.0" />
         <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.12" />
-        <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
         <PackageVersion Include="Moq" Version="4.21.0" />
         <PackageVersion Include="NUnit" Version="5.0.0" />
         <PackageVersion Include="NUnit.Analyzers" Version="4.15.0" />
