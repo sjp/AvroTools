@@ -7,8 +7,8 @@
         <PackageVersion Include="Antlr4.Runtime.Standard" Version="4.13.1" />
         <PackageVersion Include="Apache.Avro" Version="1.12.2" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
-        <PackageVersion Include="Microsoft.Extensions.FileProviders.Abstractions" Version="10.0.13" />
-        <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.13" />
+        <PackageVersion Include="Microsoft.Extensions.FileProviders.Abstractions" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.14" />
         <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageVersion Include="Spectre.Console.Cli" Version="0.57.2" />
         <PackageVersion Include="Spectre.Console.Cli.Extensions.DependencyInjection" Version="0.31.0" />
@@ -16,14 +16,14 @@
 
     <ItemGroup Label="Build-time only">
         <PackageVersion Include="MinVer" Version="8.0.0" />
-        <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.402" />
+        <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
         <PackageVersion Include="Roslynator.Analyzers" Version="5.0.1" />
         <PackageVersion Include="Spectre.Console.Analyzer" Version="1.0.0" />
     </ItemGroup>
 
     <ItemGroup Label="Testing">
         <PackageVersion Include="JsonDiffPatch.Net" Version="2.5.0" />
-        <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.13" />
+        <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.14" />
         <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
         <PackageVersion Include="Moq" Version="4.21.0" />
         <PackageVersion Include="NUnit" Version="5.0.0" />
