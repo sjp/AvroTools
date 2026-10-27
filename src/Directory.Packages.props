@@ -11,7 +11,7 @@
         <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.14" />
         <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageVersion Include="Spectre.Console.Cli" Version="0.57.2" />
-        <PackageVersion Include="Spectre.Console.Cli.Extensions.DependencyInjection" Version="0.31.0" />
+        <PackageVersion Include="Spectre.Console.Cli.Extensions.DependencyInjection" Version="0.32.0" />
     </ItemGroup>
 
     <ItemGroup Label="Build-time only">
