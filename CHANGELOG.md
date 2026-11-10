@@ -16,6 +16,9 @@ version out of this file and fails if there is no section for it.
 - The tool and both libraries target .NET 11 in place of .NET 10. The tool needs the
   .NET 11 runtime or later, and the `SJP.Avro.Tools` and `SJP.Avro.Tools.CodeGen` packages
   can only be referenced from projects targeting .NET 11 or later.
+- Async methods are compiled with .NET 11's runtime async, so the runtime handles
+  suspension and resumption itself, without a compiler-generated state machine per method.
+  Async stack traces are shorter, and the async paths allocate less.
 
 ## 0.2.0 - 2026-09-18
 

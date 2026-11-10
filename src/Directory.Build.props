@@ -5,7 +5,8 @@
         <Nullable>enable</Nullable>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-        <Features>strict</Features>
+        <!-- runtime-async compiles async methods to the runtime's own async opt-in for net11.0 -->
+        <Features>strict;runtime-async=on</Features>
         <AnalysisLevel>latest</AnalysisLevel>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
