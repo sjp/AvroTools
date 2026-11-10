@@ -12,7 +12,6 @@
   <ItemGroup>
     <PackageReference Include="Antlr4.Runtime.Standard" />
     <PackageReference Include="Apache.Avro" />
-    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" />
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 

@@ -557,7 +557,7 @@ avrotool completions powershell | Out-String | Invoke-Expression
 ## Using the libraries
 
 Everything the tool does is available to call directly, from two packages that target
-.NET 10:
+.NET 11:
 
 | Package | Contents |
 |---------|----------|

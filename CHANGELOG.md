@@ -9,6 +9,14 @@ A release is cut by tagging a commit `vX.Y.Z`. Before tagging, give the pending 
 their own version heading here — the release workflow reads the notes for the tagged
 version out of this file and fails if there is no section for it.
 
+## Unreleased
+
+### Changed
+
+- The tool and both libraries target .NET 11 in place of .NET 10. The tool needs the
+  .NET 11 runtime or later, and the `SJP.Avro.Tools` and `SJP.Avro.Tools.CodeGen` packages
+  can only be referenced from projects targeting .NET 11 or later.
+
 ## 0.2.0 - 2026-09-18
 
 The first release since the tool grew from an IDL compiler into a general-purpose Avro
