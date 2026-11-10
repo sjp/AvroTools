@@ -61,18 +61,6 @@ public sealed record IdlParseResult
     public AvroDocument Document { get; }
 
     /// <summary>
-    /// Returns <c>true</c> when the value contains a <see cref="AvroProtocol"/>.
-    /// </summary>
-    [Obsolete("Test the union instead: use Document with pattern matching, such as 'result.Document is Avro.Protocol'.")]
-    public bool IsProtocol => Document is AvroProtocol;
-
-    /// <summary>
-    /// Returns <c>true</c> when the value contains a <see cref="AvroSchema"/>.
-    /// </summary>
-    [Obsolete("Test the union instead: use Document with pattern matching, such as 'result.Document is Avro.Schema'.")]
-    public bool IsSchema => Document is AvroSchema;
-
-    /// <summary>
     /// The document as translated, before being narrowed to a <see cref="AvroProtocol"/> or
     /// <see cref="AvroSchema"/>. Every property the source declared is present here, including ones
     /// the Avro object model itself does not round-trip.
@@ -85,54 +73,6 @@ public sealed record IdlParseResult
     /// raised by an imported document names the import it came from.
     /// </summary>
     public IReadOnlyList<string> Warnings { get; }
-
-    /// <summary>
-    /// Invokes whichever of the two actions matches the contained value. Exactly one of them is
-    /// invoked.
-    /// </summary>
-    /// <param name="protocol">Invoked with the protocol, when the value contains one.</param>
-    /// <param name="schema">Invoked with the schema, when the value contains one.</param>
-    [Obsolete("Use Document with pattern matching instead, such as a switch statement over Avro.Protocol and Avro.Schema.")]
-    public void Match(
-        Action<AvroProtocol> protocol,
-        Action<AvroSchema> schema)
-    {
-        ArgumentNullException.ThrowIfNull(protocol);
-        ArgumentNullException.ThrowIfNull(schema);
-
-        switch (Document)
-        {
-            case AvroProtocol p:
-                protocol.Invoke(p);
-                break;
-            case AvroSchema s:
-                schema.Invoke(s);
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Returns the result of whichever of the two functions matches the contained value.
-    /// Exactly one of them is invoked.
-    /// </summary>
-    /// <typeparam name="T">The type of value returned.</typeparam>
-    /// <param name="protocol">Invoked with the protocol, when the value contains one.</param>
-    /// <param name="schema">Invoked with the schema, when the value contains one.</param>
-    /// <returns>The value returned by the function that was invoked.</returns>
-    [Obsolete("Use Document with pattern matching instead, such as a switch expression over Avro.Protocol and Avro.Schema.")]
-    public T Match<T>(
-        Func<AvroProtocol, T> protocol,
-        Func<AvroSchema, T> schema)
-    {
-        ArgumentNullException.ThrowIfNull(protocol);
-        ArgumentNullException.ThrowIfNull(schema);
-
-        return Document switch
-        {
-            AvroProtocol p => protocol.Invoke(p),
-            AvroSchema s => schema.Invoke(s),
-        };
-    }
 
     /// <summary>
     /// The named types (records, errors, enums and fixed types) reachable from this document, as

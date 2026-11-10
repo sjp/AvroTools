@@ -26,11 +26,12 @@ version out of this file and fails if there is no section for it.
   suspension and resumption itself, without a compiler-generated state machine per method.
   Async stack traces are shorter, and the async paths allocate less.
 
-### Deprecated
+### Removed
 
-- `IdlParseResult.IsProtocol`, `IsSchema` and both `Match` overloads are obsolete in favour
-  of pattern matching on `IdlParseResult.Document`. They still work, and the `Match`
-  overload taking two actions now invokes exactly one of them.
+- `IdlParseResult.IsProtocol`, `IsSchema` and both `Match` overloads, which `Document` replaces.
+  This is a breaking change: test or switch on `IdlParseResult.Document` instead, such as
+  `result.Document is Avro.Protocol` or a `switch` expression over `Avro.Protocol` and
+  `Avro.Schema`.
 
 ## 0.2.0 - 2026-09-18
 
