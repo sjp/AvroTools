@@ -171,17 +171,17 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
         CancellationToken cancellationToken)
     {
         var resolution = await AvroInputResolver.ResolveAsync(inputContent, _idlTranslator, baseDirectory, cancellationToken);
-        if (resolution.Input == null)
+        if (!resolution.TryGetInput(out var input, out var failure))
         {
-            _console.MarkupLineInterpolated($"[red]{resolution.FailureMessage(source)}[/]");
+            _console.MarkupLineInterpolated($"[red]{failure.Message(source)}[/]");
             return false;
         }
 
-        var input = resolution.Input;
-
         var codeGenOptions = new CodeGenOptions(RequiredProperties: settings.Required, InitOnlyProperties: settings.InitOnly);
 
-        var protocol = input.Protocol;
+        // Only a protocol that declares messages is generated as a type of its own; a protocol
+        // without any is just a bundle of types.
+        var protocol = input is AvroProtocol { Messages.Count: > 0 } declared ? declared : null;
         IEnumerable<AvroSchema> schemas = input.Schemas;
 
         try
@@ -190,15 +190,13 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             // together yields every named type once, where it is first reached.
             var namedTypes = schemas.GetNamedTypes().ToList();
 
-            var generatesProtocol = protocol != null && protocol.Messages.Count > 0;
-
             if (string.IsNullOrWhiteSpace(settings.BaseNamespace))
             {
                 var missingNamespaces = namedTypes
                     .Where(static t => string.IsNullOrWhiteSpace(t.Namespace))
                     .Select(static t => t.Name)
                     .ToList();
-                if (generatesProtocol && string.IsNullOrWhiteSpace(protocol!.Namespace))
+                if (protocol != null && string.IsNullOrWhiteSpace(protocol.Namespace))
                     missingNamespaces.Insert(0, protocol.Name);
 
                 if (missingNamespaces.Count > 0)
@@ -213,8 +211,8 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             // name over as it stands. Reporting them all together is more use than emitting source
             // that will not compile, one file at a time.
             var unusableNames = new List<string>();
-            if (generatesProtocol)
-                unusableNames.AddRange(AvroNameValidation.FindUnusableNames(protocol!));
+            if (protocol != null)
+                unusableNames.AddRange(AvroNameValidation.FindUnusableNames(protocol));
             foreach (var namedType in namedTypes)
                 unusableNames.AddRange(AvroNameValidation.FindUnusableNames(namedType));
 
@@ -229,9 +227,9 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             // within the input and with other inputs (and pre-existing files without --overwrite)
             // are settled while the output directory is still untouched.
             var reservations = new List<OutputReservation>();
-            if (generatesProtocol)
+            if (protocol != null)
             {
-                var protocolFullName = string.IsNullOrWhiteSpace(protocol!.Namespace)
+                var protocolFullName = string.IsNullOrWhiteSpace(protocol.Namespace)
                     ? protocol.Name
                     : $"{protocol.Namespace}.{protocol.Name}";
 

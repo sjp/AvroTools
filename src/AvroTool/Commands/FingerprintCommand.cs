@@ -109,13 +109,11 @@ internal sealed class FingerprintCommand : AsyncCommand<FingerprintCommand.Setti
 
         var baseDirectory = InputSource.ImportBaseDirectory(settings.FromStandardInput, settings.SchemaFile);
         var resolution = await AvroInputResolver.ResolveAsync(content, _idlTranslator, baseDirectory, cancellationToken);
-        if (resolution.Input == null)
+        if (!resolution.TryGetInput(out var input, out var failure))
         {
-            _console.MarkupLineInterpolated($"[red]{resolution.FailureMessage(displayName)}[/]");
+            _console.MarkupLineInterpolated($"[red]{failure.Message(displayName)}[/]");
             return ErrorCode.Error;
         }
-
-        var input = resolution.Input;
 
         var avroAlgorithm = Algorithms[NamingConventions.NormaliseOption(settings.Algorithm)];
         var format = NamingConventions.NormaliseOption(settings.Format);

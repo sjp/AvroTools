@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -13,65 +14,63 @@ using AvroSchema = Avro.Schema;
 namespace AvroTool;
 
 /// <summary>
-/// A parsed command input, resolved from one of an Avro IDL, JSON protocol or JSON schema.
+/// A parsed command input, resolved from one of an Avro IDL, JSON protocol or JSON schema: either
+/// a protocol (from a JSON protocol or a protocol IDL) or a single schema (from a JSON schema or a
+/// schema IDL).
 /// </summary>
-internal sealed class AvroInput
+internal union AvroInput(AvroProtocol, AvroSchema)
 {
-    private AvroInput(AvroProtocol? protocol, AvroSchema? schema)
-    {
-        Protocol = protocol;
-        Schema = schema;
-    }
-
-    /// <summary>The parsed protocol, when the input was a protocol (or protocol IDL); otherwise <c>null</c>.</summary>
-    public AvroProtocol? Protocol { get; }
-
-    /// <summary>The parsed schema, when the input was a single schema (or schema IDL); otherwise <c>null</c>.</summary>
-    public AvroSchema? Schema { get; }
-
     /// <summary>
     /// The top-level named schemas to operate on: the protocol's declared types, or the single
-    /// schema. An input never changes, and callers read this two or three times, so the list is
-    /// built on first use and kept.
+    /// schema.
     /// </summary>
-    public IReadOnlyList<AvroSchema> Schemas => _schemas ??= Protocol != null
-        ? [.. Protocol.Types]
-        : [Schema!];
+    /// <remarks>
+    /// A union cannot hold instance fields, so the list is built afresh on each read. Callers that
+    /// need it more than once should keep it in a local.
+    /// </remarks>
+    public IReadOnlyList<AvroSchema> Schemas => this switch
+    {
+        AvroProtocol protocol => [.. protocol.Types],
+        AvroSchema schema => [schema],
+    };
+}
 
-    private IReadOnlyList<AvroSchema>? _schemas;
-
-    public static AvroInput FromProtocol(AvroProtocol protocol) => new(protocol, null);
-
-    public static AvroInput FromSchema(AvroSchema schema) => new(null, schema);
+/// <summary>
+/// The reason textual input could not be parsed as any of the supported formats.
+/// </summary>
+/// <param name="Reason">Why the content could not be parsed, naming the parser whose failure is being reported.</param>
+internal sealed record InputFailure(string Reason)
+{
+    /// <summary>
+    /// Describes why an input could not be parsed, naming the input and the parser whose failure
+    /// is being reported.
+    /// </summary>
+    /// <param name="inputName">The path the content was read from, or <c>&lt;stdin&gt;</c>.</param>
+    public string Message(string inputName) => $"Input '{inputName}' {Reason}";
 }
 
 /// <summary>
 /// The outcome of resolving textual input: either the parsed input, or the reason it could not
 /// be parsed.
 /// </summary>
-internal sealed class AvroInputResult
+internal union AvroInputResult(AvroInput, InputFailure)
 {
-    private readonly string? _failureReason;
-
-    private AvroInputResult(AvroInput? input, string? failureReason)
-    {
-        Input = input;
-        _failureReason = failureReason;
-    }
-
-    /// <summary>The parsed input, or <c>null</c> when the content could not be parsed.</summary>
-    public AvroInput? Input { get; }
-
     /// <summary>
-    /// Describes why an input could not be parsed, naming the input and the parser whose failure
-    /// is being reported. Only meaningful when <see cref="Input"/> is <c>null</c>.
+    /// Separates the parsed input from the failure, so a caller can report the failure and stop
+    /// with a single test.
     /// </summary>
-    /// <param name="inputName">The path the content was read from, or <c>&lt;stdin&gt;</c>.</param>
-    public string FailureMessage(string inputName) => $"Input '{inputName}' {_failureReason}";
-
-    public static AvroInputResult Resolved(AvroInput input) => new(input, null);
-
-    public static AvroInputResult Failed(string failureReason) => new(null, failureReason);
+    /// <param name="input">The parsed input, when the content could be parsed; otherwise the default value.</param>
+    /// <param name="failure">The reason the content could not be parsed; otherwise <c>null</c>.</param>
+    /// <returns><c>true</c> when the content was parsed; otherwise <c>false</c>.</returns>
+    public bool TryGetInput(out AvroInput input, [NotNullWhen(false)] out InputFailure? failure)
+    {
+        (input, failure) = this switch
+        {
+            AvroInput resolved => (resolved, null),
+            InputFailure failed => (default(AvroInput), failed),
+        };
+        return failure == null;
+    }
 }
 
 /// <summary>
@@ -114,18 +113,18 @@ internal static class AvroInputResolver
             if (declaresProtocol)
             {
                 if (TryParseProtocol(content, out var protocol, out protocolError))
-                    return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
+                    return new AvroInput(protocol);
 
                 if (TryParseSchema(content, out var schema, out schemaError))
-                    return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
+                    return new AvroInput(schema);
             }
             else
             {
                 if (TryParseSchema(content, out var schema, out schemaError))
-                    return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
+                    return new AvroInput(schema);
 
                 if (TryParseProtocol(content, out var protocol, out protocolError))
-                    return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
+                    return new AvroInput(protocol);
             }
         }
 
@@ -133,7 +132,7 @@ internal static class AvroInputResolver
         try
         {
             var result = await translator.Translate(content, baseDirectory, cancellationToken);
-            return AvroInputResult.Resolved(result.Match<AvroInput>(AvroInput.FromProtocol, AvroInput.FromSchema));
+            return result.Match<AvroInput>(static protocol => protocol, static schema => schema);
         }
         catch (Exception ex)
         {
@@ -143,13 +142,13 @@ internal static class AvroInputResolver
         if (!isJson)
         {
             if (TryParseProtocol(content, out var protocol, out protocolError))
-                return AvroInputResult.Resolved(AvroInput.FromProtocol(protocol));
+                return new AvroInput(protocol);
 
             if (TryParseSchema(content, out var schema, out schemaError))
-                return AvroInputResult.Resolved(AvroInput.FromSchema(schema));
+                return new AvroInput(schema);
         }
 
-        return AvroInputResult.Failed(DescribeFailure(isJson, declaresProtocol, protocolError!, schemaError!, idlError));
+        return new InputFailure(DescribeFailure(isJson, declaresProtocol, protocolError!, schemaError!, idlError));
     }
 
     /// <summary>
@@ -180,20 +179,20 @@ internal static class AvroInputResolver
 
         var baseDirectory = InputSource.ImportBaseDirectory(fromStandardInput, schemaFile);
         var resolution = await ResolveAsync(content, translator, baseDirectory, cancellationToken);
-        if (resolution.Input == null)
+        if (!resolution.TryGetInput(out var input, out var failure))
         {
-            console.MarkupLineInterpolated($"[red]{resolution.FailureMessage(displayName)}[/]");
+            console.MarkupLineInterpolated($"[red]{failure.Message(displayName)}[/]");
             return null;
         }
 
-        var input = resolution.Input;
-        if (input.Schemas.Count != 1)
+        var schemas = input.Schemas;
+        if (schemas.Count != 1)
         {
-            console.MarkupLineInterpolated($"[red]Input '{displayName}' resolves to {input.Schemas.Count} named types; {commandName} expects a single schema per input.[/]");
+            console.MarkupLineInterpolated($"[red]Input '{displayName}' resolves to {schemas.Count} named types; {commandName} expects a single schema per input.[/]");
             return null;
         }
 
-        return new SchemaSource(displayName, input.Schemas[0]);
+        return new SchemaSource(displayName, schemas[0]);
     }
 
     /// <summary>
