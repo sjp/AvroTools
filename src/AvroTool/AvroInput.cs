@@ -132,7 +132,11 @@ internal static class AvroInputResolver
         try
         {
             var result = await translator.Translate(content, baseDirectory, cancellationToken);
-            return result.Match<AvroInput>(static protocol => protocol, static schema => schema);
+            return result.Document switch
+            {
+                AvroProtocol protocol => new AvroInput(protocol),
+                AvroSchema schema => new AvroInput(schema),
+            };
         }
         catch (Exception ex)
         {

@@ -90,7 +90,13 @@ internal class StringLiteralEscapeTests
         var content = await File.ReadAllTextAsync(main, TestContext.CurrentContext.CancellationToken);
         var result = await _translator.Translate(content, Path.GetDirectoryName(main), TestContext.CurrentContext.CancellationToken);
 
-        Assert.That(result.Match(p => p.Types.Select(t => t.Fullname).ToList(), s => [s.Fullname]), Does.Contain("nested.InnerRecord"));
+        var typeNames = result.Document switch
+        {
+            Protocol protocol => protocol.Types.Select(t => t.Fullname).ToList(),
+            Schema schema => [schema.Fullname],
+        };
+
+        Assert.That(typeNames, Does.Contain("nested.InnerRecord"));
     }
 
     private async Task<string?> GetFieldDefault(string idl)
@@ -105,6 +111,6 @@ internal class StringLiteralEscapeTests
     {
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
-        return result.Match(p => p, _ => throw new InvalidOperationException("Expected a protocol."));
+        return result.Document is Protocol protocol ? protocol : throw new InvalidOperationException("Expected a protocol.");
     }
 }

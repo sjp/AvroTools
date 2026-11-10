@@ -36,10 +36,13 @@ var result = await translator.Translate(idl, Path.GetDirectoryName(path), path, 
 foreach (var warning in result.Warnings)
     Console.Error.WriteLine(warning);
 
-// The document is a protocol or a schema; Match handles both.
-var name = result.Match(
-    protocol => protocol.Name,
-    schema => schema.Name);
+// The document is a protocol or a schema. A switch expression over the two needs no
+// discard arm, because the compiler knows they are the only cases.
+var name = result.Document switch
+{
+    Avro.Protocol protocol => protocol.Name,
+    Avro.Schema schema => schema.Name,
+};
 
 // The JSON form, as an .avpr or .avsc file would contain it.
 Console.WriteLine(result.Json.ToString());

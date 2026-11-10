@@ -9,28 +9,19 @@ using AvroSchema = Avro.Schema;
 namespace SJP.Avro.Tools.Idl;
 
 /// <summary>
-/// A convenience class used for enabling access to either a protocol or a schema
+/// The outcome of translating an IDL document: the <see cref="AvroDocument"/> it translated to,
+/// either a protocol or a schema, together with its raw JSON and any warnings.
 /// </summary>
 public sealed record IdlParseResult
 {
     private static readonly IReadOnlyDictionary<string, JObject> EmptyNamedSchemas = FrozenDictionary<string, JObject>.Empty;
 
-    private readonly AvroProtocol? _protocol;
-    private readonly AvroSchema? _schema;
     private readonly JToken _json;
     private readonly IReadOnlyDictionary<string, JObject> _namedSchemas;
 
-    private IdlParseResult(AvroProtocol protocol, JToken json, IReadOnlyDictionary<string, JObject> namedSchemas, IReadOnlyList<string> warnings)
+    private IdlParseResult(AvroDocument document, JToken json, IReadOnlyDictionary<string, JObject> namedSchemas, IReadOnlyList<string> warnings)
     {
-        _protocol = protocol;
-        _json = json;
-        _namedSchemas = namedSchemas;
-        Warnings = warnings;
-    }
-
-    private IdlParseResult(AvroSchema schema, JToken json, IReadOnlyDictionary<string, JObject> namedSchemas, IReadOnlyList<string> warnings)
-    {
-        _schema = schema;
+        Document = document;
         _json = json;
         _namedSchemas = namedSchemas;
         Warnings = warnings;
@@ -63,14 +54,23 @@ public sealed record IdlParseResult
     }
 
     /// <summary>
+    /// The protocol or schema the IDL document translated to. Inspect it with pattern matching,
+    /// such as a <c>switch</c> expression over <see cref="AvroProtocol"/> and
+    /// <see cref="AvroSchema"/>.
+    /// </summary>
+    public AvroDocument Document { get; }
+
+    /// <summary>
     /// Returns <c>true</c> when the value contains a <see cref="AvroProtocol"/>.
     /// </summary>
-    public bool IsProtocol => _protocol != null;
+    [Obsolete("Test the union instead: use Document with pattern matching, such as 'result.Document is Avro.Protocol'.")]
+    public bool IsProtocol => Document is AvroProtocol;
 
     /// <summary>
     /// Returns <c>true</c> when the value contains a <see cref="AvroSchema"/>.
     /// </summary>
-    public bool IsSchema => _schema != null;
+    [Obsolete("Test the union instead: use Document with pattern matching, such as 'result.Document is Avro.Schema'.")]
+    public bool IsSchema => Document is AvroSchema;
 
     /// <summary>
     /// The document as translated, before being narrowed to a <see cref="AvroProtocol"/> or
@@ -87,8 +87,12 @@ public sealed record IdlParseResult
     public IReadOnlyList<string> Warnings { get; }
 
     /// <summary>
-    /// Enables actions to be performed depending on the contained value.
+    /// Invokes whichever of the two actions matches the contained value. Exactly one of them is
+    /// invoked.
     /// </summary>
+    /// <param name="protocol">Invoked with the protocol, when the value contains one.</param>
+    /// <param name="schema">Invoked with the schema, when the value contains one.</param>
+    [Obsolete("Use Document with pattern matching instead, such as a switch statement over Avro.Protocol and Avro.Schema.")]
     public void Match(
         Action<AvroProtocol> protocol,
         Action<AvroSchema> schema)
@@ -96,16 +100,26 @@ public sealed record IdlParseResult
         ArgumentNullException.ThrowIfNull(protocol);
         ArgumentNullException.ThrowIfNull(schema);
 
-        if (IsProtocol)
-            protocol.Invoke(_protocol!);
-
-        if (IsSchema)
-            schema.Invoke(_schema!);
+        switch (Document)
+        {
+            case AvroProtocol p:
+                protocol.Invoke(p);
+                break;
+            case AvroSchema s:
+                schema.Invoke(s);
+                break;
+        }
     }
 
     /// <summary>
-    /// Returns different values depending on the contained value.
+    /// Returns the result of whichever of the two functions matches the contained value.
+    /// Exactly one of them is invoked.
     /// </summary>
+    /// <typeparam name="T">The type of value returned.</typeparam>
+    /// <param name="protocol">Invoked with the protocol, when the value contains one.</param>
+    /// <param name="schema">Invoked with the schema, when the value contains one.</param>
+    /// <returns>The value returned by the function that was invoked.</returns>
+    [Obsolete("Use Document with pattern matching instead, such as a switch expression over Avro.Protocol and Avro.Schema.")]
     public T Match<T>(
         Func<AvroProtocol, T> protocol,
         Func<AvroSchema, T> schema)
@@ -113,9 +127,11 @@ public sealed record IdlParseResult
         ArgumentNullException.ThrowIfNull(protocol);
         ArgumentNullException.ThrowIfNull(schema);
 
-        return IsProtocol
-            ? protocol.Invoke(_protocol!)
-            : schema.Invoke(_schema!);
+        return Document switch
+        {
+            AvroProtocol p => protocol.Invoke(p),
+            AvroSchema s => schema.Invoke(s),
+        };
     }
 
     /// <summary>
@@ -126,7 +142,7 @@ public sealed record IdlParseResult
     /// </summary>
     public IReadOnlyList<JObject> GetNamedTypesJson()
     {
-        IEnumerable<JToken> roots = IsProtocol
+        IEnumerable<JToken> roots = Document is AvroProtocol
             ? (IEnumerable<JToken>?)(((JObject)_json)["types"] as JArray) ?? []
             : [_json];
 

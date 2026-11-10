@@ -147,6 +147,6 @@ internal class NumericLiteralTests
     {
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
 
-        return result.Match(p => p, _ => throw new InvalidOperationException("Expected a protocol."));
+        return result.Document is Protocol protocol ? protocol : throw new InvalidOperationException("Expected a protocol.");
     }
 }

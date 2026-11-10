@@ -17,6 +17,7 @@ using Spectre.Console.Cli;
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Rendering;
 using Spectre.Console.Testing;
+using AvroProtocol = Avro.Protocol;
 using AvroSchema = Avro.Schema;
 
 namespace AvroTool.Tests.Commands;
@@ -179,9 +180,11 @@ record PairVolume {
         var result = await _app.RunAsync([sourceFile.FullName, "--overwrite", "--output-dir", sourceDir.FullName], TestContext.CurrentContext.CancellationToken);
         var resultFileContents = await File.ReadAllTextAsync(Path.Combine(_tempDir.DirectoryPath, "TestRecord.avsc"), TestContext.CurrentContext.CancellationToken);
 
-        var expectedResultFileContents = _parseResult.Match(
-            p => JsonNode.Parse(p.ToString())!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
-            s => JsonNode.Parse(s.ToString())!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        var expectedResultFileContents = _parseResult.Document switch
+        {
+            AvroSchema schema => JsonNode.Parse(schema.ToString())!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+            AvroProtocol protocol => JsonNode.Parse(protocol.ToString())!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+        };
 
         using (Assert.EnterMultipleScope())
         {

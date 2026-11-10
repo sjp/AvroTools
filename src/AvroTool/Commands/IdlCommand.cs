@@ -7,6 +7,8 @@ using Newtonsoft.Json;
 using SJP.Avro.Tools.Idl;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using AvroProtocol = Avro.Protocol;
+using AvroSchema = Avro.Schema;
 
 namespace AvroTool.Commands;
 
@@ -168,7 +170,11 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
         foreach (var warning in parsed.Warnings)
             _console.MarkupLineInterpolated($"[yellow]{source}: {warning}[/]");
 
-        var avroOutputType = parsed.Match(_ => "protocol", _ => "schema");
+        var (avroOutputType, outputName, outputExtension) = parsed.Document switch
+        {
+            AvroProtocol protocol => ("protocol", protocol.Name, ".avpr"),
+            AvroSchema schema => ("schema", schema.Name, ".avsc"),
+        };
 
         try
         {
@@ -180,8 +186,6 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
                 return true;
             }
 
-            var outputName = parsed.Match(p => p.Name, s => s.Name);
-            var outputExtension = parsed.Match(_ => ".avpr", _ => ".avsc");
             var outputPath = Path.Combine(outputDir.FullName, outputName + outputExtension);
 
             var plan = collector.Reserve([new OutputReservation(outputPath, $"{avroOutputType} '{outputName}'", formattedOutput)], source);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Avro;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
@@ -153,7 +154,7 @@ internal class EscapedNameTests
     private async Task<JObject> TranslateSchemaToJson(string idl)
     {
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
-        var schema = result.Match(_ => throw new InvalidOperationException("Expected a schema."), s => s);
+        var schema = result.Document is Schema s ? s : throw new InvalidOperationException("Expected a schema.");
 
         return JObject.Parse(schema.ToString());
     }
@@ -168,7 +169,7 @@ internal class EscapedNameTests
     private async Task<JObject> TranslateToJson(string idl)
     {
         var result = await _translator.Translate(idl, TestContext.CurrentContext.CancellationToken);
-        var protocol = result.Match(p => p, _ => throw new InvalidOperationException("Expected a protocol."));
+        var protocol = result.Document is Protocol p ? p : throw new InvalidOperationException("Expected a protocol.");
 
         return JObject.Parse(protocol.ToString());
     }

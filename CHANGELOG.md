@@ -11,6 +11,12 @@ version out of this file and fails if there is no section for it.
 
 ## Unreleased
 
+### Added
+
+- `IdlParseResult.Document` exposes the translated protocol or schema as an `AvroDocument`,
+  a C# union of `Avro.Protocol` and `Avro.Schema`, so it can be inspected with pattern
+  matching. A `switch` expression over the two cases is exhaustive without a discard arm.
+
 ### Changed
 
 - The tool and both libraries target .NET 11 in place of .NET 10. The tool needs the
@@ -19,6 +25,12 @@ version out of this file and fails if there is no section for it.
 - Async methods are compiled with .NET 11's runtime async, so the runtime handles
   suspension and resumption itself, without a compiler-generated state machine per method.
   Async stack traces are shorter, and the async paths allocate less.
+
+### Deprecated
+
+- `IdlParseResult.IsProtocol`, `IsSchema` and both `Match` overloads are obsolete in favour
+  of pattern matching on `IdlParseResult.Document`. They still work, and the `Match`
+  overload taking two actions now invokes exactly one of them.
 
 ## 0.2.0 - 2026-09-18
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avro;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using SJP.Avro.Tools.Idl;
@@ -179,5 +180,9 @@ internal class IdlImportResolutionTests
     }
 
     private static IEnumerable<string> TypeNames(IdlParseResult result) =>
-        result.Match(p => p.Types.Select(t => t.Fullname).ToList(), s => [s.Fullname]);
+        result.Document switch
+        {
+            Protocol protocol => protocol.Types.Select(t => t.Fullname).ToList(),
+            Schema schema => [schema.Fullname],
+        };
 }
