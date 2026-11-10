@@ -185,13 +185,14 @@ internal sealed class IdlCommand : AsyncCommand<IdlCommand.Settings>
             var outputPath = Path.Combine(outputDir.FullName, outputName + outputExtension);
 
             var plan = collector.Reserve([new OutputReservation(outputPath, $"{avroOutputType} '{outputName}'", formattedOutput)], source);
-            if (plan.Error != null)
+            if (plan is OutputsUnusable unusable)
             {
-                _console.MarkupLineInterpolated($"[red]Unable to generate an Avro {avroOutputType} file from '{source}': {plan.Error}[/]");
+                _console.MarkupLineInterpolated($"[red]Unable to generate an Avro {avroOutputType} file from '{source}': {unusable.Error}[/]");
                 return false;
             }
 
-            await OutputCollector.WritePlanAsync(plan, _console, cancellationToken);
+            if (plan is OutputsPlanned planned)
+                await OutputCollector.WritePlanAsync(planned, _console, cancellationToken);
 
             return true;
         }

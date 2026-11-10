@@ -262,13 +262,14 @@ internal sealed class CodeGenCommand : AsyncCommand<CodeGenCommand.Settings>
             }
 
             var plan = collector.Reserve(reservations, source);
-            if (plan.Error != null)
+            if (plan is OutputsUnusable unusable)
             {
-                _console.MarkupLineInterpolated($"[red]Unable to generate C# files from '{source}': {plan.Error}[/]");
+                _console.MarkupLineInterpolated($"[red]Unable to generate C# files from '{source}': {unusable.Error}[/]");
                 return false;
             }
 
-            await OutputCollector.WritePlanAsync(plan, _console, cancellationToken);
+            if (plan is OutputsPlanned planned)
+                await OutputCollector.WritePlanAsync(planned, _console, cancellationToken);
 
             return true;
         }

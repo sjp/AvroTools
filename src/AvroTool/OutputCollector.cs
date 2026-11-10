@@ -40,30 +40,43 @@ internal readonly record struct OutputReservation(string Path, string Descriptio
 }
 
 /// <summary>
-/// One output of an input, and what is to be done with it.
+/// An output an input writes itself.
 /// </summary>
 /// <param name="Path">The full path of the file.</param>
-/// <param name="Content">
-/// The content to write, or <c>null</c> when an earlier input already produced the file and this
-/// input never had to produce it.
-/// </param>
-/// <param name="AlreadyGeneratedFrom">
-/// The earlier input that produced this exact file, or <c>null</c> when this input writes it.
-/// </param>
-internal readonly record struct PlannedOutput(string Path, string? Content, string? AlreadyGeneratedFrom);
+/// <param name="Content">The content to write.</param>
+internal sealed record OutputToWrite(string Path, string Content);
+
+/// <summary>
+/// An output an earlier input already produced identically, so that this input never had to
+/// produce it.
+/// </summary>
+/// <param name="Path">The full path of the file.</param>
+/// <param name="Source">The earlier input that produced this exact file.</param>
+internal sealed record OutputAlreadyGenerated(string Path, string Source);
+
+/// <summary>
+/// One output of an input, and what is to be done with it: either written by this input, or
+/// left alone because an earlier input already produced it.
+/// </summary>
+internal union PlannedOutput(OutputToWrite, OutputAlreadyGenerated);
+
+/// <summary>
+/// The reason an input's outputs are unusable, and so the input cannot be generated.
+/// </summary>
+/// <param name="Error">The reason the input's outputs are unusable.</param>
+internal sealed record OutputsUnusable(string Error);
+
+/// <summary>
+/// The outputs of an input that can be generated.
+/// </summary>
+/// <param name="Outputs">The input's outputs in order, each either to be written or already produced by an earlier input.</param>
+internal sealed record OutputsPlanned(IReadOnlyList<PlannedOutput> Outputs);
 
 /// <summary>
 /// What is to become of one input's outputs: the files to write, or the reason the input
 /// cannot be generated.
 /// </summary>
-/// <param name="Error">The reason the input's outputs are unusable, or <c>null</c> when they are.</param>
-/// <param name="Outputs">The input's outputs in order, each either to be written or already produced by an earlier input.</param>
-internal sealed record OutputPlan(string? Error, IReadOnlyList<PlannedOutput> Outputs)
-{
-    public static OutputPlan Failed(string error) => new(error, []);
-
-    public static OutputPlan Planned(IReadOnlyList<PlannedOutput> outputs) => new(null, outputs);
-}
+internal union OutputPlan(OutputsUnusable, OutputsPlanned);
 
 /// <summary>
 /// Tracks the output files produced across a multi-input run so that the same output path
@@ -205,7 +218,7 @@ internal sealed class OutputCollector
                     continue;
 
                 if (!string.Equals(sibling.Content, output.Content, StringComparison.Ordinal))
-                    return OutputPlan.Failed($"{sibling.Description} and {output.Description} disagree over the content of '{output.Path}'.");
+                    return new OutputsUnusable($"{sibling.Description} and {output.Description} disagree over the content of '{output.Path}'.");
 
                 continue;
             }
@@ -223,11 +236,11 @@ internal sealed class OutputCollector
                         continue;
 
                     if (!claim.Holds(content))
-                        return OutputPlan.Failed($"'{output.Path}' was already generated from '{claim.Source}', with different content.");
+                        return new OutputsUnusable($"'{output.Path}' was already generated from '{claim.Source}', with different content.");
                 }
 
                 claimedHere[output.Path] = output;
-                planned.Add(new PlannedOutput(output.Path, null, claim.Source));
+                planned.Add(new OutputAlreadyGenerated(output.Path, claim.Source));
                 continue;
             }
 
@@ -236,20 +249,20 @@ internal sealed class OutputCollector
 
             claimedHere[output.Path] = output;
             toClaim.Add(output);
-            planned.Add(new PlannedOutput(output.Path, output.Content, null));
+            planned.Add(new OutputToWrite(output.Path, output.Content));
         }
 
         if (!_overwrite)
         {
             var existing = toClaim.Select(static o => o.Path).Where(File.Exists).ToList();
             if (existing.Count > 0)
-                return OutputPlan.Failed($"one or more output files already exist ({string.Join(", ", existing)}). Consider using the 'overwrite' option.");
+                return new OutputsUnusable($"one or more output files already exist ({string.Join(", ", existing)}). Consider using the 'overwrite' option.");
         }
 
         foreach (var output in toClaim)
             _claims[output.Path] = new Claim(source, HashOf(output.Content!), HashOf(output.Identity));
 
-        return OutputPlan.Planned(planned);
+        return new OutputsPlanned(planned);
     }
 
     /// <summary>
@@ -276,18 +289,20 @@ internal sealed class OutputCollector
     /// Carries out a plan, writing each file the input produces and reporting what was written
     /// and what an earlier input had already produced.
     /// </summary>
-    public static async Task WritePlanAsync(OutputPlan plan, IStatusConsole console, CancellationToken cancellationToken)
+    public static async Task WritePlanAsync(OutputsPlanned plan, IStatusConsole console, CancellationToken cancellationToken)
     {
         foreach (var planned in plan.Outputs)
         {
-            if (planned.AlreadyGeneratedFrom is { } owner)
+            switch (planned)
             {
-                console.MarkupLineInterpolated($"[grey]Skipped {planned.Path}, already generated from '{owner}'[/]");
-                continue;
+                case OutputAlreadyGenerated generated:
+                    console.MarkupLineInterpolated($"[grey]Skipped {generated.Path}, already generated from '{generated.Source}'[/]");
+                    break;
+                case OutputToWrite write:
+                    await WriteAsync(write.Path, write.Content, cancellationToken).ConfigureAwait(false);
+                    console.MarkupLineInterpolated($"[green]Generated {write.Path}[/]");
+                    break;
             }
-
-            await WriteAsync(planned.Path, planned.Content!, cancellationToken).ConfigureAwait(false);
-            console.MarkupLineInterpolated($"[green]Generated {planned.Path}[/]");
         }
     }
 
